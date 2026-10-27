@@ -10,7 +10,8 @@ from deduplication_ledger import DeduplicationLedger, PERMANENT_EXCLUDED_NITS
 
 def test_available_campaigns():
     campaigns = list_available_campaigns()
-    assert len(campaigns) >= 5
+    assert len(campaigns) >= 6
+    assert "blueoil" in campaigns
     assert "hebi" in campaigns
     assert "chiketto" in campaigns
     assert "facility_services_b2b" in campaigns

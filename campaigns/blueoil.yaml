@@ -1,0 +1,110 @@
+id: "blueoil"
+name: "Blue Oil — Suministro Mayorista de Jet A-1 (Generación Eléctrica, Petroquímica, Plásticos y Aditivos)"
+description: "Suministro continuo, importación y despacho directo de combustible Jet A-1 (ASTM D1655 / DEF STAN 91-091) para turbogeneración en sitios remotos, craqueo petroquímico, polímeros plásticos, aditivos industriales y solventes técnicos en Colombia."
+
+target:
+  city: "all"
+  cities:
+    - "Bogotá"
+    - "Medellín"
+    - "Cartagena"
+    - "Barranquilla"
+    - "Cali"
+    - "Bucaramanga"
+    - "Barrancabermeja"
+    - "Villavicencio"
+    - "Yumbo"
+    - "all"
+  segment: "all"
+  min_revenue_cop: "$15.000M COP"
+  sectors:
+    - "energy_power_generation"
+    - "petrochemical"
+    - "plastics_polymers"
+    - "chemicals_additives"
+    - "oil_and_gas"
+    - "mining_metals"
+  roles:
+    - "Director de Operaciones"
+    - "COO"
+    - "Gerente de Abastecimiento"
+    - "Director de Compras y Suministros"
+    - "Gerente de Planta"
+    - "Director de Mantenimiento y Energía"
+    - "Gerente de Logística y Combustibles"
+    - "Director Financiero"
+    - "CFO"
+    - "Gerente General"
+
+specs:
+  fuel_grade: "Jet A-1 (Aviation Turbine Fuel / Kerosene Alta Pureza)"
+  standards: "ASTM D1655 / DEF STAN 91-091 / Certificado de Calidad de Origen"
+  applications: "Turbogeneración (Gas Turbines), Pirolisis/Feedstock de Plásticos, Solventes Portadores, Aditivos Químicos e Industria Pesada"
+  delivery_modality: "Despacho directo en carrotanques certificados de acero inoxidable/aluminio (5.000 a 10.000 gal) o suministro a granel"
+  pricing_formula: "Indexado a Platts US Gulf Coast (USGC) Jet 54 + Flete Terrestre/Marítimo + Cobertura Cambiaria TRM"
+  regulatory_compliance: "Cumplimiento 100% SICOM (MinMinas), registro DIAN y protocolos de almacenamiento seguro NTC 5554"
+
+angles:
+  recommended: "Seguridad de Suministro Continuo de Jet A-1 + Pureza Certificada ASTM D1655 + Fórmula de Precio Indexada"
+
+teaser:
+  enabled: true
+  headline: "BLUE OIL — SUMINISTRO ESTRATÉGICO DE JET A-1 INDUSTRIAL"
+  subheadline: "Combustible y Solvente de Alta Pureza para Turbogeneración, Petroquímica, Plásticos y Aditivos en Colombia"
+  summary: "Garantía de suministro ininterrumpido de Jet A-1 bajo norma internacional ASTM D1655 / DEF STAN 91-091 para plantas industriales, autogeneración térmica en campos remotos, reactores de polimerización y formulación de aditivos químicos, eliminando cuellos de botella de refinería local mediante logística directa certificada."
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. En Blue Oil garantizamos suministro mayorista de Jet A-1 (ASTM D1655)
+    para autogeneración en turbinas, petroquímica, polímeros y aditivos en Colombia,
+    con despacho directo a planta y precio indexado competitivo. ¿Conectamos?
+
+  touch2_email_subject: "Suministro continuo de Jet A-1 (ASTM D1655) para autogeneración y procesos industriales en {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto desde Blue Oil Colombia. En operaciones industriales y energéticas de alta exigencia como la de {clean_name}, la disponibilidad continua de combustible y solventes técnicos de alta pureza (Jet A-1 / queroseno desulfurizado) es un factor crítico para evitar paradas no programadas en turbogeneración eléctrica, líneas de polimerización de plásticos o síntesis de aditivos químicos.
+
+    A diferencia de la dependencia en cupos limitados o retrasos de refinería local, en Blue Oil estructuramos contratos de suministro continuo respaldados por una cadena logística integral:
+
+    1. Calidad Certificada: Jet A-1 bajo norma ASTM D1655 / DEF STAN 91-091 con ultra bajo contenido de azufre (<0.015% masa) y estabilidad térmica superior para turbinas de gas (GE LM2500, Solar Turbines) y síntesis petroquímica.
+    2. Logística Dedicada: Flota de cisternas certificadas con microfiltración API/IP 1581 y entrega directa en planta o campo en cualquier región de Colombia (Bogotá, Medellín, Cartagena, Valle, Santanderes, Llanos Orientales).
+    3. Fórmula de Precios Transparente: Esquema indexado a marcadores internacionales (Platts USGC Jet 54) con cobertura cambiaria TRM, contratos flexibles por volumen y sin intermediación innecesaria.
+    4. Cumplimiento Regulatorio: 100% habilitado en SICOM (Ministerio de Minas y Energía), DIAN y protocolos de seguridad NTC.
+
+    ¿Tendrías 15 minutos esta semana para una breve conversación exploratoria sobre sus requerimientos de volumen y logística en {clean_name}?
+
+  touch3_email_subject: "Re: {clean_name} — Eficiencia térmica en turbinas, pureza en polímeros y optimización de costo por galón"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi mensaje anterior, dos factores operativos están impulsando a directores de compras, operaciones y energía en {city} a evaluar el suministro de Jet A-1 con Blue Oil:
+
+    Primero, la eficiencia térmica y vida útil de los activos: el uso de Jet A-1 certificado con bajo azufre y combustión limpia reduce drásticamente la formación de depósitos y corrosión en álabes de turbinas aeroderivadas de autogeneración. En procesos petroquímicos y de polímeros plásticos, la ausencia de contaminantes pesados previene la desactivación de catalizadores y asegura la transparencia y pureza requerida en resinas y aditivos.
+
+    Segundo, la estabilidad presupuestal: mientras los combustibles tradicionales en Colombia sufren revisiones administrativas o contingencias de refinación, nuestra fórmula indexada a Platts permite fijar contratos con ventanas de cobertura y despachos programados Just-In-Time (JIT).
+
+    ¿Podríamos coordinar una breve llamada este jueves o viernes para revisar sus especificaciones técnicas y consumos estimados en {clean_name}?
+
+  touch4_email_subject: "Caso operativo: Uptime del 99.8% y reducción de costos en operaciones industriales continuas"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Para ilustrar el impacto en terreno: acompañamos a complejos industriales y operaciones de autogeneración térmica en Colombia que enfrentaban racionamientos periódicos y variabilidad en la pureza del combustible recibido.
+
+    Al consolidar su contrato de Jet A-1 con Blue Oil:
+    • Alcanzaron un 99.8% de disponibilidad ininterrumpida de combustible en sitio mediante programación logística JIT con monitoreo telemétrico de tanques.
+    • Redujeron hasta un 12% su costo integral de abastecimiento gracias a nuestra fórmula de precios indexada y despacho a granel sin sobrecostos de intermediarios.
+    • Lograron 100% de conformidad en auditorías de SICOM y MinMinas, respaldados con certificados de análisis de laboratorio independientes por cada lote entregado.
+
+    ¿Te interesaría revisar una simulación comparativa de costos y abastecimiento adaptada a los procesos de {clean_name}?
+
+  touch5_email_subject: "Ficha técnica y cotización base Jet A-1 para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo perfectamente que en este momento pueden tener contratos de abastecimiento vigentes o estar concentrados en otras prioridades estratégicas en {clean_name}. No insistiré más por este canal.
+
+    Dejo abierta la puerta: si en el próximo ciclo de compras o licitación de combustibles, solventes técnicos o insumos para generación eléctrica requieren una cotización alternativa con entrega garantizada en {city}, con gusto podemos poner a su disposición nuestra ficha técnica y propuesta comercial.
+
+    Le deseo muchos éxitos en la operación y proyectos de {clean_name}.
