@@ -107,7 +107,7 @@ def load_campaign(campaign_name_or_path: str) -> Dict[str, Any]:
 def clean_company_name(name: str) -> str:
     """Strips standard legal corporate suffixes and parentheticals for natural conversational copy."""
     clean = re.sub(r"\(.*?\)", "", name)
-    clean = re.sub(r"\b(S\.A\.S\.|S\.A\.S|SAS|S\.A\.|S\.A|SA|LTDA\.|LTDA|E\.U\.|E\.U|B\.V\.|B\.V|&\s*C[ií]a\.?)\b", "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"\b(S\.A\.S\.|S\.A\.S|SAS|S\.A\.|S\.A|SA|LTDA\.|LTDA|E\.U\.|E\.U|B\.V\.|B\.V)\b|(&\s*C[ií]a\.?)", "", clean, flags=re.IGNORECASE)
     clean = re.sub(r"\s+", " ", clean)
     return clean.strip(" .-,")
 

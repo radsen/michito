@@ -1,3 +1,13 @@
+# Michito (導人) — Colombian B2B Lead Intelligence Engine Dependencies
+
+# Core campaign YAML profile parser (Required for campaigns/*.yaml)
 pyyaml>=6.0
+
+# HTTP client for external registry lookups & Apollo.io enrichment
 requests>=2.31.0
+
+# DNS MX record validation for corporate email deliverability checks
 dnspython>=2.6.0
+
+# Development and testing
+pytest>=8.0.0
