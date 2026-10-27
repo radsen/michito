@@ -1,0 +1,86 @@
+id: "hebi"
+name: "Hebi Triad OS — Cartera B2B Ley 2300 & Debida Diligencia Contratistas"
+description: "Plataforma de automatización de recaudo B2B, blindaje ante sanciones de la SIC (Ley 2300) y auditoría continua de planillas PILA / RUT DIAN."
+
+target:
+  city: "all"
+  cities:
+    - "Bogotá"
+    - "Medellín"
+    - "Cali"
+    - "Barranquilla"
+  segment: "midmarket"
+  min_revenue_cop: "$5.000M COP"
+  sectors:
+    - "facility_management"
+    - "real_estate"
+    - "logistics"
+    - "healthcare_ips"
+    - "wholesale_b2b"
+    - "tech_services"
+  roles:
+    - "Director Financiero"
+    - "CFO"
+    - "Gerente Financiero"
+    - "Gerente de Operaciones"
+    - "COO"
+    - "Jefe de Cartera"
+    - "Facility Manager"
+
+angles:
+  recommended: "Blindaje Legal Ley 2300 en Cartera + Verificación Automática de RUT/PILA DIAN"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. En Hebi ayudamos a empresas en Colombia como {clean_name}
+    a acelerar su recaudo B2B (DSO -14 días) bajo Ley 2300 y auditar anualmente a todos sus contratistas
+    (RUT y PILA con IA) para proteger deducciones DIAN. ¿Conectamos?
+
+  touch2_email_subject: "Optimización de cartera B2B (Ley 2300) y debida diligencia en {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto desde Hebi Technologies en Colombia. Sabemos que en empresas como {clean_name}, la gestión de cartera empresarial y la coordinación de la documentación obligatoria de contratistas (RUT y PILA) suele demandar decenas de horas al mes en hojas de cálculo y mensajes personales, exponiendo a la compañía a multas de la SIC (Ley 2300) y glosas de la DIAN por soportes inválidos.
+
+    En Hebi automatizamos toda la Tríada Operativa:
+    1. Cartera B2B: Cobranza multicanal automatizada con tope legal de 2 contactos semanales y cálculo de mora.
+    2. Debida Diligencia: Portal de autocarga para proveedores que valida RUT DIAN y planillas PILA con IA sin pedirles contraseñas.
+    3. Sedes y Extintores: Registro fotográfico QR y semáforo de vencimientos bajo norma NTC 2885 para ARL y Bomberos.
+
+    ¿Tendrías 15 minutos esta semana para una demostración ejecutiva sin compromiso?
+
+  touch3_email_subject: "Re: {clean_name} — Cálculo de intereses de mora y multas SIC (Ley 2300)"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi correo anterior, un aspecto crítico que muchas gerencias en {city} no tienen en su radar es que la SIC está aplicando sanciones de hasta 2.000 SMLMV a empresas que cobran por canales no autorizados o contactan más de 2 veces por semana al deudor.
+
+    Al mismo tiempo, la DIAN (Estatuto Tributario Art. 107-1) desconoce costos y deducciones si no se cuenta con el soporte mensual de la planilla PILA del proveedor.
+
+    Hebi opera como un escudo legal: programa los recordatorios automáticamente dentro de las ventanas permitidas y bloquea pagos si la PILA no está al día.
+
+    ¿Revisamos el sistema 15 minutos este jueves?
+
+  touch4_email_subject: "Caso de éxito: Cómo Tinkko redujo 14 días de DSO en 11 sedes corporativas"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Para ilustrar el impacto real: Tinkko Coworking SAS opera 11 sedes corporativas de alta gama en Medellín y Bogotá. Antes gestionaban cientos de facturas y decenas de contratistas en Excel y correos dispersos.
+
+    Al implementar Hebi:
+    • Redujeron 14 días en su ciclo medio de cobro (DSO).
+    • 100% de sus proveedores suben su PILA mensual y RUT a través del portal de autoservicio sin llamar a contabilidad.
+    • Cero requerimientos de la SIC por Ley 2300 y auditorías de Bomberos aprobadas con códigos QR en cada sede.
+    • Todo esto sin contratar una sola persona adicional en administración.
+
+    ¿Te gustaría ver cómo se aplicaría esta misma arquitectura en {clean_name}?
+
+  touch5_email_subject: "Ficha ejecutiva Hebi para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que en este momento pueden tener la agenda copada con otras prioridades estratégicas. No te enviaré más correos no solicitados.
+
+    Si en algún momento desean blindar su cartera contra multas de la SIC o eliminar el desorden de proveedores en Excel, puedes consultar nuestra plataforma y ficha ejecutiva en https://www.hebisend.com o contactarme directamente a este correo.
+
+    ¡Muchos éxitos en la operación de {clean_name}!

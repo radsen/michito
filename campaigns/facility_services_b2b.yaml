@@ -1,0 +1,77 @@
+id: "facility_services_b2b"
+name: "Facility Services B2B — Aseo Institucional, Mantenimiento & Seguridad Industrial"
+description: "Servicios integrales de mantenimiento preventivo locativo, aseo especializado y auditoría de extintores para plantas y sedes corporativas."
+
+target:
+  city: "all"
+  cities:
+    - "Medellín"
+    - "Bogotá"
+    - "Cali"
+    - "Barranquilla"
+  segment: "midmarket"
+  min_revenue_cop: "$10.000M COP"
+  sectors:
+    - "logistics"
+    - "manufacturing"
+    - "food_processing"
+    - "real_estate"
+    - "wholesale_b2b"
+  roles:
+    - "Facility Manager"
+    - "Gerente de Operaciones"
+    - "Director de Infraestructura"
+    - "Director Administrativo"
+    - "Jefe de Mantenimiento"
+    - "Gerente General"
+
+angles:
+  recommended: "Continuidad Operativa + Blindaje Laboral y Planillas PILA de Personal Técnico"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. Vi la envergadura de las instalaciones de {clean_name}.
+    Ayudamos a gerencias de operaciones e infraestructura a centralizar el mantenimiento locativo
+    y aseo técnico con trazabilidad fotográfica digital y 100% de planillas PILA al día para auditorías ARL. ¿Conectamos?
+
+  touch2_email_subject: "Mantenimiento locativo técnico y continuidad operativa para {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque sabemos que coordinar contratistas de aseo, mantenimiento electromecánico y recarga de extintores en múltiples sedes o plantas suele convertirse en un dolor de cabeza administrativo y un riesgo legal si falla el soporte de seguridad social (PILA).
+
+    Ofrecemos un modelo integral de Facility Services corporativos:
+    • Personal técnico certificado con supervisión digital de rondas y tareas.
+    • Mantenimiento preventivo programado (aire acondicionado, subestaciones, cubiertas y plomería).
+    • Portal de cumplimiento con entrega puntual de planillas PILA antes del día 5 de cada mes para deducción DIAN.
+    • Atención de emergencias locativas 24/7 con tiempos de respuesta garantizados por ANS.
+
+    ¿Tendrías 10 minutos esta semana para una llamada exploratoria?
+
+  touch3_email_subject: "Re: {clean_name} — Prevención de accidentes laborales y cumplimiento ARL / Bomberos"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi mensaje anterior: ante una visita de Bomberos o el Ministerio del Trabajo, no contar con bitácoras de mantenimiento al día o tener personal tercero sin planilla PILA vigente puede generar suspensión inmediata de actividades.
+
+    Nuestro servicio incluye la digitalización de la matriz de mantenimiento y el inventario normativo de extintores (NTC 2885).
+
+    ¿Te gustaría que agendemos un diagnóstico técnico gratuito de sus instalaciones?
+
+  touch4_email_subject: "Caso de éxito: 30% de reducción en paradas no programadas de sedes"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Queremos compartirte que clientes del sector industrial y logístico han reducido un 30% sus paradas operativas no programadas al migrar de mantenimiento correctivo a nuestro esquema preventivo unificado.
+
+    ¿Cuadramos un café virtual de 15 minutos este jueves?
+
+  touch5_email_subject: "Portafolio de servicios técnicos para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que puedan tener su proveedor de mantenimiento actual consolidado. No te enviaré más correos no solicitados.
+
+    Te dejamos a la mano nuestro portafolio técnico institucional por si en el futuro requieren un aliado con mayor capacidad de respuesta.
+
+    ¡Muchos éxitos en la operación de {clean_name}!

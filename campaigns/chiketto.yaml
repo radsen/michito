@@ -1,0 +1,68 @@
+id: "chiketto"
+name: "Chiketto — Emisión Automatizada de Facturación Electrónica DIAN"
+description: "Motor API y portal para emisión recurrente de facturación electrónica hacia la DIAN con validación previa de XML y CUFE."
+
+target:
+  city: "all"
+  cities:
+    - "Bogotá"
+    - "Medellín"
+    - "Cali"
+    - "Barranquilla"
+  segment: "all"
+  min_revenue_cop: "$2.000M COP"
+  sectors:
+    - "tech_services"
+    - "wholesale_b2b"
+    - "real_estate"
+    - "facility_management"
+  roles:
+    - "Director Financiero"
+    - "Gerente Financiero"
+    - "CFO"
+    - "Contador General"
+    - "Gerente General"
+    - "Jefe de Facturación"
+
+angles:
+  recommended: "Automatización de Facturación Electrónica DIAN y Conciliación Recurrente"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, vi que lideras el área contable/financiera en {clean_name} en {city}.
+    En Chiketto automatizamos la emisión de facturación electrónica recurrente hacia la DIAN
+    sin fricción en portales ni costos desmedidos por documento. ¿Abierto a conectar?
+
+  touch2_email_subject: "Facturación electrónica DIAN automatizada para {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque en {clean_name} emiten facturación recurrente en Colombia. Con Chiketto simplificamos la integración directa con la DIAN y pasarelas de pago como Wompi para que la emisión de facturas mensuales y el recaudo ocurran automáticamente sin digitar manualmente en el portal gratuito ni pagar sobrecostos por paquete de documentos.
+
+    ¿Tendrías 15 minutos esta semana para mostrarte el flujo en vivo?
+
+  touch3_email_subject: "Re: {clean_name} — Reducción de costos de emisión y rechazos DIAN"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Quería dar seguimiento breve a mi mensaje anterior. Muchas empresas en {city} pierden horas cada fin de mes corrigiendo CUFEs rechazados y cuadrando retenciones en la fuente.
+
+    Chiketto valida la estructura XML antes del envío a la DIAN y emite los documentos en menos de 2 segundos.
+
+    ¿Te interesaría una demostración rápida de 10 minutos este jueves?
+
+  touch4_email_subject: "Automatización de facturación B2B recurrente sin costo por documento"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Quería compartirte que clientes en Colombia han reducido su tiempo de emisión mensual de 3 días a solo 15 minutos, conciliando recaudos contra Odoo y Excel de forma nativa.
+
+    ¿Cuadramos un café virtual de 15 minutos para ver si aplica para {clean_name}?
+
+  touch5_email_subject: "Ficha técnica Chiketto para {clean_name} (Último intento)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que deben estar enfocados en prioridades operativas de cierre de mes. No insistiré más por este canal. Te dejo el acceso a nuestra plataforma en https://www.hebisend.com en caso de que más adelante quieran automatizar su emisión DIAN.
+
+    ¡Muchos éxitos en la gestión de {clean_name}!

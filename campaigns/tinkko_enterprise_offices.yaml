@@ -1,0 +1,81 @@
+id: "tinkko_enterprise_offices"
+name: "Tinkko — Sedes y Oficinas Privadas Corporativas (Medellín & Bogotá)"
+description: "Espacios de trabajo corporativos, oficinas privadas llave en mano y sedes satélite para empresas de tecnología y multinacionales en expansión."
+
+target:
+  city: "all"
+  cities:
+    - "Medellín"
+    - "Bogotá"
+  segment: "midmarket"
+  min_revenue_cop: "$8.000M COP"
+  sectors:
+    - "tech_services"
+    - "wholesale_b2b"
+    - "real_estate"
+    - "facility_management"
+  roles:
+    - "Country Manager"
+    - "Gerente General"
+    - "Director de Operaciones"
+    - "People Operations Director"
+    - "Director de Recursos Humanos"
+    - "Director Administrativo"
+    - "CFO"
+
+angles:
+  recommended: "Flexibilidad Contractual + Reducción de CapEx en Oficinas Corporativas de Alta Gama"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. Vi el crecimiento de {clean_name} en Colombia. En Tinkko apoyamos a empresas en expansión
+    con oficinas privadas corporativas llave en mano (10 a 100 puestos) en las mejores torres empresariales de Medellín (Poblado)
+    y Bogotá, sin amarrar capital en adecuaciones ni contratos rígidos a 5 años. ¿Conectamos?
+
+  touch2_email_subject: "Sede corporativa flexible y llave en mano para {clean_name} en Medellín / Bogotá"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto viendo la trayectoria y consolidación de {clean_name} en Colombia.
+
+    Sabemos que para compañías en crecimiento, habilitar nuevas sedes u oficinas corporativas suele implicar meses de remodelación, compra de mobiliario (alto CapEx) y contratos tradicionales de arrendamiento a 3 o 5 años que castigan el flujo de caja.
+
+    En Tinkko operamos 11 sedes empresariales de alta gama (El Poblado, Milla de Oro, Calle 100, Chicó):
+    • Oficinas privadas corporativas personalizables desde 10 hasta 120 puestos de trabajo.
+    • Modelo llave en mano: Red de internet simétrica certificada, salas de juntas equipadas, café premium y recepción bilingüe incluida.
+    • Contratos flexibles que acompañan el crecimiento de su nómina sin penalidades por expansión.
+    • Cero inversión en adecuaciones locativas o mantenimiento de infraestructura.
+
+    Si en {clean_name} están evaluando optimizar metros cuadrados, migrar a esquema híbrido o abrir sede satélite, con gusto te comparto nuestro catálogo corporativo de sedes disponibles.
+
+    ¿Tendrías 10 minutos esta semana para una llamada preliminar?
+
+  touch3_email_subject: "Re: {clean_name} — Comparativo Financiero: Arriendo Tradicional vs Sede Tinkko"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi correo anterior: las gerencias financieras suelen calcular el metro cuadrado de arriendo tradicional sin sumar los costos ocultos: administración de edificio, servicios públicos, seguros, aseo, café, internet redundante y depreciación de muebles.
+
+    En Tinkko unificamos el 100% de la operación en una sola factura deducible de impuestos, reduciendo el costo total de ocupación entre un 20% y 30% mensual frente al modelo tradicional.
+
+    ¿Te interesaría que te enviemos una cotización y comparativo financiero sin costo para el equipo de {clean_name}?
+
+  touch4_email_subject: "Invitación VIP a conocer sedes Tinkko en Medellín y Bogotá"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Nos encantaría invitarte a ti o a tu equipo a vivir la experiencia Tinkko con un pase de trabajo ejecutivo (Day Pass corporativo) en cualquiera de nuestras sedes (Milla de Oro, San Fernando Plaza en Medellín o Calle 100 en Bogotá).
+
+    Así podrán probar de primera mano la acústica, salas de innovación y calidad de nuestra comunidad empresarial antes de cualquier decisión.
+
+    ¿Qué día de esta o la próxima semana te queda cómodo agendar?
+
+  touch5_email_subject: "Catálogo corporativo Tinkko para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que en este momento pueden tener su infraestructura locativa resuelta. No insistiré más por este canal.
+
+    Te dejamos a la mano nuestro catálogo de sedes en Medellín y Bogotá para cuando proyecten ampliación o nuevos proyectos en la región.
+
+    ¡Muchos éxitos en la operación de {clean_name}!

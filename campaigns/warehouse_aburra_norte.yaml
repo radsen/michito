@@ -1,0 +1,117 @@
+id: "warehouse_aburra_norte"
+name: "Venta Bodega Industrial $4.000M COP — Corredor Norte Antioquia"
+description: "Activo industrial de alto impacto en Bello / Girardota para logística pesada, 3PL, manufactura y family offices."
+
+target:
+  city: "Medellin"
+  cities:
+    - "Medellín"
+    - "Bello"
+    - "Girardota"
+    - "Copacabana"
+    - "Itagüí"
+    - "Envigado"
+    - "Sabaneta"
+  segment: "all"
+  min_revenue_cop: "$10.000M COP"
+  sectors:
+    - "logistics"
+    - "manufacturing"
+    - "food_processing"
+    - "construction_materials"
+    - "wholesale_b2b"
+    - "family_office"
+  roles:
+    - "Gerente de Operaciones"
+    - "Director de Cadena de Suministro"
+    - "COO"
+    - "Gerente de Logística"
+    - "Director de Infraestructura"
+    - "Director Administrativo y Financiero"
+    - "CFO"
+    - "Gerente General"
+
+specs:
+  asset_type: "Bodega Industrial / Centro de Distribución (CEDI)"
+  corridor: "Corredor Norte (Bello / Copacabana / Girardota, Antioquia)"
+  built_area: "2.500 m²"
+  lot_area: "3.200 m² (con patio de maniobras para tractomulas)"
+  clear_height: "10.0 metros libres (óptimo para estantería selectiva de 5 niveles)"
+  floor_load: "6.0 ton/m² (concreto industrial de alta resistencia con endurecedor)"
+  kva: "300 kVA con subestación eléctrica propia (apta para manufactura y cuartos fríos)"
+  docks: "4 muelles deprimidos con plataforma niveladora + 1 acceso a nivel para camión"
+  pot_impact: "Uso del suelo industrial de alto y mediano impacto (operación continua 24/7)"
+  price_cop: "$4.000M COP (~$1M USD)"
+  lease_option: "Disponible para adquisición directa o esquema Sale-and-Leaseback (Cap Rate estimado: 0.70% mensual)"
+
+angles:
+  recommended: "Capacidad Logística Corredor Norte Antioquia + Despacho Directo Costa/Bogotá"
+
+teaser:
+  enabled: true
+  headline: "ACTIVO INDUSTRIAL CORREDOR NORTE — VALLE DE ABURRÁ"
+  subheadline: "Oportunidad de Adquisición / Centro de Distribución Estratégico (Bello - Girardota)"
+  summary: "Inmueble industrial de especificaciones pesadas estratégicamente posicionado sobre la autopista norte, conectando directamente con el Magdalena Medio, Bogotá y la Costa Caribe sin ingresar al tráfico urbano restringido de Medellín."
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. Sabemos que en {clean_name} la operación demanda mayor capacidad en Antioquia.
+    Tenemos disponible una bodega de 2.500 m² en corredor norte (Bello/Girardota) con 10m de altura y muelles,
+    ideal para despachar a Costa y Bogotá. ¿Te comparto el teaser?
+
+
+  touch2_email_subject: "Activo industrial en corredor norte Antioquia para {clean_name} (Teaser confidencial)"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto con relación a la infraestructura y capacidad logística de {clean_name} en Antioquia.
+
+    Actualmente tenemos disponible para venta directa (o estructuración de inversión) una bodega industrial de alto impacto ubicada sobre el corredor norte del Valle de Aburrá (Bello / Girardota). Es un activo concebido para empresas en expansión que buscan optimizar tiempos de despacho hacia la Costa Caribe y Bogotá, evitando los sobrecostos de alquiler y las restricciones de tráfico del sur de Medellín:
+
+    Especificaciones Técnicas Principales:
+    • Área construida: 2.500 m² con amplio patio de maniobras para tractomulas.
+    • Altura libre: 10 metros (ideal para estantería pesada de alta densidad).
+    • Resistencia de piso: 6 ton/m² (concreto industrial de alta durabilidad).
+    • Capacidad eléctrica: 300 kVA con subestación propia (lista para cuartos fríos o manufactura).
+    • Accesos y muelles: 4 muelles con plataforma niveladora + rampa a nivel.
+    • Uso del suelo (POT): Industrial de alto y mediano impacto (operación 24/7 permitida).
+    • Valor del activo: $4.000M COP (~$1.0M USD).
+
+    Si en {clean_name} están proyectando consolidar operaciones, abrir un nuevo CEDI o evaluar una compra patrimonial, con gusto te comparto el teaser técnico confidencial de 1 página con el plano y memoria descriptiva.
+
+    ¿Tendrías 10 minutos esta semana para una llamada preliminar?
+
+  touch3_email_subject: "Re: {clean_name} — Descongestión logística y fletes hacia Costa Caribe / Bogotá"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi mensaje anterior respecto a la bodega industrial en el corredor norte de Antioquia:
+
+    Un factor determinante que están viviendo las gerencias de operaciones en Guayabal, Itagüí y La Estrella son las restricciones de pico y placa ambiental de carga y la saturación del tráfico en el sur. Trasladar la operación hacia el corredor norte (Bello/Girardota) ahorra entre 1.5 y 2 horas por viaje en despachos hacia la Costa y el centro del país.
+
+    Adicionalmente, contar con 300 kVA de subestación propia y piso de 6 ton/m² elimina las costosas adecuaciones que suelen exigir las bodegas tradicionales en arriendo.
+
+    ¿Te gustaría que te comparta la memoria descriptiva y los planos arquitectónicos?
+
+  touch4_email_subject: "Alternativa de compra operativa o rentabilidad institucional para {clean_name}"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Para complementar la información: en este activo de $4.000M COP estamos abiertos a dos esquemas de negociación según la estrategia de capital de {clean_name}:
+
+    1. Adquisición Operativa Directa: Capitalizando el gasto mensual de arrendamiento en un activo propio de alta valorización sobre un corredor en franca expansión logística.
+    2. Esquema Sale-and-Leaseback o Inversión: Con estructuración de contrato institucional de largo plazo con un cap rate neto proyectado entre 0.65% y 0.75% mensual.
+
+    Toda la documentación jurídica, tradición de matrícula inmobiliaria y uso del suelo ante curaduría se encuentran al día para debida diligencia inmediata.
+
+    ¿Cuadramos un café virtual de 15 minutos este jueves o viernes para revisar detalles?
+
+  touch5_email_subject: "Ficha técnica bodega norte para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que en este momento pueden tener la agenda copada con otras prioridades estratégicas. No insistiré más por este canal.
+
+    Te dejamos a la mano la ficha técnica y memoria descriptiva del activo por si a futuro en {clean_name} proyectan expansión o adquisición patrimonial sobre el corredor norte de Antioquia.
+
+    ¡Muchos éxitos en la operación de {clean_name}!
