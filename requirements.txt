@@ -9,6 +9,10 @@ requests>=2.31.0
 # DNS MX record validation for corporate email deliverability checks
 dnspython>=2.6.0
 
-# Development and testing
+# Development, API, Persistence, and Testing
 pytest>=8.0.0
-google-cloud-firestore
+google-cloud-firestore>=2.16.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
+httpx>=0.27.0
+jinja2>=3.1.0
