@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 from src.application.ports.payment_gateway_port import PaymentGatewayPort
 
 class WompiPaymentGatewayAdapter(PaymentGatewayPort):
@@ -35,6 +36,6 @@ class WompiPaymentGatewayAdapter(PaymentGatewayPort):
             
             concatenated = f"{tx_id}{status}{amount}{timestamp}{self.webhook_secret}"
             expected_signature = hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
-            return expected_signature == signature
+            return hmac.compare_digest(expected_signature, signature)
         except Exception:
             return False
