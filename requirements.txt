@@ -11,3 +11,4 @@ dnspython>=2.6.0
 
 # Development and testing
 pytest>=8.0.0
+google-cloud-firestore
