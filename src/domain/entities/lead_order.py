@@ -10,6 +10,8 @@ from src.domain.value_objects.confidence_score import ConfidenceScore
 class LeadOrder:
     id: str
     company: Company
+    status: str = "PENDING"
+    tier: int = 1
     decision_makers: List[DecisionMaker] = field(default_factory=list)
     financial_reports: List[FinancialReport] = field(default_factory=list)
     litigation_records: List[LitigationRecord] = field(default_factory=list)

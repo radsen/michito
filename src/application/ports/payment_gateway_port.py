@@ -1,11 +1,16 @@
 from abc import ABC, abstractmethod
-from decimal import Decimal
 
 class PaymentGatewayPort(ABC):
     @abstractmethod
-    def charge(self, amount: Decimal, currency: str, token: str) -> bool:
+    def generate_checkout_session(self, order_id: str, amount_in_cents: int, currency: str, redirect_url: str) -> str:
         """
-        Handles charges via a payment gateway.
-        Returns True if successful, False otherwise.
+        Generates a checkout session URL for the given order and amount.
+        """
+        pass
+
+    @abstractmethod
+    def verify_webhook_signature(self, event_data: dict, signature: str) -> bool:
+        """
+        Verifies the webhook signature from the payment gateway.
         """
         pass
