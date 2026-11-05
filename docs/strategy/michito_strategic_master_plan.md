@@ -568,36 +568,117 @@ Michito completely avoids running headless Chromium instances, Playwright script
 
 ---
 
-## 6. User Experience: Frictionless "Direct Buy" vs. Enterprise Accounts
+## 6. User Experience: Frictionless "Pay-As-You-Go" & No-Subscription Deduplication Engine
+
+Unlike legacy platforms that lock users into costly, auto-renewing \$99–\$299/month subscriptions (which Colombian SMBs and freelancers resist), Michito is built on an **On-Demand Pay-As-You-Go Batch Model**.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        TWO FRICTIONLESS UX MODES                       │
-├────────────────────────────────────┬───────────────────────────────────┤
-│ MODE 1: "DIRECT BUY" (Guest)       │ MODE 2: "ENTERPRISE ACCOUNT"      │
-│ Target: SMBs, Founders, Sales Reps │ Target: B2B Agencies, Enterprise  │
-├────────────────────────────────────┼───────────────────────────────────┤
-│ • Zero registration required       │ • Self-serve sign-in (Google/Auth)│
-│ • Filter prospects on web/WhatsApp │ • Prepaid credit balance wallet   │
-│ • Preview masked teaser (free)     │ • API token for programmatic query│
-│ • Pay batch via Wompi (PSE/Nequi)  │ • Volume discount ($7.500/lead)   │
-│ • Instant download link + email    │ • CRM Webhook sync (HubSpot, etc.)│
-└────────────────────────────────────┴───────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│             THE NO-SUBSCRIPTION MULTI-CHANNEL DEDUPLICATION ARCHITECTURE               │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 1. WhatsApp Buyer          │ 2. Web Guest Buyer (Hat-Trick Style) │ 3. Tinkko Reseller │
+│ • Unique MSISDN (Phone)    │ • Firebase Anonymous Auth UID        │ • Tenant NIT / ID  │
+│ • E.g. +57 300 123 4567    │ • Persistent LocalStorage Device UUID │ • Co-branded link  │
+│ • No password required     │ • Wompi Delivery Email / Phone       │ • Tenant Dashboard │
+├────────────────────────────┴──────────────────────────────────────┴────────────────────┤
+│                    ▼                                   ▼                     ▼         │
+│           [UNIFIED MULTI-CHANNEL BUYER IDENTITY RESOLVER (UMBID)]                      │
+│           Maps {Phone, Delivery Email, Anonymous UID, Company NIT} -> Buyer Ledger ID  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                          ▼                                             │
+│                       [CUSTOMER DEDUPLICATION LEDGER PORT]                             │
+│ • Query candidate leads matching target filters (City, Sector, Revenue, Role)          │
+│ • Filter: WHERE candidate.nit NOT IN (buyer.delivered_nits ∪ global_exclusions)        │
+│ • Lock and deliver fresh batch                                                         │
+│ • Update buyer.delivered_nits with timestamp & batch metadata                          │
+│ • 100% "Zero Repeated Leads Ever" Guarantee                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-* **Zero-Friction Conversion**: A user browsing `michito.co` or chatting with the WhatsApp bot can purchase a qualified 10-lead batch in under 60 seconds using Nequi or PSE without creating a password or verifying an email account first.
+### 6.1 The Challenge: Deduplication Without Forced Accounts
+When users don't have permanent login accounts, standard CRMs fail to track what has already been delivered. Michito solves this via the **Unified Multi-Channel Buyer Identity (UMBID)**:
+
+1. **WhatsApp Channel (`meta_whatsapp_adapter`)**:
+   - The WhatsApp Phone Number (MSISDN, e.g. `+573001234567`) is cryptographically verified by Meta and inherently unique.
+   - Any query or purchase initiated from that chat automatically ties to the buyer's ledger.
+2. **Web Guest / Direct Buy (`web_portal`)**:
+   - **Pre-Purchase**: Utilizes Firebase Anonymous Authentication (identical to the architecture proven in *Hat-Trick*) combined with a persistent device token in `localStorage`.
+   - **Post-Purchase / Checkout**: When paying via Wompi, the buyer enters a **Delivery Email** and **Phone Number** (mandatory Wompi transaction fields).
+   - The UMBID resolver automatically merges the web session with that email/phone ledger. If the same user buys on WhatsApp next week with that phone, their exclusion history is seamlessly unified.
+3. **Company / Team Exclusions**:
+   - Buyers can optionally register their own company NIT or domain (e.g. `tinkko.com`, `hebi.co`).
+   - The ledger permanently blacklists the buyer's own company and competitors from ever appearing in their prospect lists.
+
+### 6.2 Zero-Duplicate Guarantee Algorithm
+For every batch request of size $K$:
+$$\text{EligibleLeads} = \text{Candidates}(\text{Filters}) \setminus \left( \text{DeliveredLeads}(\text{BuyerId}) \cup \text{PermanentExclusions} \right)$$
+$$\text{DeliveredBatch} = \text{Top}_K(\text{EligibleLeads}, \text{by}=\text{CompositeScore})$$
+Upon Wompi webhook approval, $\text{DeliveredBatch}$ is atomically committed to the buyer's record in Firestore/Postgres.
 
 ---
 
-## 7. Monetization & Wompi Payment Architecture
+## 7. Monetization, B2B Tiers & Tinkko Reseller Partnership
 
-### Unit Pricing Structure
+### 7.1 Commercial Prospect Tiers & Volume Batch Discounts
 
-| Lead Tier | Unit Price (COP) | Included Intelligence Assets |
-| :--- | :--- | :--- |
-| **Tier 1: Corporate Entity Lead** | **$10.000 COP** | Verified Tax ID (NIT), Legal Name, City, CIIU Sector, Audited Operating Revenue, Headquarter Address, Corporate Domain, 1-Click Google X-Ray URL. |
-| **Tier 2: Verified Decision-Maker** | **$50.000 COP** | Everything in Tier 1 + Verified Full Name, Official Title, **0-Bounce Socket SMTP-Verified Inbox**, Corporate Phone / SECOP Contact. |
-| **Tier 3: Underwritten Corporate Lead** | **$75.000 COP** | Everything in Tier 2 + **Audited EBITDA Calculation**, 3-Year Revenue Trend, **Rama Judicial Litigation Docket Audit**, and Contraloría BDME Fiscal Clearance. |
+*Detailed financial modeling, GCP hosting costs, Wompi fee deductions, and net margin analyses are documented in [financial_model_unit_economics.md](file:///Users/radsen/dev/chiketto/michito/docs/strategy/financial_model_unit_economics.md).*
+
+#### Base Unit Retail Pricing
+
+| Lead Tier | Base Retail Unit Price (COP) | Wholesale / Tinkko Cost (COP) | Included Intelligence Assets |
+| :--- | :--- | :--- | :--- |
+| **Tier 1: Direct Corporate Lead** | **$5.000 COP** | **$3.500 COP** | Verified Tax ID (NIT), Legal Name, City, CIIU Sector, Audited Operating Revenue bracket, Headquarter Address, Corporate Domain, Switchboard Phone, 1-Click Google X-Ray Search URL. |
+| **Tier 2: Verified Decision-Maker** | **$30.000 COP** | **$21.000 COP** | Everything in Tier 1 + **Verified Executive Full Name**, Official Role/Title, **0-Bounce Socket SMTP-Verified Personal Inbox**, Direct Corporate Cell / SECOP Contact, LinkedIn Profile URL. |
+| **Tier 3: Underwritten Corporate Lead** | **$65.000 COP** | **$45.000 COP** | Everything in Tier 2 + **Audited EBITDA & Operating Margin**, 3-Year Revenue Growth Trend, **Rama Judicial Litigation Docket Audit (0 active debt lawsuits)**, Contraloría BDME Fiscal Clearance Certificate. |
+
+#### Volume Discount Schedule (Subtotal + 19% IVA)
+
+To satisfy client expectations that unit costs decrease at scale, Michito applies progressive volume discount curves on the subtotal. In accordance with Colombian tax law for digital B2B services, **19% IVA is added at checkout** and invoiced electronically:
+
+$$\text{Total Facturado (Wompi Checkout)} = \text{Subtotal (Antes de IVA)} \times 1.19$$
+
+| Batch Tier | Quantity | Volume Disc. | Tier 1: Directory (Subtotal + IVA = Total) | Tier 2: Decision Maker (Subtotal + IVA = Total) | Tier 3: Underwritten (Subtotal + IVA = Total) | Net Michito Margin (After 25% Tinkko + Wompi + GCP) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Starter / Pilot** | 10 leads | **0%** | \$50.000 + \$9.500 = **\$59.500 COP** | \$300.000 + \$57.000 = **\$357.000 COP** | \$650.000 + \$123.500 = **\$773.500 COP** | **~70.7% Net Margin** |
+| **Growth** | 50 leads | **12% Off** | \$220.000 + \$41.800 = **\$261.800 COP** | \$1.320.000 + \$250.800 = **\$1.570.800 COP** | \$2.860.000 + \$543.400 = **\$3.403.400 COP** | **~70.9% Net Margin** |
+| **Expansion** | 100 leads | **20% Off** | \$400.000 + \$76.000 = **\$476.000 COP** | \$2.400.000 + \$456.000 = **\$2.856.000 COP** | \$5.200.000 + \$988.000 = **\$6.188.000 COP** | **~70.9% Net Margin** |
+| **Scale** | 250 leads | **28% Off** | \$900.000 + \$171.000 = **\$1.071.000 COP** | \$5.400.000 + \$1.026.000 = **\$6.426.000 COP** | \$11.700.000 + \$2.223.000 = **\$13.923.000 COP** | **~70.8% Net Margin** |
+| **Enterprise** | 500 leads | **35% Off** | \$1.625.000 + \$308.750 = **\$1.933.750 COP** | \$9.750.000 + \$1.852.500 = **\$11.602.500 COP** | \$21.125.000 + \$4.013.750 = **\$25.138.750 COP** | **~70.8% Net Margin** |
+| **Corporate** | 1,000 leads | **42% Off** | \$2.900.000 + \$551.000 = **\$3.451.000 COP** | \$17.400.000 + \$3.306.000 = **\$20.706.000 COP** | \$37.700.000 + \$7.163.000 = **\$44.863.000 COP** | **~70.7% Net Margin** |
+
+*Note: For direct sales (without a referral partner), Michito retains **94.8% to 95.9% direct net operating margin**.*
+
+*Note: For direct sales (without a referral partner), Michito retains **94% to 96% direct gross margin**.*
+
+---
+
+### 7.2 The Tinkko Strategic Partnership & Distribution Model
+
+**Tinkko** is Colombia's premier flexible corporate office network, operating 11 flagship locations across Medellín (El Poblado, Milla de Oro, San Fernando Plaza) and Bogotá (Calle 100, Chicó). Tinkko houses hundreds of high-growth B2B companies, tech startups, regional subsidiaries, and professional service firms.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        TINKKO x MICHITO COMMERCIAL SYNERGY                             │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 1. TINKKO AS A BUYER (Internal Sales)  │ 2. TINKKO AS A RESELLER / PARTNER (Tenants)   │
+├────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ • Tinkko uses Michito to prospect      │ • Tinkko offers "Tinkko Growth Leads" as an   │
+│   multinationals & expanding firms     │   exclusive commercial perk to all tenants.   │
+│   for turnkey private offices.         │ • Tinkko earns a 25% – 30% commission per     │
+│ • Proof-of-concept: Tinkko tests 10    │   batch sold via referral / portal.           │
+│   leads for its own sales team.        │ • OR Tinkko resells at whatever markup        │
+│ • Lowers Tinkko's customer acquisition │   they choose as an enterprise amenity.       │
+│   cost (CAC) for office leasing.       │ • Massive stickiness and retention for Tinkko.│
+└────────────────────────────────────────┴───────────────────────────────────────────────┘
+```
+
+#### Pilot Test Validation Protocol (The "10-Lead Proof")
+Before rolling out to Tinkko tenants, Tinkko's internal commercial team will test Michito directly:
+1. **Target**: 10 qualified companies in Medellín and Bogotá with >$8.000M COP revenue in tech, wholesale, or services seeking flexible headquarters (driven by [`campaigns/tinkko_enterprise_offices.yaml`](file:///Users/radsen/dev/chiketto/michito/campaigns/tinkko_enterprise_offices.yaml)).
+2. **Quality Requirement**: Real Country Managers, CFOs, or COOs with 0-bounce verified emails and direct phone numbers.
+3. **Execution**: Tinkko's sales rep executes the 5-touch email & LinkedIn sequence.
+4. **Success Metric**: $\ge 15\%$ response rate and at least 1 tour/meeting booked.
+5. **Partnership Green Light**: Once validated, Tinkko signs the co-marketing distribution agreement.
 
 ---
 
@@ -680,41 +761,53 @@ sequenceDiagram
 ```
 MICHITO ENGINEERING ROADMAP
 ┌───────────────────────┬───────────────────────┬───────────────────────┬───────────────────────┐
-│ PHASE 1 (WEEKS 1-2)   │ PHASE 2 (WEEKS 3-4)   │ PHASE 3 (WEEKS 5-6)   │ PHASE 4 (WEEKS 7-10)  │
-│ Clean Core & Local    │ Verification & Wompi  │ Solvency & Multi-Chan │ Regional Expansion    │
+│ PHASE 1 (COMPLETED)   │ PHASE 2 (COMPLETED)   │ PHASE 3 (IN PROGRESS) │ PHASE 4 (EXPANSION)   │
+│ Clean Core & Domain   │ Verification & Wompi  │ Tinkko Pilot & Leads  │ Regional & Automation │
 ├───────────────────────┼───────────────────────┼───────────────────────┼───────────────────────┤
-│ • Clean Architecture  │ • Socket SMTP Ping    │ • Audited EBITDA calc │ • Mexico SAT adapter  │
-│ • Firebase Emulators  │ • Catch-All resolver  │ • Rama Judicial dockets│• Chile SII adapter   │
-│ • Supersociedades SODA│ • Wompi Payment Flow  │ • Meta WhatsApp Bot   │ • Peru SUNAT adapter  │
-│ • TaxId (NIT) Math    │ • Excel Generator     │ • Cloud Run Deploy    │ • Multi-Currency Pay  │
+│ [x] Clean Architecture│ [x] Socket SMTP Ping  │ [ ] SECOP II Contacts │ [ ] Full Rama Judicial│
+│ [x] Domain & Ports    │ [x] Catch-All detector│ [ ] SODA 25k Ingestion│ [ ] Mexico SAT Adapter│
+│ [x] TaxId Math (NIT)  │ [x] Wompi Checkout    │ [ ] UMBID Deduplication│[ ] Chile SII Adapter │
+│ [x] SODA basic client │ [x] Excel Exporter    │ [ ] Tinkko 10-Lead Run│ [ ] Meta WA Dialogflow│
+│ [x] FastAPI skeleton  │ [x] Webhook Integrity │ [ ] Tinkko Reseller UI│ [ ] Cloud Run Deploy  │
 └───────────────────────┴───────────────────────┴───────────────────────┴───────────────────────┘
 ```
 
-### Phase 1: Clean Architecture Core & Local Development (Weeks 1–2)
-- [ ] Scaffold folder hierarchy (`domain/`, `application/`, `adapters/`, `entrypoints/`).
-- [ ] Implement `TaxId` Value Object with Colombia NIT modulo 11 checksum algorithm.
-- [ ] Configure `firebase.json` for local Firestore and Auth emulator development.
-- [ ] Implement `ColombiaSupersociedadesAdapter` consuming SODA API from `datos.gov.co`.
-- [ ] Write unit tests for domain entities and use cases (100% test pass requirement).
+### Phase 1: Clean Architecture Core & Local Development (COMPLETED)
+- [x] Scaffold folder hierarchy (`domain/`, `application/`, `adapters/`, `entrypoints/`).
+- [x] Implement `TaxId` Value Object with Colombia NIT modulo 11 checksum algorithm.
+- [x] Configure `firebase.json` for local Firestore and Auth emulator development.
+- [x] Implement `ColombiaSupersociedadesAdapter` consuming SODA API from `datos.gov.co`.
+- [x] Write unit tests for domain entities and use cases (77 tests passed, 91% coverage).
 
-### Phase 2: Verification Engine & Wompi Checkout (Weeks 3–4)
-- [ ] Build `SocketSmtpVerifierAdapter` with raw asynchronous TCP socket handshake.
-- [ ] Implement random-probe Catch-All server detection.
-- [ ] Implement `WompiPaymentGatewayAdapter` with signature generation and webhook parsing.
-- [ ] Implement `OpenPyXLExcelAdapter` generating branded commercial spreadsheets.
+### Phase 2: Verification Engine & Wompi Checkout (COMPLETED)
+- [x] Build `SocketSmtpVerifierAdapter` with raw asynchronous TCP socket handshake (`RCPT TO`).
+- [x] Implement random-probe Catch-All server detection.
+- [x] Implement `WompiPaymentGatewayAdapter` with signature generation and timing-attack-safe webhook verification.
+- [x] Implement `OpenPyXLExcelAdapter` generating branded commercial spreadsheets.
+- [x] Wire FastAPI endpoints for search, verification, order creation, and webhooks (`src/entrypoints/api/main.py`).
 
-### Phase 3: EBITDA Calculation, Legal Risk Screening & Multi-Channel Launch (Weeks 5–6)
-- [ ] Implement `CalculateCompanyEbitdaUseCase` extracting NIIF operating earnings and D&A.
-- [ ] Implement `RamaJudicialAdapter` querying active public *procesos ejecutivos de cobro*.
-- [ ] Implement `ContraloriaBdmeAdapter` verifying fiscal solvency.
-- [ ] Implement `MetaWhatsAppCloudAdapter` for natural language chat queries.
-- [ ] Containerize via `Dockerfile` and deploy to Google Cloud Run (`api.michito.co`).
+### Phase 3: The Tinkko Pilot Test & Accurate Direct Contact Engine (IMMEDIATE PRIORITY)
+*Objective: Enable Tinkko to purchase a real test batch of 10 qualified enterprise leads for their own private office sales team and verify a high reply/booking rate.*
 
-### Phase 4: Regional Multi-Country Expansion (Weeks 7–10)
-- [ ] Implement `MexicoSATAdapter` with RFC validation and Art. 69-B simulated invoice screening.
-- [ ] Implement `ChileSIIAdapter` with Chilean RUT modulo 11 validation and Pjud civil lawsuit check.
-- [ ] Implement `PeruSunatAdapter` with RUC verification and SUNARP legal rep query.
-- [ ] Add multi-currency payment handling (USD via Stripe, MXN via Conekta/Stripe, CLP via Webpay).
+1. **Step 1: SECOP II & Direct Decision-Maker Contact Extraction**
+   - Ingest public procurement supplier records from `SECOP II` (`datos.gov.co`).
+   - Extract real names of legal representatives, verified direct emails, and corporate mobile numbers.
+   - Cross-reference with top-grossing Colombian companies in Medellín & Bogotá.
+2. **Step 2: 0-Bounce Socket SMTP Verification on Enriched Inboxes**
+   - Connect the real extracted inboxes through `SocketSmtpVerifierAdapter` to guarantee 0% bounce rate before delivery.
+3. **Step 3: Multi-Channel Customer Deduplication Ledger (UMBID)**
+   - Implement the `CustomerDeduplicationLedger` indexing by `Phone`, `Email`, and `Company NIT` to ensure Tinkko and future buyers never receive repeated leads on subsequent batch purchases.
+4. **Step 4: Execute Tinkko Enterprise Offices Pilot Batch (10 Leads)**
+   - Run the candidate selection using [`campaigns/tinkko_enterprise_offices.yaml`](file:///Users/radsen/dev/chiketto/michito/campaigns/tinkko_enterprise_offices.yaml) targeting companies in Medellín & Bogotá (revenue >$8.000M COP).
+   - Generate the formatted Excel Dossier and 5-touch email/LinkedIn sequences.
+   - Tinkko commercial team executes the outreach to validate real-world conversion.
+
+### Phase 4: Full Automation, Litigation Scrapers & Tinkko Reseller Rollout
+- [ ] Connect live Rama Judicial (CPN) scraping for automated *procesos ejecutivos de cobro* detection.
+- [ ] Implement Contraloría BDME automated fiscal clearance queries.
+- [ ] Deploy containerized API on Google Cloud Run with VPC connector for Port 25 SMTP outbound.
+- [ ] Build the Tinkko Co-Branded Lead Portal (`michito.co/tinkko`) where Tinkko tenants can buy verified leads with Tinkko's 25%–30% commission automatically tracked.
+- [ ] Regional expansion to Mexico (SAT RFC), Chile (SII RUT), and Peru (SUNAT RUC).
 
 ---
 
