@@ -1,0 +1,197 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: campaigns
+// Document ID: campaignId (string, e.g. 'chiketto', 'tinkko_dr_offices')
+// Fields:
+//   - id: string (optional, campaign slug/id)
+//   - name: string (optional, human readable name)
+//   - industry: string (optional, target vertical)
+//   - city: string (optional, target city)
+//   - target_roles: list (optional, target buyer roles)
+//   - is_active: bool (optional, active flag)
+// Access:
+//   - Read: Public (anyone can read/list campaigns for landing page or WhatsApp bot)
+//   - Write: Denied (managed strictly by backend/Admin SDK)
+//
+// Collection: orders
+// Document ID: orderId (string, UUID or unique order key)
+// Fields:
+//   - client_email: string (required if client_phone not provided, valid email)
+//   - client_phone: string (required if client_email not provided, 7-25 chars)
+//   - campaign_id: string (required, 1-100 chars)
+//   - city: string (required, 1-100 chars)
+//   - limit: int (required, integer > 0 and <= 500)
+//   - status: string (required, must be 'queued' on creation)
+//   - client_id: string (optional, client UID; must match auth.uid if authenticated)
+//   - client_name: string (optional, 1-150 chars)
+//   - company_name: string (optional, 1-150 chars)
+//   - notes: string (optional, <= 1000 chars)
+//   - created_at: timestamp (optional, server timestamp)
+//   - id / order_id: string (optional, must match orderId if provided)
+//   - metadata: map (optional, <= 20 keys)
+// Access:
+//   - Create: Public or Authenticated clients with strict schema validation
+//   - Read: Allowed by matching orderId (direct get) or authenticated client_id match
+//   - Update: Denied (status updates & delivery payloads handled by backend/Admin SDK)
+//   - Delete: Denied
+//
+// Collection: leads_ledger
+// Document ID: leadId (string, cleaned NIT or hash)
+// Access:
+//   - Read/Write: Denied (internal deduplication ledger used exclusively by backend)
+//
+// Default:
+//   - All other collections and paths: Denied
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated with Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      return email is string &&
+             email.size() >= 5 &&
+             email.size() <= 254 &&
+             email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Validate international or local phone format (E.164, local digits, spaces, hyphens)
+    function isValidPhone(phone) {
+      return phone is string &&
+             phone.size() >= 7 &&
+             phone.size() <= 25 &&
+             phone.matches("^\\+?[0-9\\s\\-\\(\\)]{7,25}$");
+    }
+
+    // Validate string bounds
+    function validStringLength(text, minLen, maxLen) {
+      return text is string &&
+             text.size() >= minLen &&
+             text.size() <= maxLen;
+    }
+
+    // Validate optional string field
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+             (data[field] is string &&
+              data[field].size() >= minLen &&
+              data[field].size() <= maxLen);
+    }
+
+    // Verify contact information: at least one of client_email or client_phone must be present and valid
+    function hasValidContactInfo(data) {
+      let hasEmail = 'client_email' in data;
+      let hasPhone = 'client_phone' in data;
+      return (hasEmail || hasPhone) &&
+             (!hasEmail || isValidEmail(data.client_email)) &&
+             (!hasPhone || isValidPhone(data.client_phone));
+    }
+
+    // Strict schema check: prevent arbitrary extraneous fields
+    function hasOnlyAllowedOrderFields(data) {
+      let allowed = [
+        'client_email',
+        'client_phone',
+        'campaign_id',
+        'city',
+        'limit',
+        'status',
+        'client_id',
+        'client_name',
+        'company_name',
+        'notes',
+        'created_at',
+        'order_id',
+        'id',
+        'metadata'
+      ];
+      return data.keys().hasOnly(allowed);
+    }
+
+    // Domain validator for order creation
+    function isValidOrderCreate(data, orderId) {
+      return hasOnlyAllowedOrderFields(data) &&
+             data.keys().hasAll(['campaign_id', 'city', 'limit', 'status']) &&
+             hasValidContactInfo(data) &&
+             validStringLength(data.campaign_id, 1, 100) &&
+             validStringLength(data.city, 1, 100) &&
+             (data.limit is int && data.limit > 0 && data.limit <= 500) &&
+             data.status == 'queued' &&
+             (!('id' in data) || data.id == orderId) &&
+             (!('order_id' in data) || data.order_id == orderId) &&
+             (!('client_id' in data) ||
+              (isAuthenticated() && data.client_id == request.auth.uid) ||
+              (!isAuthenticated() && validStringLength(data.client_id, 1, 128))) &&
+             isValidOptionalString(data, 'client_name', 1, 150) &&
+             isValidOptionalString(data, 'company_name', 1, 150) &&
+             isValidOptionalString(data, 'notes', 0, 1000) &&
+             (!('created_at' in data) || (data.created_at is timestamp && data.created_at <= request.time)) &&
+             (!('metadata' in data) || (data.metadata is map && data.metadata.keys().size() <= 20));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Public campaigns catalog
+    match /campaigns/{campaignId} {
+      // Anyone (web landing page, WhatsApp bot, public clients) can read available campaigns
+      allow read: if true;
+      // Campaigns are read-only for clients; modified solely via Backend / Admin SDK
+      allow write: if false;
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Document fetch: allowed if the reader queries the specific orderId
+      // or if the authenticated client matches the order's client_id
+      allow get: if (orderId is string && orderId.size() > 0) ||
+                    (isAuthenticated() && 'client_id' in resource.data && resource.data.client_id == request.auth.uid);
+
+      // List queries: strictly restricted to authenticated clients querying their own records
+      // Prevents unauthenticated scraping or listing of all customer orders
+      allow list: if isAuthenticated() &&
+                     'client_id' in resource.data &&
+                     resource.data.client_id == request.auth.uid;
+
+      // Creation allowed with strict field validation and bounds
+      allow create: if isValidOrderCreate(request.resource.data, orderId);
+
+      // Update denied for client SDKs (status changes like 'processing', 'completed', 'paid'
+      // and lead delivery are handled securely by backend Cloud Functions / Admin SDK)
+      allow update: if false;
+
+      // Deletions denied for all client SDKs
+      allow delete: if false;
+    }
+
+    // Internal deduplication ledger
+    match /leads_ledger/{leadId} {
+      // Internal system ledger; forbidden for all client SDKs
+      allow read, write: if false;
+    }
+
+    // Internal backend lead orders (if queried via client SDKs)
+    match /lead_orders/{orderId} {
+      allow read, write: if false;
+    }
+
+    // Default deny fallback for all other collections and subcollections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

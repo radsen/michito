@@ -1,0 +1,149 @@
+id: "tinkko_dr_offices"
+name: "Tinkko — Sedes y Oficinas Privadas Corporativas (República Dominicana)"
+description: "Espacios de trabajo corporativos, oficinas privadas llave en mano y sedes ejecutivas para empresas en Santo Domingo y Santiago."
+
+target:
+  country: "DO"
+  currency: "DOP"
+  city: "Santo Domingo"
+  cities:
+    - "Santo Domingo"
+    - "Santiago de los Caballeros"
+  segment: "midmarket"
+  sectors:
+    - "tech_services"
+    - "consulting"
+    - "legal_financial"
+    - "bpo_creative_marketing"
+  categories:
+    - "Tech, Software & IT Consulting (10–50 turnkey desks with high-speed symmetric fiber)"
+    - "Regional Satellite Hubs & Foreign Companies (zero CapEx and flexible terms in Santo Domingo)"
+    - "Professional Services, Legal & Financial Advisory (boardrooms, acoustic privacy, prestigious Piantini address)"
+    - "BPO / Digital Customer Experience & Creative Agencies"
+  keywords_include:
+    # 1. Tech, Software & IT Consulting
+    - "software"
+    - "tecnolog"
+    - "sistemas"
+    - "comput"
+    - "desarrollo"
+    - "licencia"
+    - "ciberseguridad"
+    - "cloud"
+    - "digital"
+    - "plataforma"
+    - "telecomunicac"
+    - "datos"
+    - "soporte"
+    # 2. Professional Services, Legal & Financial Advisory
+    - "consultor"
+    - "asesor"
+    - "legal"
+    - "abogados"
+    - "auditor"
+    - "financier"
+    - "estudio"
+    - "gestion"
+    - "capacitacion"
+    - "recursos humanos"
+    - "riesgo"
+    - "estrategi"
+    # 3. BPO, Contact Center & Creative/Marketing Agencies
+    - "contact center"
+    - "call center"
+    - "bpo"
+    - "marketing"
+    - "publicidad"
+    - "mercadeo"
+    - "diseño"
+    - "comunicacion"
+  keywords_exclude:
+    # Exclude non-office, industrial, heavy labor, and vehicle services
+    - "vehiculo"
+    - "automotriz"
+    - "taller"
+    - "repuesto"
+    - "neumatico"
+    - "combustible"
+    - "gasolina"
+    - "diesel"
+    - "asfalto"
+    - "cemento"
+    - "ferreter"
+    - "obra civil"
+    - "construccion civil"
+    - "alimento"
+    - "catering"
+    - "comida"
+    - "racion"
+    - "limpieza"
+    - "fumigacion"
+    - "conserjeria"
+    - "seguridad fisica"
+    - "vigilancia"
+  roles:
+    - "Gerente General"
+    - "Director de Operaciones"
+    - "Director Administrativo"
+    - "Country Manager"
+    - "Socio Director"
+    - "Gerente Legal"
+    - "CFO"
+
+angles:
+  recommended: "Flexibilidad Contractual + Cero CapEx en Oficinas Corporativas de Alta Gama en Santo Domingo"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. Vi el crecimiento de {clean_name} en República Dominicana. En Tinkko apoyamos a empresas en expansión
+    con oficinas privadas corporativas llave en mano (10 a 60 puestos) en Santo Domingo (Piantini / Bella Vista),
+    sin amarrar capital en remodelaciones ni contratos rígidos a 3 años. ¿Conectamos?
+
+  touch2_email_subject: "Sede corporativa flexible y llave en mano para {clean_name} en Santo Domingo"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto viendo la trayectoria y consolidación de {clean_name} en República Dominicana.
+
+    Sabemos que para compañías en crecimiento, habilitar nuevas oficinas corporativas en Santo Domingo suele implicar meses de remodelación, compra de mobiliario (alto CapEx) y contratos tradicionales de alquiler a 3 o 5 años que comprometen el flujo de caja.
+
+    En Tinkko operamos sedes empresariales de alta gama en Santo Domingo:
+    • Oficinas privadas corporativas personalizables desde 10 hasta 80 puestos de trabajo.
+    • Modelo llave en mano: Conectividad simétrica certificada, salas de juntas ejecutivas, café premium y recepción bilingüe incluida.
+    • Contratos flexibles que acompañan el crecimiento de su nómina sin penalidades por expansión.
+    • Cero inversión inicial en adecuaciones locativas o mantenimiento.
+
+    Si en {clean_name} están evaluando optimizar metros cuadrados, migrar a esquema híbrido o abrir sede satélite en la capital, con gusto te comparto nuestro catálogo corporativo de sedes disponibles.
+
+    ¿Tendrías 10 minutos esta semana para una llamada preliminar?
+
+  touch3_email_subject: "Re: {clean_name} — Comparativo Financiero: Alquiler Tradicional vs Sede Tinkko Santo Domingo"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi correo anterior: las gerencias financieras suelen calcular el metro cuadrado de alquiler tradicional sin sumar los costos ocultos: cuota de mantenimiento de torre, energía comercial, seguros, seguridad física, café, internet redundante y depreciación de mobiliario.
+
+    En Tinkko unificamos el 100% de la operación en una sola factura deducible, reduciendo el costo total de ocupación entre un 20% y 25% mensual frente al modelo tradicional en República Dominicana.
+
+    ¿Te interesaría que te enviemos una cotización y comparativo financiero sin costo para el equipo de {clean_name}?
+
+  touch4_email_subject: "Invitación VIP a conocer sede Tinkko en Santo Domingo"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Nos encantaría invitarte a ti o a tu equipo directivo a vivir la experiencia Tinkko con un pase de trabajo ejecutivo (Day Pass corporativo) en nuestras instalaciones de Santo Domingo.
+
+    Así podrán probar de primera mano la acústica, salas de innovación y calidad de nuestra comunidad empresarial antes de cualquier decisión locativa.
+
+    ¿Qué día de esta o la próxima semana te queda cómodo agendar?
+
+  touch5_email_subject: "Catálogo corporativo Tinkko para {clean_name} (Último contacto)"
+  touch5_email_body: |
+    Estimado(a) {contact_title},
+
+    Entiendo que en este momento pueden tener su infraestructura locativa resuelta. No insistiré más por este canal.
+
+    Te dejamos a la mano nuestro catálogo de sedes corporativas en Santo Domingo para cuando proyecten ampliación o nuevos proyectos en la región.
+
+    ¡Muchos éxitos en la operación de {clean_name}!
+

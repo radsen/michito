@@ -39,22 +39,22 @@ pip install -r requirements.txt
 
 #### Example A: Generate Mid-Market Leads for Hebisend
 ```bash
-python3 generate_colombian_prospects.py --campaign=hebi --segment=midmarket --city=Bogota --limit=25
+python3 generate_prospects.py --campaign=hebi --segment=midmarket --city=Bogota --limit=25
 ```
 
 #### Example B: Generate Leads for Electronic Invoicing (Chiketto)
 ```bash
-python3 generate_colombian_prospects.py --campaign=chiketto --segment=small --city=Medellin --limit=25
+python3 generate_prospects.py --campaign=chiketto --segment=small --city=Medellin --limit=25
 ```
 
 #### Example C: Dry-Run (Preview without modifying deduplication ledger)
 ```bash
-python3 generate_colombian_prospects.py --campaign=hebi --limit=5 --dry-run
+python3 generate_prospects.py --campaign=hebi --limit=5 --dry-run
 ```
 
 #### Example D: View Ledger Statistics
 ```bash
-python3 generate_colombian_prospects.py --stats
+python3 generate_prospects.py --stats
 ```
 
 ---
@@ -63,7 +63,7 @@ python3 generate_colombian_prospects.py --stats
 
 ```
 michito/
-├── generate_colombian_prospects.py   # Master CLI runner & orchestrator
+├── generate_prospects.py             # Master CLI runner & orchestrator
 ├── colombia_registry_client.py       # Colombian corporate registry & SODA client
 ├── apollo_client.py                  # Contact enrichment & CSV importer
 ├── deduplication_ledger.py           # Persistent deduplication tracker (zero duplicates)

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Michito — Motor de Inteligencia B2B & Prospectos On-Demand</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-badge">⚡ B2B Intent Engine</span>
+        <h1>MICHITO</h1>
+        <p class="tagline">Prospectos Calificados de Alta Conversión con Triggers de Expansión</p>
+      </div>
+      <div class="system-status">
+        <span class="status-indicator live"></span>
+        <span id="env-badge">Local Emulator Mode</span>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="wizard-card">
+        <div class="card-header">
+          <h2>1. Configurar Lote de Prospección</h2>
+          <p>Selecciona tu campaña o producto B2B objetivo para iniciar la extracción en tiempo real.</p>
+        </div>
+
+        <form id="order-form">
+          <div class="form-group">
+            <label for="campaign-select">Campaña / Cliente B2B</label>
+            <select id="campaign-select" required>
+              <option value="tinkko_enterprise_offices" data-country="CO" data-currency="COP" selected>
+                🇨🇴 Tinkko — Oficinas y Sedes Corporativas (Medellín / Bogotá)
+              </option>
+              <option value="tinkko_dr_offices" data-country="DO" data-currency="DOP">
+                🇩🇴 Tinkko — Expansión República Dominicana (Santo Domingo / Santiago)
+              </option>
+              <option value="hebi" data-country="CO" data-currency="COP">
+                🇨🇴 Hebisend — Logística & Fulfillment E-Commerce
+              </option>
+              <option value="chiketto" data-country="CO" data-currency="COP">
+                🇨🇴 Chiketto — Desarrollo de Software, Apps & AI Agents
+              </option>
+              <option value="blueoil" data-country="CO" data-currency="COP">
+                🇨🇴 Blue Oil — Combustible & Lubricantes para Flotas Pesadas
+              </option>
+              <option value="facility_services_b2b" data-country="CO" data-currency="COP">
+                🇨🇴 Facility Services — Aseo, Seguridad & Mantenimiento Corporativo
+              </option>
+              <option value="warehouse_aburra_norte" data-country="CO" data-currency="COP">
+                🇨🇴 Bodegas Aburrá Norte — Parques Industriales & Lotes Logísticos
+              </option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="target-city">Ciudad Objetivo</label>
+              <input type="text" id="target-city" value="Medellín" required placeholder="Ej: Medellín, Bogotá, Santo Domingo">
+            </div>
+
+            <div class="form-group flex-1">
+              <label for="leads-limit">Cantidad de Cuentas</label>
+              <select id="leads-limit">
+                <option value="10">10 Cuentas Verificadas (Lote Rápido)</option>
+                <option value="25" selected>25 Cuentas (Recomendado)</option>
+                <option value="50">50 Cuentas (Escala)</option>
+                <option value="100">100 Cuentas (Pipeline Masivo)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-divider"><span>Datos de Entrega y Facturación</span></div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="client-name">Nombre del Solicitante</label>
+              <input type="text" id="client-name" placeholder="Ej: Juan Carlos Pérez" required value="Demo Lead Buyer">
+            </div>
+
+            <div class="form-group flex-1">
+              <label for="client-email">Email Corporativo</label>
+              <input type="email" id="client-email" placeholder="director@empresa.com" required value="buyer@demo.com">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="client-phone">Celular WhatsApp (Para Notificaciones de Entrega)</label>
+            <input type="tel" id="client-phone" placeholder="+57 300 123 4567" required value="+573001234567">
+          </div>
+
+          <button type="submit" id="submit-btn" class="btn-primary">
+            <span class="btn-text">⚡ Iniciar Extracción Asíncrona</span>
+            <span class="btn-loader hidden"></span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Live Asynchronous Order Dashboard -->
+      <section id="order-status-card" class="status-card hidden">
+        <div class="card-header">
+          <div class="order-meta">
+            <span class="order-id-tag">ID: <code id="active-order-id">ord_pending</code></span>
+            <span id="order-badge" class="badge badge-queued">QUEUED</span>
+          </div>
+          <h2 id="order-status-title">Procesando Solicitud en Segundo Plano...</h2>
+          <p id="order-status-desc">El Worker Daemon está escaneando los registros oficiales, verificando servidores MX y buscando triggers de adjudicación.</p>
+        </div>
+
+        <!-- Real-Time Progress Bar -->
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar-track">
+            <div id="progress-bar-fill" class="progress-bar-fill indeterminate"></div>
+          </div>
+          <div class="progress-steps">
+            <span class="step-label active">1. Ingesta</span>
+            <span id="step-mining" class="step-label">2. Minería & MX</span>
+            <span id="step-teaser" class="step-label">3. Teaser & Cotización</span>
+            <span id="step-paid" class="step-label">4. Entrega de Lote</span>
+          </div>
+        </div>
+
+        <!-- Sample Teaser Preview Container -->
+        <div id="teaser-container" class="teaser-container hidden">
+          <h3>🎯 Muestra Confidencial de Cuentas Identificadas (3 de <span id="teaser-total">25</span>)</h3>
+          <p class="teaser-note">Cuentas calificadas con datos de contacto C-Level listos para desbloquear tras el pago:</p>
+          <div id="teaser-cards" class="teaser-grid"></div>
+
+          <!-- Checkout & Pricing Action Box -->
+          <div id="payment-box" class="payment-box">
+            <div class="price-summary">
+              <span class="price-label">Inversión Total del Lote:</span>
+              <span id="price-amount" class="price-val">$500.000 COP</span>
+              <span class="price-guarantee">🛡️ Garantía Cero Rebote (DNS MX & Sitio Web Verificado)</span>
+            </div>
+            <button id="pay-btn" class="btn-checkout">
+              <span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Delivery Unlocked Container -->
+        <div id="delivery-container" class="delivery-container hidden">
+          <div class="success-banner">
+            <h3>🎉 ¡Pago Aprobado! Tu Lote de Inteligencia Comercial está Listo</h3>
+            <p>Descarga tus archivos completos con números de celular directo, emails validados y las 5 cadencias de prospección:</p>
+          </div>
+          <div class="delivery-actions">
+            <a id="download-csv-btn" class="btn-download csv" href="#" target="_blank">
+              📥 Descargar Lote CRM (.CSV)
+            </a>
+            <a id="download-dossier-btn" class="btn-download md" href="#" target="_blank">
+              📄 Descargar Dossier Ejecutivo (.MD)
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Michito B2B Engine • Arquitectura Limpia Desacoplada • Compatible con Firebase Local Emulator & Cloud Pub/Sub</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
