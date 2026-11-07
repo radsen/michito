@@ -12,6 +12,8 @@ from typing import Dict, Any
 # Ensure project root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
+import src.config  # Auto-loads .env.local / .env.stg / .env
+
 from src.adapters.db.firestore_order_adapter import FirestoreOrderAdapter
 from src.application.use_cases.generate_prospects_use_case import run_prospecting_job
 from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon

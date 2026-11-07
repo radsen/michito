@@ -2,7 +2,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+# Environment configuration & secrets
 .env
+.env.*
+!.env.example
 .DS_Store
 outputs/*/
 !outputs/.gitkeep

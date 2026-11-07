@@ -47,8 +47,8 @@ class SqlOrderAdapter:
             Base.metadata.create_all(bind=self.engine)
             self.database_url = target_url
         except Exception:
-            # If PostgreSQL is not reachable and no explicit override was passed, fall back cleanly to SQLite
-            if not database_url and not os.environ.get("DATABASE_URL") and not target_url.startswith("sqlite"):
+            # If PostgreSQL is not reachable, fall back cleanly to SQLite for offline dev/test execution
+            if not target_url.startswith("sqlite"):
                 self.database_url = "sqlite:///michito_orders.db"
                 self.engine = create_engine(
                     self.database_url,

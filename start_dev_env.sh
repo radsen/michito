@@ -71,8 +71,18 @@ fi
 # 3. Create TMUX Session & Dedicated Tabs (Windows)
 echo -e "${YELLOW}[3/4] Initializing TMUX Session '${SESSION_NAME}' with dedicated Tabs...${NC}"
 
+# Detect active environment file (.env.local has priority for dev workstations)
+ENV_FILE=""
+if [ -f "$SCRIPT_DIR/.env.local" ]; then
+    ENV_FILE="$SCRIPT_DIR/.env.local"
+    echo -e "${GREEN}✓ Loading environment from .env.local${NC}"
+elif [ -f "$SCRIPT_DIR/.env" ]; then
+    ENV_FILE="$SCRIPT_DIR/.env"
+    echo -e "${GREEN}✓ Loading environment from .env${NC}"
+fi
+
 # Common setup script string to run in every tab
-SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && export DATABASE_URL='$DB_URL' && export PYTHONPATH='$SCRIPT_DIR'"
+SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && ([ -z '$ENV_FILE' ] || (set -a && source '$ENV_FILE' && set +a)) && export DATABASE_URL='$DB_URL' && export PYTHONPATH='$SCRIPT_DIR'"
 
 # Tab 1: FastAPI Backend (:8000)
 tmux new-session -d -s "$SESSION_NAME" -n "api" -c "$SCRIPT_DIR"

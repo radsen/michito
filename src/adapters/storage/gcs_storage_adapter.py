@@ -68,7 +68,7 @@ class GcsStorageAdapter(StoragePort):
             return f"gs://{self.bucket_name}/{blob_name}"
 
         # 2. Local Firebase Storage Emulator (:9199)
-        if self.emulator_host:
+        if not self.force_mock and self.emulator_host:
             try:
                 with open(local_path, "rb") as f:
                     file_data = f.read()
@@ -114,7 +114,7 @@ class GcsStorageAdapter(StoragePort):
                 pass
 
         # 2. Local Firebase Storage Emulator URL
-        if self.emulator_host:
+        if not self.force_mock and self.emulator_host:
             encoded_name = urllib.parse.quote(blob_name, safe="")
             return f"http://{self.emulator_host}/v0/b/{self.bucket_name}/o/{encoded_name}?alt=media"
 

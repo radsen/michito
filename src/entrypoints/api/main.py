@@ -9,6 +9,8 @@ import uuid
 import os
 import logging
 
+import src.config  # Auto-loads .env.local / .env.stg / .env
+
 from src.entrypoints.container import Container, container as app_container
 from src.application.dto.search_request_dto import CompanyFilterDto
 from src.domain.entities.lead_order import LeadOrder
