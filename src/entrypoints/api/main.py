@@ -1,29 +1,66 @@
 from fastapi import FastAPI, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 import uuid
 import os
+import logging
 
 from src.entrypoints.container import Container, container as app_container
 from src.application.dto.search_request_dto import CompanyFilterDto
 from src.domain.entities.lead_order import LeadOrder
 from src.domain.entities.company import Company
 from src.domain.value_objects.tax_id import TaxId
-import logging
+from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+from campaign_loader import list_available_campaigns, load_campaign
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Michito API", version="1.0.0")
+app = FastAPI(title="Michito B2B Intelligence Engine API", version="2.0.0")
+
+# Enable Cross-Origin Resource Sharing (CORS) for Firebase Hosting (:5000) & Local Dev
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 templates = Jinja2Templates(directory="templates")
+sql_adapter = SqlOrderAdapter()
 
 def get_container() -> Container:
     return app_container
 
-# Request Models
+# Multi-Client Order Request Models (per docs/developer_handoff_specification.md)
+class ClientDto(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    channel: Optional[str] = "web_portal"
+    client_id: Optional[str] = None
+    referral_partner: Optional[str] = "direct"
+
+class RequestDto(BaseModel):
+    campaign_id: str
+    country: Optional[str] = "CO"
+    city: Optional[str] = "Medellín"
+    limit: Optional[int] = 10
+    tier: Optional[int] = 2
+    segment: Optional[str] = None
+    sector: Optional[str] = None
+    keywords_include: Optional[List[str]] = None
+    keywords_exclude: Optional[List[str]] = None
+
+class CreateOrderRequest(BaseModel):
+    client: ClientDto
+    request: RequestDto
+
+# Legacy Request Models
 class SearchRequest(BaseModel):
     country_code: str
     min_revenue: Optional[Decimal] = None
@@ -33,7 +70,7 @@ class SearchRequest(BaseModel):
 class VerificationRequest(BaseModel):
     email: str
 
-class OrderRequest(BaseModel):
+class LegacyOrderRequest(BaseModel):
     tier: int
     company_id: str
 
@@ -44,10 +81,154 @@ class EbitdaRequest(BaseModel):
     depreciation: Decimal
     amortization: Decimal
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
 @app.get("/", response_class=HTMLResponse)
-def get_portal(request: Request):
+def get_root_portal():
+    """Serves the primary Michito B2B Lead Intelligence Order Portal (No Cache)."""
+    return FileResponse("clients/web/public/index.html", media_type="text/html", headers=NO_CACHE_HEADERS)
+
+@app.get("/styles.css")
+def get_styles():
+    return FileResponse("clients/web/public/styles.css", media_type="text/css", headers=NO_CACHE_HEADERS)
+
+@app.get("/app.js")
+def get_app_js():
+    return FileResponse("clients/web/public/app.js", media_type="application/javascript", headers=NO_CACHE_HEADERS)
+
+@app.get("/legacy-warehouse-teaser", response_class=HTMLResponse)
+def get_legacy_teaser(request: Request):
     return templates.TemplateResponse(request, "teaser_one_pager_base.html")
 
+# ------------------------------------------------------------------------------
+# Universal B2B Multi-Client Order Endpoints (PostgreSQL & Web Client Integration)
+# ------------------------------------------------------------------------------
+@app.get("/api/v1/campaigns")
+def get_campaigns():
+    """
+    Returns available B2B campaign profiles and metadata for frontend clients
+    (React/Redux SPA, WhatsApp bots, and intake portals).
+    """
+    campaign_ids = list_available_campaigns()
+    results = []
+    for cid in campaign_ids:
+        cfg = load_campaign(cid)
+        tgt = cfg.get("target", {})
+        results.append({
+            "id": cfg.get("id", cid),
+            "name": cfg.get("name", cid),
+            "description": cfg.get("description", ""),
+            "country": tgt.get("country", "CO"),
+            "currency": tgt.get("currency", "COP"),
+            "cities": tgt.get("cities", []),
+            "sectors": tgt.get("sectors", []),
+            "roles": tgt.get("roles", []),
+            "segment": tgt.get("segment", "all")
+        })
+    return {"status": "success", "total": len(results), "campaigns": results}
+
+@app.post("/api/v1/orders", status_code=201)
+def create_prospecting_order(payload: CreateOrderRequest):
+    """
+    Ingests an on-demand prospecting order from Web Portal or WhatsApp,
+    creates the client record, persists order in PostgreSQL, and queues it for the worker.
+    """
+    try:
+        currency = "DOP" if payload.request.country and payload.request.country.upper() == "DO" else "COP"
+        order = sql_adapter.create_order(
+            client_name=payload.client.name,
+            client_email=payload.client.email,
+            client_phone=payload.client.phone,
+            client_channel=payload.client.channel or "web_portal",
+            referral_partner=payload.client.referral_partner or "direct",
+            campaign_id=payload.request.campaign_id,
+            city=payload.request.city or "Medellín",
+            limit=payload.request.limit or 10,
+            country=payload.request.country or "CO",
+            currency=currency,
+            segment=payload.request.segment,
+            sector=payload.request.sector,
+            keywords_include=payload.request.keywords_include,
+            keywords_exclude=payload.request.keywords_exclude,
+            tier=payload.request.tier or 2,
+        )
+        return {
+            "status": "success",
+            "order_id": order["order_id"],
+            "order_status": order["status"],
+            "estimated_processing_seconds": max(15, (payload.request.limit or 10) * 2),
+            "message": "Order successfully queued for asynchronous intelligence extraction.",
+            "order": order
+        }
+    except Exception as e:
+        logger.error(f"Error creating prospecting order: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/orders/{order_id}")
+def get_prospecting_order(order_id: str):
+    """
+    Polls the current status, sample teaser, deliverables, and quote for an order.
+    """
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+@app.post("/api/v1/orders/{order_id}/pay")
+def pay_prospecting_order(order_id: str):
+    """
+    Confirms simulated or webhook payment, transitions status to 'paid', and unlocks downloads.
+    """
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    amount = order.get("payment", {}).get("amount_in_cents") or 20000000
+    tx_id = f"tx_wompi_{uuid.uuid4().hex[:10]}"
+    ok = sql_adapter.mark_order_paid(order_id, transaction_id=tx_id, amount_in_cents=amount)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Could not mark order paid")
+
+    updated_order = sql_adapter.get_order(order_id)
+    return {
+        "status": "success",
+        "message": "Payment approved. Deliverables unlocked.",
+        "order": updated_order
+    }
+
+@app.get("/api/v1/orders/{order_id}/download/{file_type}")
+def download_deliverable(order_id: str, file_type: str):
+    """
+    Serves the generated CSV or Markdown executive dossier.
+    """
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    delivery = order.get("delivery", {})
+    if file_type.lower() == "csv":
+        file_path = delivery.get("csv_path")
+        media_type = "text/csv"
+        filename = f"{order_id}_prospects.csv"
+    elif file_type.lower() in ("md", "dossier", "markdown"):
+        file_path = delivery.get("dossier_path")
+        media_type = "text/markdown"
+        filename = f"{order_id}_executive_dossier.md"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv' or 'md')")
+
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Deliverable file not found on disk at {file_path}")
+
+    return FileResponse(path=file_path, media_type=media_type, filename=filename)
+
+# ------------------------------------------------------------------------------
+# Legacy Endpoints & Webhooks
+# ------------------------------------------------------------------------------
 @app.post("/api/v1/prospects/search")
 def search_prospects(request: SearchRequest, container: Container = Depends(get_container)):
     dto = CompanyFilterDto(
@@ -65,15 +246,13 @@ def verify_email(request: VerificationRequest, container: Container = Depends(ge
     return {"email": request.email, "status": status}
 
 @app.post("/api/v1/orders/create")
-def create_order(request: OrderRequest, container: Container = Depends(get_container)):
+def create_legacy_order(request: LegacyOrderRequest, container: Container = Depends(get_container)):
     try:
-        # Placeholder company since we only have memory persistence for now
         company = Company(
             id=request.company_id,
             tax_id=TaxId(request.company_id.split("-")[-1] if "-" in request.company_id else request.company_id),
             name="Pending Information"
         )
-        
         order = LeadOrder(
             id=str(uuid.uuid4()),
             tier=request.tier,
@@ -95,7 +274,6 @@ def calculate_ebitda(request: EbitdaRequest, container: Container = Depends(get_
         "amortization": request.amortization
     }
     result = container.calculate_ebitda_use_case.execute(raw_financials)
-    
     return {
         "ebit": float(result["ebit"]),
         "ebitda": float(result["ebitda"]),
@@ -106,10 +284,32 @@ def calculate_ebitda(request: EbitdaRequest, container: Container = Depends(get_
 def wompi_webhook(request: Request, event_data: dict, container: Container = Depends(get_container)):
     signature = event_data.get("signature", {}).get("checksum", "")
     if not signature:
-        # Fallback to header if signature not in body
         signature = request.headers.get("X-Signature", "")
-        
+
+    # 1. Execute domain use case (legacy in-memory verification)
     container.fulfill_webhook_use_case.execute(event_data, signature)
+
+    # 2. Update PostgreSQL production order if transaction is approved
+    try:
+        data = event_data.get("data", {})
+        transaction = data.get("transaction", {})
+        status = transaction.get("status", "")
+        reference = transaction.get("reference", "")
+        tx_id = transaction.get("id", f"tx_wompi_{uuid.uuid4().hex[:8]}")
+        amount = int(transaction.get("amount_in_cents", 0))
+
+        if status == "APPROVED" and reference:
+            order = sql_adapter.get_order(reference)
+            if order:
+                sql_adapter.mark_order_paid(
+                    order_id=reference,
+                    transaction_id=str(tx_id),
+                    amount_in_cents=amount or order.get("payment", {}).get("amount_in_cents", 0)
+                )
+                logger.info(f"[WompiWebhook] ✅ Order `{reference}` marked paid in PostgreSQL.")
+    except Exception as e:
+        logger.error(f"[WompiWebhook] Error updating order in database: {e}")
+
     return {"status": "received"}
 
 @app.get("/api/v1/webhooks/whatsapp")
@@ -118,10 +318,8 @@ def verify_whatsapp_webhook(request: Request):
     mode = request.query_params.get("hub.mode")
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
-    
     if mode == "subscribe" and token == expected_token:
         return PlainTextResponse(content=challenge)
-        
     raise HTTPException(status_code=403, detail="Invalid verify token")
 
 @app.post("/api/v1/webhooks/whatsapp")

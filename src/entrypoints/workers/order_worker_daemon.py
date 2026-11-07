@@ -12,7 +12,43 @@ from typing import Dict, Any, Optional
 
 from src.adapters.db.firestore_order_adapter import FirestoreOrderAdapter
 from src.application.ports.order_queue_port import OrderQueuePort
+from src.application.ports.storage_port import StoragePort
 from src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase, run_prospecting_job
+
+
+def calculate_lead_pricing(total_qualified: int, tier: int = 2, currency: str = "COP") -> int:
+    """
+    Calculates fair, tiered batch pricing in cents according to the Michito Financial Model
+    (docs/strategy/financial_model_unit_economics.md) with statutory volume discount curves.
+    """
+    if total_qualified <= 0:
+        return 0
+
+    if currency.upper() == "DOP":
+        base_rates = {1: 10000, 2: 35000, 3: 75000}  # 100, 350, 750 DOP in cents
+    else:
+        base_rates = {1: 500000, 2: 3000000, 3: 6500000}  # $5.000, $30.000, $65.000 COP in cents
+
+    unit_base = base_rates.get(tier, base_rates[2])
+
+    # Volume discount curve
+    if total_qualified >= 1000:
+        discount = 0.42
+    elif total_qualified >= 500:
+        discount = 0.35
+    elif total_qualified >= 250:
+        discount = 0.28
+    elif total_qualified >= 100:
+        discount = 0.20
+    elif total_qualified >= 50:
+        discount = 0.12
+    elif total_qualified >= 25:
+        discount = 0.06
+    else:
+        discount = 0.0
+
+    discounted_unit = int(unit_base * (1.0 - discount))
+    return total_qualified * discounted_unit
 
 
 class OrderWorkerDaemon:
@@ -27,6 +63,7 @@ class OrderWorkerDaemon:
         order_repository: Optional[Any] = None,
         order_queue: Optional[OrderQueuePort] = None,
         use_case: Optional[GenerateProspectsUseCase] = None,
+        storage_adapter: Optional[StoragePort] = None,
     ):
         if order_repository:
             self.order_repository = order_repository
@@ -38,6 +75,15 @@ class OrderWorkerDaemon:
 
         self.order_queue = order_queue
         self.use_case = use_case or GenerateProspectsUseCase()
+
+        if storage_adapter:
+            self.storage_adapter = storage_adapter
+        elif os.environ.get("GCS_BUCKET_NAME") or os.environ.get("ENVIRONMENT") == "production":
+            from src.adapters.storage.gcs_storage_adapter import GcsStorageAdapter
+            self.storage_adapter = GcsStorageAdapter()
+        else:
+            from src.adapters.storage.local_storage_adapter import LocalStorageAdapter
+            self.storage_adapter = LocalStorageAdapter()
 
     def process_order(self, order: Dict[str, Any]) -> bool:
         order_id = order.get("order_id")
@@ -51,10 +97,11 @@ class OrderWorkerDaemon:
         city = req.get("city", "Medellín")
         limit = req.get("limit", 10)
         segment = req.get("segment")
+        tier = req.get("tier", 2)
 
         print(f"\n[WorkerDaemon] ⚡ Locking and starting processing for Order `{order_id}`...")
         print(f"               Client:   {client_name}")
-        print(f"               Campaign: {campaign_id} | City: {city} | Limit: {limit}")
+        print(f"               Campaign: {campaign_id} | City: {city} | Limit: {limit} | Tier: {tier}")
 
         # 1. Lock the order in the repository to prevent double processing
         if not self.order_repository.mark_processing(order_id):
@@ -69,14 +116,42 @@ class OrderWorkerDaemon:
                 city=city,
                 limit=limit,
                 segment=segment,
+                tier=tier,
                 dry_run=False,
                 output_format="both",
             )
             elapsed = time.time() - t0
 
-            # Default pricing: 20.000 COP per verified lead = 2.000.000 cents COP
-            per_lead_cop_cents = 2000000
-            total_price_cents = limit * per_lead_cop_cents
+            # Fair Pay-Per-Lead Tiered Pricing (Strategy Financial Model)
+            total_qualified = job_result.get("total_qualified", len(job_result.get("leads", [])))
+            country = req.get("country", "CO")
+            currency = job_result.get("currency", "DOP" if country == "DO" else "COP")
+
+            total_price_cents = calculate_lead_pricing(
+                total_qualified=total_qualified,
+                tier=tier,
+                currency=currency
+            )
+
+            # Upload deliverables to Storage Adapter (Local or GCS)
+            csv_path = job_result.get("csv_path")
+            dossier_path = job_result.get("dossier_path")
+
+            if csv_path and os.path.exists(csv_path):
+                dest_csv = f"orders/{order_id}/prospects.csv"
+                csv_uri = self.storage_adapter.upload_file(csv_path, dest_csv, content_type="text/csv")
+                csv_url = self.storage_adapter.generate_download_url(dest_csv, expiration_hours=48)
+                job_result["csv_uri"] = csv_uri
+                job_result["csv_download_url"] = csv_url
+                print(f"[WorkerDaemon] 📦 CSV Stored: {csv_uri}")
+
+            if dossier_path and os.path.exists(dossier_path):
+                dest_dossier = f"orders/{order_id}/executive_dossier.md"
+                dossier_uri = self.storage_adapter.upload_file(dossier_path, dest_dossier, content_type="text/markdown")
+                dossier_url = self.storage_adapter.generate_download_url(dest_dossier, expiration_hours=48)
+                job_result["dossier_uri"] = dossier_uri
+                job_result["dossier_download_url"] = dossier_url
+                print(f"[WorkerDaemon] 📄 Dossier Stored: {dossier_uri}")
 
             self.order_repository.complete_order(
                 order_id=order_id,
@@ -90,7 +165,9 @@ class OrderWorkerDaemon:
 
         except Exception as e:
             print(f"[WorkerDaemon] ❌ Error processing Order `{order_id}`: {e}")
-            if self.order_repository.db:
+            if hasattr(self.order_repository, "mark_failed"):
+                self.order_repository.mark_failed(order_id, str(e))
+            elif getattr(self.order_repository, "db", None):
                 self.order_repository.db.collection("orders").document(order_id).update({
                     "status": "failed",
                     "error_message": str(e),

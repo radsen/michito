@@ -109,6 +109,7 @@ class OrderModel(Base):
     country = Column(String(4), default="CO")
     city = Column(String(128), default="Medellín")
     requested_limit = Column(Integer, default=10)
+    tier = Column(Integer, default=2)
     segment = Column(String(64), nullable=True)
     sector = Column(String(128), nullable=True)
     keywords_include = Column(JSON, nullable=True)
@@ -161,6 +162,7 @@ class OrderModel(Base):
                 "country": self.country,
                 "city": self.city,
                 "limit": self.requested_limit,
+                "tier": self.tier or 2,
                 "segment": self.segment,
                 "sector": self.sector,
                 "keywords_include": self.keywords_include,

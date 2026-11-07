@@ -3,171 +3,591 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Michito — Motor de Inteligencia B2B & Prospectos On-Demand</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Michito — Inteligencia Comercial B2B & Generación de Demanda On-Demand</title>
+  <meta name="description" content="Motor de inteligencia B2B para prospección comercial cualificada en Colombia y República Dominicana. Validación de entregabilidad y señales de actividad empresarial.">
+  <link rel="stylesheet" href="styles.css?v=2.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-layout">
-    <header class="app-header">
+  <!-- Global Navigation Header -->
+  <header class="site-header">
+    <div class="header-inner container">
       <div class="brand">
-        <span class="brand-badge">⚡ B2B Intent Engine</span>
-        <h1>MICHITO</h1>
-        <p class="tagline">Prospectos Calificados de Alta Conversión con Triggers de Expansión</p>
+        <a href="#" class="brand-logo">
+          <span class="brand-icon">⚡</span>
+          <span class="brand-name">MICHITO</span>
+          <span class="brand-tag">B2B ENGINE</span>
+        </a>
       </div>
-      <div class="system-status">
-        <span class="status-indicator live"></span>
-        <span id="env-badge">Local Emulator Mode</span>
+
+      <nav class="nav-links">
+        <a href="#como-funciona">Metodología</a>
+        <a href="#senales">Señales de Oportunidad</a>
+        <a href="#verticales">Sectores</a>
+        <a href="#entregables">Qué Recibes</a>
+        <a href="#precios">Planes por Tier</a>
+      </nav>
+
+      <div class="header-actions">
+        <span class="status-pill">
+          <span class="status-dot"></span>
+          <span>Motor Activo</span>
+        </span>
+        <a href="#generador" class="btn-nav">🚀 Configurar Lote</a>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <main class="main-content">
-      <section class="wizard-card">
-        <div class="card-header">
-          <h2>1. Configurar Lote de Prospección</h2>
-          <p>Selecciona tu campaña o producto B2B objetivo para iniciar la extracción en tiempo real.</p>
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="container hero-content">
+        <div class="hero-badge">
+          <span>🇨🇴 Colombia &bull; 🇩🇴 República Dominicana &bull; Cobertura B2B Regional</span>
+        </div>
+        <h1 class="hero-title">
+          Inteligencia Comercial B2B con <span class="gradient-text">Señales Reales de Actividad y Crecimiento</span>.
+        </h1>
+        <p class="hero-subtitle">
+          Dejamos atrás las listas estáticas y obsoletas. Michito procesa registros institucionales, audita presencia web operativa y valida la entregabilidad de cada buzón corporativo en tiempo real para conectar a tu equipo comercial con empresas en momento de compra.
+        </p>
+
+        <div class="hero-cta-group">
+          <a href="#generador" class="btn-primary-large">
+            <span>⚡ Configurar Mi Lote On-Demand</span>
+            <span class="btn-arrow">&rarr;</span>
+          </a>
+          <a href="#como-funciona" class="btn-secondary-large">
+            <span>🔍 Conocer la Metodología</span>
+          </a>
         </div>
 
-        <form id="order-form">
-          <div class="form-group">
-            <label for="campaign-select">Campaña / Cliente B2B</label>
-            <select id="campaign-select" required>
-              <option value="tinkko_enterprise_offices" data-country="CO" data-currency="COP" selected>
-                🇨🇴 Tinkko — Oficinas y Sedes Corporativas (Medellín / Bogotá)
-              </option>
-              <option value="tinkko_dr_offices" data-country="DO" data-currency="DOP">
-                🇩🇴 Tinkko — Expansión República Dominicana (Santo Domingo / Santiago)
-              </option>
-              <option value="hebi" data-country="CO" data-currency="COP">
-                🇨🇴 Hebisend — Logística & Fulfillment E-Commerce
-              </option>
-              <option value="chiketto" data-country="CO" data-currency="COP">
-                🇨🇴 Chiketto — Desarrollo de Software, Apps & AI Agents
-              </option>
-              <option value="blueoil" data-country="CO" data-currency="COP">
-                🇨🇴 Blue Oil — Combustible & Lubricantes para Flotas Pesadas
-              </option>
-              <option value="facility_services_b2b" data-country="CO" data-currency="COP">
-                🇨🇴 Facility Services — Aseo, Seguridad & Mantenimiento Corporativo
-              </option>
-              <option value="warehouse_aburra_norte" data-country="CO" data-currency="COP">
-                🇨🇴 Bodegas Aburrá Norte — Parques Industriales & Lotes Logísticos
-              </option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label for="target-city">Ciudad Objetivo</label>
-              <input type="text" id="target-city" value="Medellín" required placeholder="Ej: Medellín, Bogotá, Santo Domingo">
-            </div>
-
-            <div class="form-group flex-1">
-              <label for="leads-limit">Cantidad de Cuentas</label>
-              <select id="leads-limit">
-                <option value="10">10 Cuentas Verificadas (Lote Rápido)</option>
-                <option value="25" selected>25 Cuentas (Recomendado)</option>
-                <option value="50">50 Cuentas (Escala)</option>
-                <option value="100">100 Cuentas (Pipeline Masivo)</option>
-              </select>
+        <!-- Metric Badges Strip -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-icon">🛡️</span>
+            <div class="metric-data">
+              <span class="metric-val">Alta Entregabilidad</span>
+              <span class="metric-label">Verificación Socket MX de Servidores de Correo</span>
             </div>
           </div>
-
-          <div class="form-divider"><span>Datos de Entrega y Facturación</span></div>
-
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label for="client-name">Nombre del Solicitante</label>
-              <input type="text" id="client-name" placeholder="Ej: Juan Carlos Pérez" required value="Demo Lead Buyer">
-            </div>
-
-            <div class="form-group flex-1">
-              <label for="client-email">Email Corporativo</label>
-              <input type="email" id="client-email" placeholder="director@empresa.com" required value="buyer@demo.com">
+          <div class="metric-card">
+            <span class="metric-icon">🏢</span>
+            <div class="metric-data">
+              <span class="metric-val">Contacto Institucional</span>
+              <span class="metric-label">Representantes Legales y Canales Directos</span>
             </div>
           </div>
-
-          <div class="form-group">
-            <label for="client-phone">Celular WhatsApp (Para Notificaciones de Entrega)</label>
-            <input type="tel" id="client-phone" placeholder="+57 300 123 4567" required value="+573001234567">
+          <div class="metric-card">
+            <span class="metric-icon">📈</span>
+            <div class="metric-data">
+              <span class="metric-val">Señales de Actividad</span>
+              <span class="metric-label">Ejecución de Proyectos, Contratación y Expansión</span>
+            </div>
           </div>
-
-          <button type="submit" id="submit-btn" class="btn-primary">
-            <span class="btn-text">⚡ Iniciar Extracción Asíncrona</span>
-            <span class="btn-loader hidden"></span>
-          </button>
-        </form>
-      </section>
-
-      <!-- Live Asynchronous Order Dashboard -->
-      <section id="order-status-card" class="status-card hidden">
-        <div class="card-header">
-          <div class="order-meta">
-            <span class="order-id-tag">ID: <code id="active-order-id">ord_pending</code></span>
-            <span id="order-badge" class="badge badge-queued">QUEUED</span>
-          </div>
-          <h2 id="order-status-title">Procesando Solicitud en Segundo Plano...</h2>
-          <p id="order-status-desc">El Worker Daemon está escaneando los registros oficiales, verificando servidores MX y buscando triggers de adjudicación.</p>
-        </div>
-
-        <!-- Real-Time Progress Bar -->
-        <div class="progress-bar-wrapper">
-          <div class="progress-bar-track">
-            <div id="progress-bar-fill" class="progress-bar-fill indeterminate"></div>
-          </div>
-          <div class="progress-steps">
-            <span class="step-label active">1. Ingesta</span>
-            <span id="step-mining" class="step-label">2. Minería & MX</span>
-            <span id="step-teaser" class="step-label">3. Teaser & Cotización</span>
-            <span id="step-paid" class="step-label">4. Entrega de Lote</span>
+          <div class="metric-card">
+            <span class="metric-icon">✍️</span>
+            <div class="metric-data">
+              <span class="metric-val">5 Cadencias B2B</span>
+              <span class="metric-label">Estrategias Multitoque Personalizadas por Industria</span>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
 
-        <!-- Sample Teaser Preview Container -->
-        <div id="teaser-container" class="teaser-container hidden">
-          <h3>🎯 Muestra Confidencial de Cuentas Identificadas (3 de <span id="teaser-total">25</span>)</h3>
-          <p class="teaser-note">Cuentas calificadas con datos de contacto C-Level listos para desbloquear tras el pago:</p>
-          <div id="teaser-cards" class="teaser-grid"></div>
+    <!-- Comparison Section: Problema vs Solución -->
+    <section class="comparison-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Diferenciación Comercial</span>
+          <h2>Bases de Datos Tradicionales vs. Motor Michito</h2>
+          <p>Por qué la prospección B2B moderna requiere señales de momento operativo y validación multicapa.</p>
+        </div>
 
-          <!-- Checkout & Pricing Action Box -->
-          <div id="payment-box" class="payment-box">
-            <div class="price-summary">
-              <span class="price-label">Inversión Total del Lote:</span>
-              <span id="price-amount" class="price-val">$500.000 COP</span>
-              <span class="price-guarantee">🛡️ Garantía Cero Rebote (DNS MX & Sitio Web Verificado)</span>
+        <div class="comparison-grid">
+          <div class="comp-col comp-old">
+            <div class="comp-header">
+              <span class="comp-pill red">Bases Estáticas / Directorios Masivos</span>
+              <h3>Bases Tradicionales</h3>
             </div>
-            <button id="pay-btn" class="btn-checkout">
-              <span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>
-            </button>
+            <ul class="comp-list">
+              <li>❌ Listas recopiladas hace meses o años; cargos y empresas desactualizadas.</li>
+              <li>❌ Tasas de rebote elevadas que perjudican la reputación y entregabilidad de tu dominio.</li>
+              <li>❌ Centralitas genéricas sin identificación de decisores relevantes.</li>
+              <li>❌ Contacto en frío sin contexto de momento operativo o presupuesto.</li>
+              <li>❌ Suscripciones fijas obligatorias en USD que se pagan aunque no se utilicen los créditos.</li>
+            </ul>
+          </div>
+
+          <div class="comp-col comp-michito">
+            <div class="comp-header">
+              <span class="comp-pill green">Michito B2B Engine</span>
+              <h3>Inteligencia Fresca On-Demand</h3>
+            </div>
+            <ul class="comp-list">
+              <li>✅ <strong>Información corporativa actualizada:</strong> extracción en vivo desde registros mercantiles oficiales.</li>
+              <li>✅ <strong>Auditoría de presencia web activa:</strong> verificación de que la empresa opera hoy y cuenta con sitio funcional.</li>
+              <li>✅ <strong>Validación de entregabilidad en tiempo real:</strong> comprobación directa de recepción en servidores de correo.</li>
+              <li>✅ <strong>Señales de momento comercial:</strong> identificación de proyectos adjudicados y expansión de operaciones.</li>
+              <li>✅ <strong>Cobro transparente por resultado:</strong> solo pagas por cuentas válidas entregadas según el Tier elegido.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Proprietary Signals Section (Trade Secrets Protected) -->
+    <section id="senales" class="triggers-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Michito Intent Engine™</span>
+          <h2>Señales de Oportunidad que Activan la Venta</h2>
+          <p>Identificamos el momento óptimo para que tu equipo comercial contacte a prospectos que tienen necesidades inmediatas.</p>
+        </div>
+
+        <div class="triggers-grid">
+          <div class="trigger-card">
+            <div class="trigger-num">01</div>
+            <div class="trigger-icon">🏛️</div>
+            <h3>Ejecución de Proyectos & Contratación</h3>
+            <p>Identificamos empresas activas con proyectos y contratos en curso. Cuentan con flujo operativo activo y requieren proveedores de suministros, tecnología, seguros, transporte o servicios corporativos para cumplir con sus entregas.</p>
+            <div class="trigger-tag">Señal: Adjudicación y Ejecución</div>
+          </div>
+
+          <div class="trigger-card">
+            <div class="trigger-num">02</div>
+            <div class="trigger-icon">📈</div>
+            <h3>Crecimiento Operativo & Contratación</h3>
+            <p>Detección de organizaciones en fase de expansión de talento y búsqueda de personal clave, un indicador directo de incremento en presupuesto operacional, nuevas líneas de negocio y necesidad de servicios de soporte.</p>
+            <div class="trigger-tag">Señal: Expansión de Capacidad</div>
+          </div>
+
+          <div class="trigger-card">
+            <div class="trigger-num">03</div>
+            <div class="trigger-icon">📍</div>
+            <h3>Despliegue Operativo Regional</h3>
+            <p>Detección de compañías que amplían su radio de acción comercial o técnico fuera de su sede principal, requiriendo infraestructura física, almacenamiento, espacios de trabajo o aliados logísticos locales.</p>
+            <div class="trigger-tag">Señal: Cobertura Multi-Territorio</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Process Step-by-Step -->
+    <section id="como-funciona" class="process-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Flujo Asíncrono</span>
+          <h2>Cómo Funciona el Proceso de Principio a Fin</h2>
+          <p>Desde la configuración del perfil comercial hasta la entrega del lote estructurado en minutos.</p>
+        </div>
+
+        <div class="process-timeline">
+          <div class="process-step">
+            <div class="step-circle">1</div>
+            <div class="step-info">
+              <h4>Configura tu Lote Objetivo</h4>
+              <p>Selecciona tu vertical de mercado, define el territorio de búsqueda y el volumen de cuentas deseado.</p>
+            </div>
+          </div>
+
+          <div class="process-step">
+            <div class="step-circle">2</div>
+            <div class="step-info">
+              <h4>Filtrado Multicapa de Calidad</h4>
+              <p>El motor consulta registros mercantiles, audita presencia web y verifica la respuesta técnica de los buzones corporativos.</p>
+            </div>
+          </div>
+
+          <div class="process-step">
+            <div class="step-circle">3</div>
+            <div class="step-info">
+              <h4>Vista Previa de Validación</h4>
+              <p>Revisas en pantalla una muestra de las primeras cuentas identificadas para comprobar la afinidad de la industria antes de confirmar el lote.</p>
+            </div>
+          </div>
+
+          <div class="process-step">
+            <div class="step-circle">4</div>
+            <div class="step-info">
+              <h4>Desbloqueo & Descarga Inmediata</h4>
+              <p>Tras la confirmación segura de la orden, descargas tu archivo estructurado para CRM (.CSV) y el Dossier Ejecutivo (.MD) con las 5 cadencias.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Industry Verticals (Generic / Tailored Presets, No Fake Case Studies) -->
+    <section id="verticales" class="campaigns-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Especialidades B2B</span>
+          <h2>Perfiles de Prospección Adaptados por Industria</h2>
+          <p>Matrices de calificación y secuencias comerciales diseñadas para sectores de alta demanda empresarial.</p>
+        </div>
+
+        <div class="campaigns-grid">
+          <div class="campaign-card">
+            <span class="card-country">🇨🇴 Colombia &bull; 🇩🇴 Rep. Dominicana</span>
+            <h4>🏢 Espacios Corporativos & Sedes de Trabajo</h4>
+            <p>Prospección de empresas en crecimiento o ejecutando operaciones regionales con necesidad de oficinas llave en mano, sedes satélite o coworking corporativo.</p>
+            <div class="card-meta">Medellín &bull; Bogotá &bull; Santo Domingo</div>
+          </div>
+
+          <div class="campaign-card">
+            <span class="card-country">🇨🇴 Colombia</span>
+            <h4>🛡️ Gestión de Cartera B2B & Debida Diligencia</h4>
+            <p>Segmentación de medianas y grandes empresas con altos volúmenes de cuentas por cobrar y requerimientos de auditoría y cumplimiento de contratistas.</p>
+            <div class="card-meta">Fintech &bull; B2B SaaS &bull; Servicios Corporativos</div>
+          </div>
+
+          <div class="campaign-card">
+            <span class="card-country">🇨🇴 Colombia</span>
+            <h4>🧾 Software Empresarial & Facturación DIAN</h4>
+            <p>Identificación de compañías con alto flujo documental mensual que requieren automatización contable, conciliación recurrente y conectores de API.</p>
+            <div class="card-meta">Tecnología &bull; Comercio Mayorista &bull; Servicios</div>
+          </div>
+
+          <div class="campaign-card">
+            <span class="card-country">🇨🇴 Colombia</span>
+            <h4>🏗️ Logística, Parques Industriales & Bodegas</h4>
+            <p>Empresas de manufactura, almacenamiento pesado y distribución que demandan infraestructura logística y bodegas estratégicas.</p>
+            <div class="card-meta">Inmobiliario Institucional &bull; Logística y Carga</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deliverables & Quality Standards Section -->
+    <section id="entregables" class="funnel-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Estándar de Calidad</span>
+          <h2>Qué Recibes Exactamente con Cada Lote</h2>
+          <p>Michito entrega inteligencia de prospección lista para accionar. Estos son los 4 componentes auditados que componen cada entrega.</p>
+        </div>
+
+        <div class="funnel-grid">
+          <!-- Pillar 1 -->
+          <div class="funnel-card">
+            <div class="funnel-step-tag">Componente 01</div>
+            <div class="funnel-val">Cuentas Vigentes</div>
+            <h4>Empresas Operativas</h4>
+            <p>Razón social oficial, NIT/RNC verificado, sector CIIU, ciudad y dirección corporativa sin personas naturales ni empresas canceladas.</p>
+          </div>
+
+          <!-- Pillar 2 -->
+          <div class="funnel-card">
+            <div class="funnel-step-tag">Componente 02</div>
+            <div class="funnel-val">Presencia Web</div>
+            <h4>Sitio Web Auditado</h4>
+            <p>Auditoría HTTP en tiempo real para confirmar que la empresa tiene página web activa, descartando dominios en venta o estacionados.</p>
+          </div>
+
+          <!-- Pillar 3 -->
+          <div class="funnel-card">
+            <div class="funnel-step-tag">Componente 03</div>
+            <div class="funnel-val">Buzones Activos</div>
+            <h4>Verificación Socket MX</h4>
+            <p>Comprobación técnica directa de que el servidor de correo institucional del decisor recibe mensajes hoy, minimizando rebotes.</p>
+          </div>
+
+          <!-- Pillar 4 -->
+          <div class="funnel-card featured-funnel">
+            <div class="funnel-step-tag highlight">Componente 04</div>
+            <div class="funnel-val">5 Cadencias</div>
+            <h4>Copywriting por Sector</h4>
+            <p>Mensaje de LinkedIn y 4 correos hiperpersonalizados redactados por industria, listos para importar a tu CRM o herramienta de envío.</p>
           </div>
         </div>
 
-        <!-- Delivery Unlocked Container -->
-        <div id="delivery-container" class="delivery-container hidden">
-          <div class="success-banner">
-            <h3>🎉 ¡Pago Aprobado! Tu Lote de Inteligencia Comercial está Listo</h3>
-            <p>Descarga tus archivos completos con números de celular directo, emails validados y las 5 cadencias de prospección:</p>
+        <!-- Scope & Liability Disclaimer Box -->
+        <div class="scope-disclaimer-box">
+          <div class="disclaimer-header">
+            <span class="disclaimer-badge">⚖️ Delimitación de Alcance Comercial</span>
+            <h3>Michito es un proveedor de datos e inteligencia B2B calificada</h3>
           </div>
-          <div class="delivery-actions">
-            <a id="download-csv-btn" class="btn-download csv" href="#" target="_blank">
-              📥 Descargar Lote CRM (.CSV)
-            </a>
-            <a id="download-dossier-btn" class="btn-download md" href="#" target="_blank">
-              📄 Descargar Dossier Ejecutivo (.MD)
-            </a>
+          <div class="disclaimer-content">
+            <p>
+              Nuestra responsabilidad técnica y contractual consiste en <strong>entregar cuentas corporativas verificadas, canales de contacto válidos y cadencias estratégicas redactadas</strong>. Michito no es una agencia de ventas, no ejecuta llamadas en frío en nombre de terceros ni cobra comisiones por cierre.
+            </p>
+            <p style="margin-top: 0.75rem;">
+              La conversión comercial final, las reuniones agendadas y los negocios cerrados dependen 100% de la propuesta de valor, la competitividad de precios, la agilidad de seguimiento y la habilidad de cierre del equipo comercial de cada cliente.
+            </p>
+            <div class="replacement-guarantee-pill">
+              <span>🛡️ <strong>Garantía Técnica de Reemplazo:</strong> Si algún buzón presenta rebote duro comprobable en los primeros 7 días de entrega, el sistema lo reemplaza sin costo por 2 cuentas verificadas.</span>
+            </div>
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
 
-    <footer class="app-footer">
-      <p>Michito B2B Engine • Arquitectura Limpia Desacoplada • Compatible con Firebase Local Emulator & Cloud Pub/Sub</p>
-    </footer>
-  </div>
+    <!-- Pricing Section (Strategy Aligned: 3 Tiers & Volume Curves) -->
+    <section id="precios" class="pricing-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Precios por Tier & Volumen</span>
+          <h2>Modelo de Cobro por Tiers (Sin Suscripción)</h2>
+          <p>Selecciona el nivel de enriquecimiento que requiere tu equipo de ventas. Descuentos automáticos por volumen de hasta el 42%.</p>
+        </div>
 
-  <script src="app.js"></script>
+        <div class="pricing-cards-wrapper three-col">
+          <!-- Tier 1 -->
+          <div class="pricing-card">
+            <div class="pricing-tag">TIER 1 &bull; DIRECTORIO BASE</div>
+            <div class="pricing-cost">
+              <span class="currency">$</span>
+              <span class="amount">5.000</span>
+              <span class="unit">COP / Lead</span>
+            </div>
+            <p class="pricing-desc">Directorio institucional para prospección masiva y enriquecimiento de base fría.</p>
+            <ul class="pricing-features">
+              <li>✅ NIT / RNC Corporativo Oficial</li>
+              <li>✅ Razón Social & Ciudad</li>
+              <li>✅ Sector CIIU & Actividad Económica</li>
+              <li>✅ Dirección & Sitio Web Auditado</li>
+              <li>✅ Teléfono Institucional / Centralita</li>
+              <li>✅ Descuentos por volumen hasta 42%</li>
+            </ul>
+            <a href="#generador" class="btn-secondary-large full-width">⚡ Elegir Tier 1</a>
+          </div>
+
+          <!-- Tier 2 (Featured) -->
+          <div class="pricing-card featured">
+            <div class="pricing-tag">TIER 2 &bull; DECISOR C-LEVEL [MÁS POPULAR]</div>
+            <div class="pricing-cost">
+              <span class="currency">$</span>
+              <span class="amount">30.000</span>
+              <span class="unit">COP / Lead</span>
+            </div>
+            <p class="pricing-desc">El estándar de prospección con contactos directos y señales de oportunidad comercial.</p>
+            <ul class="pricing-features">
+              <li>✅ <strong>Todo lo incluido en Tier 1</strong></li>
+              <li>✅ <strong>Nombre y Cargo del Tomador de Decisión</strong></li>
+              <li>✅ <strong>Canal Directo de Contacto Corporativo</strong></li>
+              <li>✅ <strong>Correo Validado en Servidor MX</strong></li>
+              <li>✅ <strong>Señales de Contratación & Actividad</strong></li>
+              <li>✅ <strong>5 Cadencias Multitoque Redactadas</strong></li>
+            </ul>
+            <a href="#generador" class="btn-primary-large full-width">⚡ Elegir Tier 2 (Recomendado)</a>
+          </div>
+
+          <!-- Tier 3 -->
+          <div class="pricing-card">
+            <div class="pricing-tag">TIER 3 &bull; AUDITORÍA FINANCIERA & LEGAL</div>
+            <div class="pricing-cost">
+              <span class="currency">$</span>
+              <span class="amount">65.000</span>
+              <span class="unit">COP / Lead</span>
+            </div>
+            <p class="pricing-desc">Análisis profundo para operaciones de alto ticket, evaluación crediticia o contratos clave.</p>
+            <ul class="pricing-features">
+              <li>✅ <strong>Todo lo incluido en Tier 2</strong></li>
+              <li>✅ <strong>Cálculo de EBITDA y Margen Operativo NIIF</strong></li>
+              <li>✅ <strong>Auditoría de Procesos Judiciales Comerciales</strong></li>
+              <li>✅ <strong>Verificación de Paz y Salvo Fiscal Institucional</strong></li>
+              <li>✅ <strong>Dossier Ejecutivo de Underwriting</strong></li>
+              <li>✅ <strong>Perfil de Solvencia Corporativa</strong></li>
+            </ul>
+            <a href="#generador" class="btn-secondary-large full-width">⚡ Elegir Tier 3</a>
+          </div>
+        </div>
+
+        <div class="guarantee-box">
+          <span class="guarantee-shield">🛡️</span>
+          <div>
+            <h4>Cumplimiento Normativo & Garantía de Cobro Justo</h4>
+            <p>El sistema factura <strong>exclusivamente por las cuentas que superan con éxito los filtros de verificación</strong>. Todo el tratamiento de información se apega estrictamente a la legislación de Habeas Data comercial vigente (Ley 1581 de 2012 de Colombia y Ley 172-13 de República Dominicana), utilizando exclusivamente fuentes públicas y comerciales de naturaleza institucional.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive On-Demand Generator Section -->
+    <section id="generador" class="generator-section">
+      <div class="container">
+        <div class="section-header text-center">
+          <span class="sub-badge">Plataforma en Vivo</span>
+          <h2>Generador On-Demand de Lotes B2B</h2>
+          <p>Configura tu lote, observa la calificación en tiempo real y revisa la muestra antes de confirmar.</p>
+        </div>
+
+        <div class="generator-wrapper">
+          <!-- Wizard Card -->
+          <div class="wizard-card">
+            <div class="card-header">
+              <h2>1. Configurar Lote de Prospección</h2>
+              <p>Selecciona tu vertical comercial objetivo para iniciar la búsqueda en tiempo real.</p>
+            </div>
+
+            <form id="order-form">
+              <div class="form-group">
+                <label for="campaign-select">Vertical B2B / Perfil de Campaña</label>
+                <select id="campaign-select" required>
+                  <option value="tinkko_enterprise_offices" data-country="CO" data-currency="COP" selected>
+                    🇨🇴 Espacios & Sedes Corporativas (Medellín / Bogotá)
+                  </option>
+                  <option value="tinkko_dr_offices" data-country="DO" data-currency="DOP">
+                    🇩🇴 Oficinas Corporativas República Dominicana (Santo Domingo / Santiago)
+                  </option>
+                  <option value="hebi" data-country="CO" data-currency="COP">
+                    🇨🇴 Gestión de Cartera B2B & Debida Diligencia de Contratistas
+                  </option>
+                  <option value="chiketto" data-country="CO" data-currency="COP">
+                    🇨🇴 Software Empresarial, APIs & Facturación Electrónica DIAN
+                  </option>
+                  <option value="blueoil" data-country="CO" data-currency="COP">
+                    🇨🇴 Suministro de Combustibles, Lubricantes & Flotas Pesadas
+                  </option>
+                  <option value="facility_services_b2b" data-country="CO" data-currency="COP">
+                    🇨🇴 Facility Management, Aseo Corporativo & Seguridad
+                  </option>
+                  <option value="warehouse_aburra_norte" data-country="CO" data-currency="COP">
+                    🇨🇴 Parques Industriales, Lotes & Bodegas Logísticas
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="lead-tier">Nivel de Enriquecimiento (Tier de Inteligencia)</label>
+                <select id="lead-tier">
+                  <option value="1">Tier 1: Directorio Base ($5.000 COP / RD$ 100 DOP) — NIT, CIIU, Dirección, Teléfono Institucional, Web</option>
+                  <option value="2" selected>Tier 2: Decisor C-Level & Contacto Directo ($30.000 COP / RD$ 350 DOP) — [Más Popular] Decisor, Teléfono, Email MX, Señales</option>
+                  <option value="3">Tier 3: Auditoría Financiera & Legal ($65.000 COP / RD$ 750 DOP) — Todo Tier 2 + EBITDA NIIF + Revisión Judicial</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="target-city">Ciudad Objetivo</label>
+                  <input type="text" id="target-city" value="Medellín" required placeholder="Ej: Medellín, Bogotá, Santo Domingo">
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="leads-limit">Cantidad de Cuentas</label>
+                  <select id="leads-limit">
+                    <option value="10">10 Cuentas Calificadas (Lote Rápido)</option>
+                    <option value="25" selected>25 Cuentas (Recomendado &bull; 6% Desc.)</option>
+                    <option value="50">50 Cuentas (Escala Comercial &bull; 12% Desc.)</option>
+                    <option value="100">100 Cuentas (Pipeline Masivo &bull; 20% Desc.)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-divider"><span>Datos de Contacto y Entrega</span></div>
+
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="client-name">Nombre del Solicitante</label>
+                  <input type="text" id="client-name" placeholder="Ej: Juan Carlos Pérez" required value="Demo Lead Buyer">
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="client-email">Email Corporativo</label>
+                  <input type="email" id="client-email" placeholder="director@empresa.com" required value="buyer@demo.com">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="client-phone">Celular WhatsApp (Para Notificaciones de Entrega)</label>
+                <input type="tel" id="client-phone" placeholder="+57 300 123 4567" required value="+573001234567">
+              </div>
+
+              <button type="submit" id="submit-btn" class="btn-primary">
+                <span class="btn-text">⚡ Iniciar Calificación Asíncrona</span>
+                <span class="btn-loader hidden"></span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Live Asynchronous Order Dashboard -->
+          <div id="order-status-card" class="status-card hidden">
+            <div class="card-header">
+              <div class="order-meta">
+                <span class="order-id-tag">ID: <code id="active-order-id">ord_pending</code></span>
+                <span id="order-badge" class="badge badge-queued">QUEUED</span>
+              </div>
+              <h2 id="order-status-title">Procesando Solicitud en Segundo Plano...</h2>
+              <p id="order-status-desc">El motor está procesando los registros institucionales, validando presencia web y verificando servidores MX.</p>
+            </div>
+
+            <!-- Real-Time Progress Bar -->
+            <div class="progress-bar-wrapper">
+              <div class="progress-bar-track">
+                <div id="progress-bar-fill" class="progress-bar-fill indeterminate"></div>
+              </div>
+              <div class="progress-steps">
+                <span class="step-label active">1. Ingesta</span>
+                <span id="step-mining" class="step-label">2. Validación & MX</span>
+                <span id="step-teaser" class="step-label">3. Vista Previa</span>
+                <span id="step-paid" class="step-label">4. Entrega de Lote</span>
+              </div>
+            </div>
+
+            <!-- Sample Teaser Preview Container -->
+            <div id="teaser-container" class="teaser-container hidden">
+              <h3>🎯 Muestra de Cuentas Identificadas (3 de <span id="teaser-total">25</span>)</h3>
+              <p class="teaser-note">Cuentas calificadas con canales de contacto corporativo listos para desbloquear:</p>
+              <div id="teaser-cards" class="teaser-grid"></div>
+
+              <!-- Checkout & Pricing Action Box -->
+              <div id="payment-box" class="payment-box">
+                <div class="price-summary">
+                  <span class="price-label">Inversión Total del Lote:</span>
+                  <span id="price-amount" class="price-val">$705.000 COP</span>
+                  <span class="price-guarantee">🛡️ Cobro Justo: Solo Pagas por Cuentas Validadas</span>
+                </div>
+                <button id="pay-btn" class="btn-checkout">
+                  <span>💳 Confirmar Orden Segura con Wompi (PSE / Tarjeta)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Delivery Unlocked Container -->
+            <div id="delivery-container" class="delivery-container hidden">
+              <div class="success-banner">
+                <h3>🎉 ¡Orden Confirmada! Tu Lote de Inteligencia Comercial está Listo</h3>
+                <p>Descarga tus archivos completos con canales de contacto, correos validados y las 5 cadencias de prospección:</p>
+              </div>
+              <div class="delivery-actions">
+                <a id="download-csv-btn" class="btn-download csv" href="#" target="_blank">
+                  📥 Descargar Lote CRM (.CSV)
+                </a>
+                <a id="download-dossier-btn" class="btn-download md" href="#" target="_blank">
+                  📄 Descargar Dossier Ejecutivo (.MD)
+                </a>
+              </div>
+              <button id="new-order-btn" class="btn-secondary" style="margin-top: 1.5rem;" onclick="location.reload()">
+                🔄 Configurar Otro Lote
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-name">⚡ MICHITO B2B ENGINE</span>
+        <p>Motor de Generación y Monetización de Prospectos B2B Asíncrono en Cumplimiento con la Legislación de Habeas Data Comercial.</p>
+      </div>
+      <div class="footer-links">
+        <span>© 2026 Michito Technologies &bull; Todos los derechos reservados</span>
+        <span>Régimen Habeas Data (Ley 1581 de 2012) &bull; Canales Corporativos Institucionales</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js?v=2.5"></script>
 </body>
 </html>
-

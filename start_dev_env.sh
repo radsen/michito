@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Michito Engine — TMUX Development Infrastructure Launcher
-# Starts all services in a 2x2 synchronized TMUX dashboard:
-#   ┌───────────────────────────────┬───────────────────────────────┐
-#   │ Pane 0: FastAPI Backend :8000 │ Pane 1: Firebase Hosting :5000│
-#   ├───────────────────────────────┼───────────────────────────────┤
-#   │ Pane 2: Order Worker Daemon   │ Pane 3: Interactive Dev Shell │
-#   └───────────────────────────────┴───────────────────────────────┘
+# Starts all services in dedicated TMUX tabs (windows):
+#   Tab 1: [api]      -> FastAPI Backend (:8000)
+#   Tab 2: [firebase] -> Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)
+#   Tab 3: [worker]   -> Asynchronous Order Worker Daemon
+#   Tab 4: [dev]      -> Interactive Dev Shell & Test Runner
 # ==============================================================================
 
 set -e
@@ -39,7 +38,7 @@ fi
 
 echo -e "${CYAN}"
 echo "================================================================================"
-echo "🚀 MICHITO TMUX DEVELOPMENT ENVIRONMENT LAUNCHER"
+echo "🚀 MICHITO TMUX DEVELOPMENT ENVIRONMENT LAUNCHER (TABBED LAYOUT)"
 echo "================================================================================"
 echo -e "${NC}"
 
@@ -69,47 +68,49 @@ else
     echo -e "${YELLOW}ℹ️ PostgreSQL daemon not reachable on port 5432. Using SQLite (${DB_URL})${NC}"
 fi
 
-# 3. Create TMUX Session & Panes in 2x2 Grid
-echo -e "${YELLOW}[3/4] Initializing TMUX 4-Pane Grid Session '${SESSION_NAME}'...${NC}"
+# 3. Create TMUX Session & Dedicated Tabs (Windows)
+echo -e "${YELLOW}[3/4] Initializing TMUX Session '${SESSION_NAME}' with dedicated Tabs...${NC}"
 
-# Common setup script string to run in every pane
+# Common setup script string to run in every tab
 SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && export DATABASE_URL='$DB_URL' && export PYTHONPATH='$SCRIPT_DIR'"
 
-# Start Session with Pane 0 (FastAPI Backend)
-tmux new-session -d -s "$SESSION_NAME" -n "michito-stack" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:0.0" "$SETUP_CMD && clear && echo '🚀 Starting FastAPI Backend (Port 8000)...' && uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port 8000 --reload" C-m
+# Tab 1: FastAPI Backend (:8000)
+tmux new-session -d -s "$SESSION_NAME" -n "api" -c "$SCRIPT_DIR"
+tmux send-keys -t "$SESSION_NAME:api" "$SETUP_CMD && clear && echo '🚀 Starting FastAPI Backend (Port 8000)...' && uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port 8000 --reload" C-m
 
-# Split horizontally -> Pane 1 (Firebase Emulators: Hosting & Storage)
-tmux split-window -h -t "$SESSION_NAME:0.0" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:0.1" "$SETUP_CMD && clear && echo '📦 Starting Firebase Emulators (Hosting :5000, Storage :9199)...' && firebase emulators:start --only hosting,storage" C-m
+# Tab 2: Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)
+tmux new-window -t "$SESSION_NAME" -n "firebase" -c "$SCRIPT_DIR"
+tmux send-keys -t "$SESSION_NAME:firebase" "$SETUP_CMD && clear && echo '📦 Starting Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)...' && firebase emulators:start --only hosting,storage,pubsub" C-m
 
-# Split Pane 0 vertically -> Pane 2 (Order Worker Daemon)
-tmux split-window -v -t "$SESSION_NAME:0.0" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:0.2" "$SETUP_CMD && clear && echo '⚙️ Starting Asynchronous Order Worker Daemon...' && sleep 3 && python3 order_worker.py --interval 3" C-m
+# Tab 3: Order Worker Daemon
+tmux new-window -t "$SESSION_NAME" -n "worker" -c "$SCRIPT_DIR"
+tmux send-keys -t "$SESSION_NAME:worker" "$SETUP_CMD && clear && echo '⚙️ Starting Asynchronous Order Worker Daemon...' && sleep 2 && python3 order_worker.py --interval 3" C-m
 
-# Split Pane 1 vertically -> Pane 3 (Interactive Dev Shell & Tests)
-tmux split-window -v -t "$SESSION_NAME:0.1" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:0.3" "$SETUP_CMD && clear && echo '💻 Michito Interactive Dev Shell' && echo 'Quick test command: venv/bin/pytest' && echo ''" C-m
+# Tab 4: Interactive Dev Shell & Test Runner
+tmux new-window -t "$SESSION_NAME" -n "dev" -c "$SCRIPT_DIR"
+tmux send-keys -t "$SESSION_NAME:dev" "$SETUP_CMD && clear && echo '💻 Michito Interactive Dev Shell' && echo 'Quick test command: venv/bin/pytest' && echo ''" C-m
 
-# Balance layout to clean 2x2 grid
-tmux select-layout -t "$SESSION_NAME" tiled
+# TMUX UI Styling & Tab Bar
+tmux set-option -t "$SESSION_NAME" mouse on 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" status on 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" status-position bottom 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" status-style "bg=colour236,fg=colour252" 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" window-status-current-style "bg=colour39,fg=colour232,bold" 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" window-status-format " #I:#W " 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" window-status-current-format " #[bold]#I:#W* " 2>/dev/null || true
 
-# Set pane titles
-tmux select-pane -t "$SESSION_NAME:0.0" -T "FastAPI API :8000"
-tmux select-pane -t "$SESSION_NAME:0.1" -T "Hosting :5000 | Storage :9199"
-tmux select-pane -t "$SESSION_NAME:0.2" -T "Order Worker Daemon"
-tmux select-pane -t "$SESSION_NAME:0.3" -T "Dev Shell"
+# Focus on the Dev Shell tab by default
+tmux select-window -t "$SESSION_NAME:dev"
 
-# Select the Dev Shell pane (Pane 3) for immediate typing
-tmux select-pane -t "$SESSION_NAME:0.3"
-
-echo -e "\n${GREEN}[4/4] Launching TMUX Dashboard...${NC}"
+echo -e "\n${GREEN}[4/4] Launching TMUX Tabbed Environment...${NC}"
 echo -e "${CYAN}--------------------------------------------------------------------------------"
-echo -e "TMUX Controls:"
-echo -e " • Switch Panes:     Press [Ctrl+B] then [Arrow Key]"
-echo -e " • Detach Session:   Press [Ctrl+B] then [D] (Services continue running)"
-echo -e " • Re-attach:        Run: ./start_dev_env.sh"
-echo -e " • Stop All:         Run: ./start_dev_env.sh --stop"
+echo -e "TMUX Tab Controls:"
+echo -e " • Direct Tab Switch: Press [Ctrl+B] then [0] (api), [1] (firebase), [2] (worker), [3] (dev)"
+echo -e " • Next / Prev Tab:   Press [Ctrl+B] then [N] (next) or [P] (previous)"
+echo -e " • Click Tabs:        Click any tab in the bottom status bar with your mouse"
+echo -e " • Detach Session:    Press [Ctrl+B] then [D] (Services continue running in background)"
+echo -e " • Re-attach:         Run: ./start_dev_env.sh"
+echo -e " • Stop All:          Run: ./start_dev_env.sh --stop"
 echo -e "--------------------------------------------------------------------------------${NC}"
 
 # Attach to the tmux session

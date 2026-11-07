@@ -81,5 +81,61 @@ class TestOrderWorker(unittest.TestCase):
         self.assertEqual(updated_ord["status"], "awaiting_payment")
         self.assertEqual(updated_ord["delivery"]["total_qualified"], 5)
 
+    def test_process_tier_3_underwriting_pricing(self):
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = {
+            "status": "success",
+            "tier": 3,
+            "currency": "COP",
+            "total_qualified": 10,
+            "csv_path": "/tmp/test_tier3.csv",
+            "dossier_path": "/tmp/test_tier3.md",
+            "sample_teaser": [
+                {
+                    "company_name": "Solvente S.A.S.",
+                    "underwriting_grade": "AAA - Solvente y de Máxima Confianza",
+                    "solvency_tier": "AAA",
+                    "litigation_risk": "CLEAN"
+                }
+            ],
+            "metrics": {"total_elapsed_seconds": 2.5}
+        }
+
+        order = self.adapter.create_order(
+            client_name="Tier 3 Buyer",
+            client_email="buyer3@test.com",
+            campaign_id="tinkko_enterprise_offices",
+            city="Medellín",
+            limit=10,
+            country="CO",
+            tier=3
+        )
+        order_id = order["order_id"]
+
+        daemon = OrderWorkerDaemon(
+            order_repository=self.adapter,
+            use_case=mock_use_case
+        )
+
+        ok = daemon.process_order(order)
+        self.assertTrue(ok)
+
+        # Assert use_case called with tier=3
+        mock_use_case.execute.assert_called_once_with(
+            campaign="tinkko_enterprise_offices",
+            city="Medellín",
+            limit=10,
+            segment="midmarket",
+            tier=3,
+            dry_run=False,
+            output_format="both"
+        )
+
+        # Tier 3 unit base is $65.000 COP = 6.500.000 cents. For 10 leads, 65.000.000 cents ($650.000 COP)
+        updated = self.adapter.get_order(order_id)
+        self.assertEqual(updated["status"], "awaiting_payment")
+        self.assertEqual(updated["payment"]["amount_in_cents"], 65000000)
+        self.assertEqual(updated["delivery"]["sample_teaser"][0]["underwriting_grade"], "AAA - Solvente y de Máxima Confianza")
+
 if __name__ == "__main__":
     unittest.main()

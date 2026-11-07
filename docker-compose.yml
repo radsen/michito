@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: michito-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: michito_admin
+      POSTGRES_PASSWORD: michito_secure_pass
+      POSTGRES_DB: michito
+    ports:
+      - "5432:5432"
+    volumes:
+      - michito_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U michito_admin -d michito"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: michito-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://michito_admin:michito_secure_pass@postgres:5432/michito
+      PORT: 8000
+      GCS_BUCKET_NAME: michito-deliverables
+      GCP_PROJECT_ID: chiketto-michito
+      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-pub_test_dummy}
+      WOMPI_WEBHOOK_SECRET: ${WOMPI_WEBHOOK_SECRET:-secret_test_dummy}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./outputs:/app/outputs
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: michito-worker
+    restart: unless-stopped
+    command: ["python", "-m", "src.entrypoints.workers.order_worker_daemon"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://michito_admin:michito_secure_pass@postgres:5432/michito
+      GCS_BUCKET_NAME: michito-deliverables
+      GCP_PROJECT_ID: chiketto-michito
+    volumes:
+      - ./outputs:/app/outputs
+
+volumes:
+  michito_pgdata:
+    driver: local
+

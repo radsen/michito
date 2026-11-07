@@ -25,29 +25,40 @@ class SqlOrderAdapter:
     """
 
     def __init__(self, database_url: Optional[str] = None, echo: bool = False):
-        default_url = os.environ.get("DATABASE_URL")
-        if not default_url:
-            default_url = "sqlite:///michito_orders.db"
+        default_url = os.environ.get("DATABASE_URL") or "postgresql+psycopg://127.0.0.1:5432/michito"
+        target_url = database_url or default_url
 
-        self.database_url = database_url or default_url
-
-        if self.database_url.startswith("sqlite"):
-            self.engine = create_engine(
-                self.database_url,
-                connect_args={"check_same_thread": False},
-                echo=echo,
-            )
-        else:
-            self.engine = create_engine(
-                self.database_url,
-                pool_pre_ping=True,
-                pool_size=10,
-                max_overflow=20,
-                echo=echo,
-            )
-
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        Base.metadata.create_all(bind=self.engine)
+        try:
+            if target_url.startswith("sqlite"):
+                self.engine = create_engine(
+                    target_url,
+                    connect_args={"check_same_thread": False},
+                    echo=echo,
+                )
+            else:
+                self.engine = create_engine(
+                    target_url,
+                    pool_pre_ping=True,
+                    pool_size=10,
+                    max_overflow=20,
+                    echo=echo,
+                )
+            self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+            Base.metadata.create_all(bind=self.engine)
+            self.database_url = target_url
+        except Exception:
+            # If PostgreSQL is not reachable and no explicit override was passed, fall back cleanly to SQLite
+            if not database_url and not os.environ.get("DATABASE_URL") and not target_url.startswith("sqlite"):
+                self.database_url = "sqlite:///michito_orders.db"
+                self.engine = create_engine(
+                    self.database_url,
+                    connect_args={"check_same_thread": False},
+                    echo=echo,
+                )
+                self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+                Base.metadata.create_all(bind=self.engine)
+            else:
+                raise
 
     def _get_session(self) -> Session:
         return self.SessionLocal()
@@ -96,6 +107,7 @@ class SqlOrderAdapter:
         keywords_include: Optional[List[str]] = None,
         keywords_exclude: Optional[List[str]] = None,
         referral_partner: str = "direct",
+        tier: int = 2,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -125,6 +137,7 @@ class SqlOrderAdapter:
             country=country.upper(),
             city=city,
             requested_limit=limit,
+            tier=tier,
             segment=segment,
             sector=sector,
             keywords_include=keywords_include,
@@ -352,6 +365,18 @@ class SqlOrderAdapter:
             if amount_in_cents == 0:
                 order_obj.delivery_delivered_at = now
 
+            session.commit()
+            return True
+
+    def mark_failed(self, order_id: str, error_message: str) -> bool:
+        """Transitions order to 'failed' if an unrecoverable worker error occurs."""
+        now = datetime.now(timezone.utc)
+        with self._get_session() as session:
+            order_obj = session.get(OrderModel, order_id)
+            if not order_obj:
+                return False
+            order_obj.status = "failed"
+            order_obj.updated_at = now
             session.commit()
             return True
 

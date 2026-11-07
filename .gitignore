@@ -6,6 +6,11 @@ venv/
 .DS_Store
 outputs/*/
 !outputs/.gitkeep
+*.db
+*.sqlite3
+*-debug.log
+firebase-debug.log
+pubsub-debug.log
 
 COST_METRICS.md
 

@@ -1,11 +1,13 @@
 /**
  * Michito Web Client Portal (B2B Lead Intelligence Order Engine)
- * Integrates with Firebase Local Emulators (Firestore on 8080) and simulated Wompi gateway.
+ * Directly connects to FastAPI backend on Port 8000 + PostgreSQL
+ * Served via Firebase Hosting Emulator on Port 5000
  */
 
-const FIRESTORE_EMULATOR_BASE = "http://localhost:8080/v1/projects/michito-prod/databases/(default)/documents/orders";
+const API_BASE_URL = "http://localhost:8000/api/v1/orders";
 
 const form = document.getElementById("order-form");
+const submitBtn = document.getElementById("submit-btn");
 const statusCard = document.getElementById("order-status-card");
 const activeOrderIdEl = document.getElementById("active-order-id");
 const orderBadgeEl = document.getElementById("order-badge");
@@ -24,6 +26,42 @@ const downloadDossierBtn = document.getElementById("download-dossier-btn");
 let currentOrderId = null;
 let pollInterval = null;
 
+function calculateClientPrice(totalLeads, tier = 2, currency = "COP") {
+  const baseRates = currency === "DOP"
+    ? { 1: 10000, 2: 35000, 3: 75000 }
+    : { 1: 500000, 2: 3000000, 3: 6500000 };
+  const unit = baseRates[tier] || baseRates[2];
+
+  let discount = 0.0;
+  if (totalLeads >= 1000) discount = 0.42;
+  else if (totalLeads >= 500) discount = 0.35;
+  else if (totalLeads >= 250) discount = 0.28;
+  else if (totalLeads >= 100) discount = 0.20;
+  else if (totalLeads >= 50) discount = 0.12;
+  else if (totalLeads >= 25) discount = 0.06;
+
+  const discountedUnit = Math.floor(unit * (1.0 - discount));
+  return totalLeads * discountedUnit;
+}
+
+// Dynamic City switch based on country selection
+const campaignSelectEl = document.getElementById("campaign-select");
+const targetCityEl = document.getElementById("target-city");
+if (campaignSelectEl && targetCityEl) {
+  campaignSelectEl.addEventListener("change", () => {
+    const opt = campaignSelectEl.options[campaignSelectEl.selectedIndex];
+    if (opt.dataset.country === "DO") {
+      if (targetCityEl.value === "Medellín" || !targetCityEl.value) {
+        targetCityEl.value = "Santo Domingo";
+      }
+    } else {
+      if (targetCityEl.value === "Santo Domingo") {
+        targetCityEl.value = "Medellín";
+      }
+    }
+  });
+}
+
 // Handle Form Submission
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -35,214 +73,179 @@ form.addEventListener("submit", async (e) => {
   const currency = selectedOption.dataset.currency;
   const city = document.getElementById("target-city").value.trim();
   const limit = parseInt(document.getElementById("leads-limit").value, 10);
+  const tier = parseInt(document.getElementById("lead-tier")?.value || "2", 10);
   const clientName = document.getElementById("client-name").value.trim();
   const clientEmail = document.getElementById("client-email").value.trim();
   const clientPhone = document.getElementById("client-phone").value.trim();
 
-  // Generate Unique Order ID
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const randomHex = Math.random().toString(16).substring(2, 8);
-  currentOrderId = `ord_${dateStr}_${randomHex}`;
-
-  // Build Firestore Document Payload
-  const orderDoc = {
-    fields: {
-      order_id: { stringValue: currentOrderId },
-      client: {
-        mapValue: {
-          fields: {
-            name: { stringValue: clientName },
-            email: { stringValue: clientEmail },
-            phone: { stringValue: clientPhone },
-            channel: { stringValue: "web_portal" }
-          }
-        }
-      },
-      request: {
-        mapValue: {
-          fields: {
-            campaign_id: { stringValue: campaignId },
-            country: { stringValue: country },
-            city: { stringValue: city },
-            limit: { integerValue: limit.toString() }
-          }
-        }
-      },
-      status: { stringValue: "queued" },
-      payment: {
-        mapValue: {
-          fields: {
-            provider: { stringValue: "wompi" },
-            status: { stringValue: "pending" },
-            currency: { stringValue: currency },
-            amount_in_cents: { integerValue: (limit * 2000000).toString() }
-          }
-        }
-      },
-      delivery: {
-        mapValue: {
-          fields: {
-            total_qualified: { integerValue: "0" }
-          }
-        }
-      },
-      created_at: { stringValue: new Date().toISOString() },
-      updated_at: { stringValue: new Date().toISOString() }
+  const orderPayload = {
+    client: {
+      name: clientName,
+      email: clientEmail,
+      phone: clientPhone,
+      channel: "web_portal",
+      referral_partner: "direct"
+    },
+    request: {
+      campaign_id: campaignId,
+      country: country,
+      city: city,
+      limit: limit,
+      tier: tier
     }
   };
 
   // UI Transition to processing
   form.parentElement.classList.add("hidden");
   statusCard.classList.remove("hidden");
-  activeOrderIdEl.textContent = currentOrderId;
+  statusCard.scrollIntoView({ behavior: "smooth" });
+  activeOrderIdEl.textContent = "Connecting to API...";
 
   try {
-    // 1. Post to Firestore Emulator
-    const postUrl = `${FIRESTORE_EMULATOR_BASE}?documentId=${currentOrderId}`;
-    const resp = await fetch(postUrl, {
+    const resp = await fetch(API_BASE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderDoc)
+      body: JSON.stringify(orderPayload)
     });
 
     if (!resp.ok) {
-      console.warn("Could not write directly to Firestore Emulator REST. Running in local simulation mode.");
+      const errText = await resp.text();
+      throw new Error(`API Error (${resp.status}): ${errText}`);
     }
-  } catch (err) {
-    console.warn("Local fetch to emulator failed. Starting simulated polling loop:", err);
-  }
 
-  // Start Status Polling Loop
-  startPolling(currentOrderId, limit, currency);
+    const data = await resp.json();
+    currentOrderId = data.order_id;
+    activeOrderIdEl.textContent = currentOrderId;
+
+    // Start Live Status Polling
+    startPolling(currentOrderId);
+
+  } catch (err) {
+    console.error("Order submission failed:", err);
+    orderStatusTitle.textContent = "⚠️ Error al enviar la orden al backend";
+    orderStatusDesc.textContent = `Asegúrate de que FastAPI esté corriendo en http://localhost:8000. Detalle: ${err.message}`;
+    orderBadgeEl.className = "badge badge-queued";
+    orderBadgeEl.textContent = "ERROR";
+  }
 });
 
-function startPolling(orderId, limit, currency) {
-  let simulatedSeconds = 0;
+function startPolling(orderId) {
+  if (pollInterval) clearInterval(pollInterval);
 
   pollInterval = setInterval(async () => {
-    simulatedSeconds += 2;
-
     try {
-      const getUrl = `${FIRESTORE_EMULATOR_BASE}/${orderId}`;
-      const res = await fetch(getUrl);
+      const res = await fetch(`${API_BASE_URL}/${orderId}`);
+      if (!res.ok) return;
 
-      if (res.ok) {
-        const data = await res.json();
-        const status = data.fields?.status?.stringValue || "queued";
-        handleStatusUpdate(status, data);
-        return;
+      const order = await res.json();
+      const status = order.status || "queued";
+      handleStatusUpdate(status, order);
+
+      if (status === "awaiting_payment" || status === "paid" || status === "completed") {
+        clearInterval(pollInterval);
       }
-    } catch (_) {
-      // Offline / standalone fallback simulation
-    }
-
-    // Local Simulation if Firestore emulator is not running or worker is pending
-    if (simulatedSeconds >= 4 && simulatedSeconds < 8) {
-      handleStatusUpdate("processing", null);
-    } else if (simulatedSeconds >= 8) {
-      handleStatusUpdate("awaiting_payment", {
-        delivery: {
-          total_qualified: limit,
-          sample_teaser: [
-            {
-              company_name: "Soluciones de Inteligencia Digital",
-              city: "Medellín",
-              sector: "Desarrollo Tecnológico & Consultoría",
-              has_contracts: true,
-              intent_level: "Alto (Contratos SECOP II Ganados)"
-            },
-            {
-              company_name: "Grupo Corporativo Logístico Andino",
-              city: "Bogotá",
-              sector: "Logística & Transporte de Carga",
-              has_contracts: false,
-              intent_level: "Estándar (Expansión Activa)"
-            },
-            {
-              company_name: "Servicios Especializados de la Sabana",
-              city: "Medellín",
-              sector: "Servicios Empresariales & Facility",
-              has_contracts: true,
-              intent_level: "Medio (Licitación Vigente)"
-            }
-          ]
-        },
-        amount_in_cents: limit * 2000000,
-        currency: currency
-      });
-      clearInterval(pollInterval);
+    } catch (err) {
+      console.warn("Polling connection error:", err);
     }
   }, 2000);
 }
 
-function handleStatusUpdate(status, data) {
+function handleStatusUpdate(status, order) {
   orderBadgeEl.className = `badge badge-${status}`;
   orderBadgeEl.textContent = status.toUpperCase();
 
-  if (status === "processing") {
-    orderStatusTitle.textContent = "⚙️ Extrayendo y Verificando Cuentas en Tiempo Real...";
-    orderStatusDesc.textContent = "Consultando bases oficiales de SECOP II / DGCP, validando DNS MX de correos y auditando sitios web.";
+  if (status === "queued") {
+    orderStatusTitle.textContent = "⏳ Orden en Cola de Procesamiento...";
+    orderStatusDesc.textContent = "La solicitud ha sido registrada en PostgreSQL. El Worker Daemon la tomará en breve.";
+    progressBarFill.style.width = "25%";
+  } else if (status === "processing") {
+    orderStatusTitle.textContent = "⚙️ Calificando y Verificando Cuentas en Tiempo Real...";
+    orderStatusDesc.textContent = "Procesando registros mercantiles, auditando sitios web y validando respuesta técnica de buzones corporativos.";
     progressBarFill.style.width = "50%";
     document.getElementById("step-mining").classList.add("active");
   } else if (status === "awaiting_payment") {
     orderStatusTitle.textContent = "🎯 ¡Lote Calificado y Verificado! Vista Previa Lista";
-    orderStatusDesc.textContent = "Se completaron los filtros de calidad. Revisa la muestra y procede con el pago para descargar el archivo completo.";
+    orderStatusDesc.textContent = "Filtros de calidad completados. Revisa la muestra y confirma tu orden para desbloquear el lote completo.";
     progressBarFill.style.width = "75%";
     document.getElementById("step-mining").classList.add("done");
     document.getElementById("step-teaser").classList.add("active");
 
-    const totalLeads = data?.delivery?.total_qualified || 25;
+    const totalLeads = order?.delivery?.total_qualified || order?.request?.limit || 25;
     teaserTotal.textContent = totalLeads;
 
-    const teaserList = data?.delivery?.sample_teaser || [];
-    teaserCards.innerHTML = teaserList.map((item) => `
-      <div class="teaser-card">
-        <div class="teaser-company">
-          <h4>${item.company_name}</h4>
-          <p>${item.city} • ${item.sector}</p>
+    const teaserList = order?.delivery?.sample_teaser || [];
+    if (teaserList.length > 0) {
+      teaserCards.innerHTML = teaserList.map((item) => `
+        <div class="teaser-card">
+          <div class="teaser-company">
+            <h4>${item.company_name}</h4>
+            <p>${item.city || "Ciudad"} • ${item.sector || "Sector B2B"}</p>
+          </div>
+          <div class="teaser-intent-tag">
+            ${item.intent_level || "Contacto Institucional Verificado"}
+          </div>
         </div>
-        <div class="teaser-intent-tag">
-          ${item.intent_level || "Verificado"}
+      `).join("");
+    } else {
+      teaserCards.innerHTML = `
+        <div class="teaser-card">
+          <div class="teaser-company">
+            <h4>${order.request?.limit} Cuentas B2B Calificadas</h4>
+            <p>${order.request?.city} • Muestra lista para descarga</p>
+          </div>
+          <div class="teaser-intent-tag">Contacto Verificado</div>
         </div>
-      </div>
-    `).join("");
+      `;
+    }
 
-    const priceCents = data?.amount_in_cents || totalLeads * 2000000;
-    const priceFormatted = `$${(priceCents / 100).toLocaleString("es-CO")} COP`;
-    priceAmount.textContent = priceFormatted;
+    const currency = order?.payment?.currency || "COP";
+    const tier = order?.request?.tier || 2;
+    const priceCents = order?.payment?.amount_in_cents || calculateClientPrice(totalLeads, tier, currency);
+    const formattedPrice = (priceCents / 100).toLocaleString(currency === "DOP" ? "es-DO" : "es-CO");
+    priceAmount.textContent = `${currency === "DOP" ? "RD$" : "$"}${formattedPrice} ${currency}`;
 
     teaserContainer.classList.remove("hidden");
+  } else if (status === "paid" || status === "completed") {
+    showPaidDeliveryUI(order);
   }
 }
 
-// Payment Simulation Action
-payBtn.addEventListener("click", () => {
+function showPaidDeliveryUI(order) {
+  teaserContainer.classList.add("hidden");
+  deliveryContainer.classList.remove("hidden");
+  orderBadgeEl.className = "badge badge-paid";
+  orderBadgeEl.textContent = "PAGADO (APPROVED)";
+  orderStatusTitle.textContent = "✅ ¡Pago Confirmado! Archivos Desbloqueados";
+  orderStatusDesc.textContent = "Tu lote completo de prospección ha sido generado con éxito y está listo para descarga.";
+  progressBarFill.style.width = "100%";
+  document.getElementById("step-teaser").classList.add("done");
+  document.getElementById("step-paid").classList.add("done");
+
+  const orderId = order.order_id || currentOrderId;
+  downloadCsvBtn.href = `${API_BASE_URL}/${orderId}/download/csv`;
+  downloadDossierBtn.href = `${API_BASE_URL}/${orderId}/download/dossier`;
+}
+
+// Payment Action (Calls FastAPI /pay endpoint)
+payBtn.addEventListener("click", async () => {
   payBtn.disabled = true;
   payBtn.innerHTML = "<span>⏳ Procesando Pago con Wompi...</span>";
 
-  setTimeout(() => {
-    teaserContainer.classList.add("hidden");
-    deliveryContainer.classList.remove("hidden");
-    orderBadgeEl.className = "badge badge-paid";
-    orderBadgeEl.textContent = "PAGADO (APPROVED)";
-    orderStatusTitle.textContent = "✅ ¡Pago Confirmado! Archivos Desbloqueados";
-    orderStatusDesc.textContent = "Tu lote completo de prospección ha sido generado con éxito.";
-    progressBarFill.style.width = "100%";
-    document.getElementById("step-teaser").classList.add("done");
-    document.getElementById("step-paid").classList.add("done");
+  try {
+    const resp = await fetch(`${API_BASE_URL}/${currentOrderId}/pay`, {
+      method: "POST"
+    });
 
-    // Set download URLs
-    downloadCsvBtn.href = `#`;
-    downloadCsvBtn.onclick = (e) => {
-      e.preventDefault();
-      alert(`Descargando lote CRM para orden ${currentOrderId}... (Archivo generado por Michito Engine)`);
-    };
+    if (!resp.ok) {
+      throw new Error(`Payment failed with status ${resp.status}`);
+    }
 
-    downloadDossierBtn.href = `#`;
-    downloadDossierBtn.onclick = (e) => {
-      e.preventDefault();
-      alert(`Descargando dossier ejecutivo de prospección con 5 cadencias para orden ${currentOrderId}...`);
-    };
-  }, 1500);
+    const data = await resp.json();
+    showPaidDeliveryUI(data.order);
+
+  } catch (err) {
+    alert(`Error procesando pago: ${err.message}`);
+    payBtn.disabled = false;
+    payBtn.innerHTML = "<span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>";
+  }
 });
-

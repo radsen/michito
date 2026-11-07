@@ -20,6 +20,7 @@ from src.adapters.registries.colombia.secop_contracts_adapter import SecopContra
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
 from src.adapters.verifiers.website_auditor import WebsiteAuditor
 from src.domain.value_objects.ciiu_code import CiiuCode
+from src.application.use_cases.underwrite_lead_use_case import UnderwriteLeadUseCase
 
 # Outputs root relative to workspace root
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -108,6 +109,7 @@ class GenerateProspectsUseCase:
         web_auditor: Optional[Any] = None,
         ledger: Optional[DeduplicationLedger] = None,
         verify_mx_fn: Optional[Any] = None,
+        underwriter: Optional[Any] = None,
     ):
         self.harvester_co = harvester_co
         self.harvester_dr = harvester_dr
@@ -115,6 +117,7 @@ class GenerateProspectsUseCase:
         self.web_auditor = web_auditor
         self.ledger = ledger
         self.verify_mx_fn = verify_mx_fn or verify_mx
+        self.underwriter = underwriter
 
     def execute(
         self,
@@ -125,10 +128,15 @@ class GenerateProspectsUseCase:
         sector: Optional[str] = None,
         dry_run: bool = False,
         output_format: str = "both",
+        tier: int = 2,
     ) -> Dict[str, Any]:
         print("=" * 80)
         print("🚀 UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
+        print(f"   Target Tier: Tier {tier} ({'Underwritten & EBITDA Solvency' if tier == 3 else 'Decision-Maker & Mobile' if tier == 2 else 'Base Directory'})")
         print("=" * 80)
+
+        if tier == 3 and not self.underwriter:
+            self.underwriter = UnderwriteLeadUseCase()
 
         # 1. Load Campaign Configuration Profile
         campaign_cfg = load_campaign(campaign)
@@ -190,9 +198,11 @@ class GenerateProspectsUseCase:
 
         for target_city in target_cities:
             print(f"\n[Harvester] Querying active corporate providers in {target_city}...")
+            # Harvest candidates with a generous buffer to hit the target quota after strict filters
+            raw_multiplier = 10 if target_country == "DO" else 12
             harvester_kwargs: Dict[str, Any] = {
                 "city": target_city,
-                "limit": max(per_city_limit * 6, 40),
+                "limit": max(per_city_limit * raw_multiplier, 100),
                 "corporate_only": True,
             }
             if target_country == "DO":
@@ -334,6 +344,7 @@ class GenerateProspectsUseCase:
             print(f"\n⚠️ No fresh companies found matching all quality and deliverability gates ({total_elapsed:.2f}s).")
             return {
                 "status": "no_leads_found",
+                "tier": tier,
                 "campaign_id": campaign_id,
                 "campaign_name": campaign_name,
                 "country": target_country,
@@ -463,6 +474,22 @@ class GenerateProspectsUseCase:
                 "Touch 5: Breakup / Catalog Subject": t5_sub,
                 "Touch 5: Breakup / Catalog Body": t5_body,
             }
+
+            if tier == 3 and self.underwriter:
+                uw_res = self.underwriter.execute(lead, email_status="valid")
+                lead["underwriting"] = uw_res.to_dict()
+                row.update({
+                    "Underwriting Grade": uw_res.underwriting_grade,
+                    "Composite Quality Score (0-100)": uw_res.composite_score,
+                    "Solvency: Estimated EBITDA (COP)": float(uw_res.ebitda),
+                    "Solvency: EBITDA Margin (%)": round(float(uw_res.ebitda_margin.value * 100), 2),
+                    "Solvency: Tier": uw_res.solvency_tier.value,
+                    "Solvency: Profile Summary": uw_res.solvency_summary,
+                    "Legal Risk: Litigation Status": uw_res.litigation_risk_status,
+                    "Legal Risk: Dockets & Sanctions Summary": uw_res.litigation_summary,
+                    "Credit Terms Recommendation": uw_res.credit_recommendation,
+                })
+
             csv_rows.append(row)
 
             # Record in persistent ledger if not dry-run
@@ -574,6 +601,15 @@ class GenerateProspectsUseCase:
                 md_content.append("```text")
                 md_content.append(r["Touch 5: Breakup / Catalog Body"])
                 md_content.append("```\n")
+
+                if tier == 3 and "Underwriting Grade" in r:
+                    md_content.append("#### 🏛️ Suscripción Financiera y Riesgo Legal (Tier 3)")
+                    md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
+                    md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {target_currency}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
+                    md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
+                    md_content.append(f"* **Semáforo Legal**: **{r['Legal Risk: Litigation Status']}** — {r['Legal Risk: Dockets & Sanctions Summary']}")
+                    md_content.append(f"* **Recomendación Comercial de Crédito**: {r['Credit Terms Recommendation']}\n")
+
                 md_content.append("---\n")
 
             with open(md_filename, "w", encoding="utf-8") as f:
@@ -617,8 +653,25 @@ class GenerateProspectsUseCase:
         print(f"\n🎉 Batch Execution Complete! Deliverables saved to:\n   📂 {batch_dir}")
         print("=" * 80)
 
+        teaser_list = []
+        for lead in all_selected[:3]:
+            t_item = {
+                "company_name": lead.get("clean_name", lead.get("company_name", "")),
+                "city": lead.get("city", target_cities[0] if target_cities else ""),
+                "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
+                "decision_maker_title": lead.get("decision_maker_title", "Representante Legal"),
+                "has_contracts": lead.get("contracts_data", {}).get("has_contracts", False),
+                "intent_level": lead.get("contracts_data", {}).get("intent_level", "Medium"),
+            }
+            if tier == 3 and "underwriting" in lead:
+                t_item["underwriting_grade"] = lead["underwriting"].get("underwriting_grade")
+                t_item["solvency_tier"] = lead["underwriting"].get("solvency_tier")
+                t_item["litigation_risk"] = lead["underwriting"].get("litigation_risk_status")
+            teaser_list.append(t_item)
+
         return {
             "status": "success",
+            "tier": tier,
             "campaign_id": campaign_id,
             "campaign_name": campaign_name,
             "country": target_country,
@@ -630,17 +683,7 @@ class GenerateProspectsUseCase:
             "teaser_path": teaser_filename if compiled_teaser else None,
             "total_qualified": qualified_count,
             "leads": all_selected,
-            "sample_teaser": [
-                {
-                    "company_name": lead["clean_name"],
-                    "city": lead["city"],
-                    "sector": lead["ciiu"].sector_macro,
-                    "decision_maker_title": lead["decision_maker_title"],
-                    "has_contracts": lead["contracts_data"]["has_contracts"],
-                    "intent_level": lead["contracts_data"]["intent_level"],
-                }
-                for lead in all_selected[:3]
-            ],
+            "sample_teaser": teaser_list,
             "metrics": {
                 "total_elapsed_seconds": round(total_elapsed, 2),
                 "harvest_seconds": round(harvest_time_total, 2),
