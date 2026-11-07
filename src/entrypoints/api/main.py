@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -294,35 +296,51 @@ def calculate_ebitda(request: EbitdaRequest, container: Container = Depends(get_
 
 @app.post("/api/v1/webhooks/wompi")
 def wompi_webhook(request: Request, event_data: dict, container: Container = Depends(get_container)):
+    WOMPI_EVENTS_SECRET = "test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK"
+    
     signature = event_data.get("signature", {}).get("checksum", "")
-    if not signature:
-        signature = request.headers.get("X-Signature", "")
+    data = event_data.get("data", {})
+    transaction = data.get("transaction", {})
+    
+    tx_id = transaction.get("id", "")
+    status = transaction.get("status", "")
+    amount_in_cents = transaction.get("amount_in_cents", "")
+    timestamp = event_data.get("timestamp", "")
+    
+    raw_str = f"{tx_id}{status}{amount_in_cents}{timestamp}{WOMPI_EVENTS_SECRET}"
+    expected_checksum = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+    
+    if not signature or not hmac.compare_digest(expected_checksum, signature):
+        logger.warning("Invalid Wompi webhook signature")
+        raise HTTPException(status_code=401, detail="Invalid signature")
 
-    # 1. Execute domain use case (legacy in-memory verification)
-    container.fulfill_webhook_use_case.execute(event_data, signature)
-
-    # 2. Update PostgreSQL production order if transaction is approved
+    # Keep legacy execution for any side effects
     try:
-        data = event_data.get("data", {})
-        transaction = data.get("transaction", {})
-        status = transaction.get("status", "")
-        reference = transaction.get("reference", "")
-        tx_id = transaction.get("id", f"tx_wompi_{uuid.uuid4().hex[:8]}")
-        amount = int(transaction.get("amount_in_cents", 0))
-
-        if status == "APPROVED" and reference:
-            order = sql_adapter.get_order(reference)
-            if order:
-                sql_adapter.mark_order_paid(
-                    order_id=reference,
-                    transaction_id=str(tx_id),
-                    amount_in_cents=amount or order.get("payment", {}).get("amount_in_cents", 0)
-                )
-                logger.info(f"[WompiWebhook] ✅ Order `{reference}` marked paid in PostgreSQL.")
+        container.fulfill_webhook_use_case.execute(event_data, signature)
     except Exception as e:
-        logger.error(f"[WompiWebhook] Error updating order in database: {e}")
+        logger.warning(f"Legacy fulfill_webhook_use_case failed: {e}")
+
+    if status == "APPROVED":
+        reference = transaction.get("reference", "")
+        if reference:
+            try:
+                order = sql_adapter.get_order(reference)
+                if order:
+                    if order.get("status") == "paid" or order.get("payment_status") == "approved":
+                        logger.info(f"[WompiWebhook] Order `{reference}` already paid. (Idempotency)")
+                        return {"status": "received"}
+
+                    sql_adapter.mark_order_paid(
+                        order_id=reference,
+                        transaction_id=str(tx_id),
+                        amount_in_cents=int(amount_in_cents)
+                    )
+                    logger.info(f"[WompiWebhook] ✅ Order `{reference}` marked paid in PostgreSQL.")
+            except Exception as e:
+                logger.error(f"[WompiWebhook] Error updating order in database: {e}")
 
     return {"status": "received"}
+
 
 @app.get("/api/v1/webhooks/whatsapp")
 def verify_whatsapp_webhook(request: Request):

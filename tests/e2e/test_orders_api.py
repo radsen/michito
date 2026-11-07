@@ -78,6 +78,9 @@ class TestOrdersApi(unittest.TestCase):
                     "reference": order_id
                 }
             },
+            "signature": {
+                "checksum": "4b113556d6bf3743bf9d98cb00d553b3a0643766d85aaad4f5b5f60680054e13"
+            },
             "timestamp": 1730926250
         }
         res_wh = self.client.post("/api/v1/webhooks/wompi", json=webhook_event)

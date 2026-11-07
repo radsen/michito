@@ -71,6 +71,9 @@ def test_wompi_webhook():
                     "reference": "order-123"
                 }
             },
+            "signature": {
+                "checksum": "d0862dd2186d14de65b16abbf3cdb671f57c428758b0450e21fae99e58ea308c"
+            },
             "timestamp": 1234567890
         }
     )
