@@ -1,36 +1,39 @@
-# Security Audit Report for PR #13
+# Security Audit Report
 
-## Summary
-A Static Application Security Testing (SAST) scan was performed using `bandit` on the `src/` directory. The scan identified several security concerns that should be addressed before merging this pull request.
+**PR ID:** 13
+**PR Title:** feat(frontend): integrate Wompi checkout widget (Issue #404)
+**Target Branch:** dev
+**Tool Used:** Bandit
 
-## Findings
+## Findings Summary
+A SAST scan was performed on the `src/` directory using Bandit. 
 
-### High/Medium Severity Issues
-1. **[B310:blacklist] Audit url open for permitted schemes.**
-   - Multiple instances found where `urllib.request.urlopen` is used without explicitly restricting permitted schemes (e.g., to `http` or `https` only), which could allow unexpected schemes like `file:/`.
-   - **Locations:**
-     - `src/adapters/enrichment/apollo_enrichment_adapter.py:82:21`
-     - `src/adapters/registries/colombia/secop_contracts_adapter.py:47:17`
-     - `src/adapters/registries/colombia/secop_harvester_adapter.py:90:17`
-     - `src/adapters/registries/colombia/supersociedades_soda_adapter.py:58:21`
-     - `src/adapters/registries/dominican_republic/dgcp_dr_adapter.py:34:17`
-     - `src/adapters/verifiers/website_auditor.py:96:17`
-   - **Recommendation:** Validate URLs to ensure they use `http` or `https` schemes before passing them to `urlopen`.
+### 1. Hardcoded Secret (CWE-259)
+- **Severity:** Low (Contextually High as it's a hardcoded API secret)
+- **File:** `src/entrypoints/api/main.py:299`
+- **Issue:** `[B105:hardcoded_password_string]` Possible hardcoded password: `'test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK'`
+- **Description:** A Wompi events secret `WOMPI_EVENTS_SECRET` is hardcoded directly into the `wompi_webhook` route logic. 
+- **Remediation:** Remove the hardcoded secret. Load it from environment variables or a secure secret management service (e.g., `os.getenv("WOMPI_EVENTS_SECRET")`).
 
-### Low Severity Issues
-1. **[B105:hardcoded_password_string] Possible hardcoded password**
-   - **Description:** A hardcoded secret was detected for Wompi events. Hardcoding secrets in the source code can lead to unauthorized access and security breaches.
-   - **Location:** `src/entrypoints/api/main.py:299:26` - `WOMPI_EVENTS_SECRET = "test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK"`
-   - **Recommendation:** Use environment variables or a secure secret management service to store and access secrets.
+### 2. Unsafe URL Open Schemes (CWE-22)
+- **Severity:** Medium
+- **Files Affected:**
+  - `src/adapters/enrichment/apollo_enrichment_adapter.py:82`
+  - `src/adapters/registries/colombia/secop_contracts_adapter.py:47`
+  - `src/adapters/registries/colombia/secop_harvester_adapter.py:90`
+  - `src/adapters/registries/colombia/supersociedades_soda_adapter.py:58`
+  - `src/adapters/registries/dominican_republic/dgcp_dr_adapter.py:34`
+  - `src/adapters/verifiers/website_auditor.py:96`
+- **Issue:** `[B310:blacklist]` Audit url open for permitted schemes. Allowing use of `file:/` or custom schemes is often unexpected.
+- **Description:** Use of `urllib.request.urlopen` with dynamically constructed URLs can be vulnerable to SSRF or local file read attacks if schemas are not validated.
+- **Remediation:** Validate URLs to ensure they use `http` or `https` before calling `urlopen`, or use a library like `requests`.
 
-2. **[B110:try_except_pass] Try, Except, Pass detected.**
-   - Multiple instances of bare or silent exceptions were found. This can hide potential errors or security-relevant failures, making debugging difficult and system behavior unpredictable.
-   - **Locations:**
-     - `src/adapters/enrichment/apollo_enrichment_adapter.py:100:12`
-     - `src/adapters/registries/colombia/supersociedades_soda_adapter.py:70:12`
-     - `src/adapters/storage/gcs_storage_adapter.py:82:12`, `113:12`
-     - `src/config.py:30:4`
-   - **Recommendation:** Avoid `pass` in `except` blocks. Log the exceptions appropriately and ensure that failure conditions are handled correctly.
+### 3. Try, Except, Pass (CWE-703)
+- **Severity:** Low
+- **Files Affected:** Multiple files (e.g., `apollo_enrichment_adapter.py`, `gcs_storage_adapter.py`, `config.py`).
+- **Issue:** `[B110:try_except_pass]` Try, Except, Pass detected.
+- **Description:** Silently dropping exceptions can hide errors and potentially lead to unexpected application states or bypasses.
+- **Remediation:** Properly log exceptions or handle them appropriately.
 
 ## Conclusion
-Please address the hardcoded secret (`WOMPI_EVENTS_SECRET`) in `main.py` immediately as this represents a tangible security risk. Additionally, address the `urlopen` schemes and exception handling practices.
+The hardcoded secret must be fixed immediately before this branch is merged into `dev`. The other findings should be addressed or ticketed as technical debt.
