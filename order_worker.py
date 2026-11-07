@@ -34,7 +34,17 @@ def process_single_order(adapter: FirestoreOrderAdapter, order: Dict[str, Any]) 
 
 
 def run_worker_loop(poll_interval_sec: int = 5, run_once: bool = False):
-    daemon = OrderWorkerDaemon(use_case=DynamicProspectingUseCaseAdapter())
+    from src.adapters.queue.gcp_pubsub_adapter import GcpPubSubQueueAdapter
+    queue_adapter = None
+    try:
+        queue_adapter = GcpPubSubQueueAdapter()
+    except Exception as e:
+        print(f"Failed to initialize GCP PubSub adapter: {e}")
+        
+    daemon = OrderWorkerDaemon(
+        order_queue=queue_adapter,
+        use_case=DynamicProspectingUseCaseAdapter()
+    )
     daemon.run_loop(poll_interval_sec=poll_interval_sec, run_once=run_once)
 
 

@@ -158,6 +158,14 @@ def create_prospecting_order(payload: CreateOrderRequest):
             keywords_exclude=payload.request.keywords_exclude,
             tier=payload.request.tier or 2,
         )
+
+        try:
+            from src.adapters.queue.gcp_pubsub_adapter import GcpPubSubQueueAdapter
+            queue_adapter = GcpPubSubQueueAdapter()
+            queue_adapter.publish_order({"order_id": order["order_id"]})
+        except Exception as e:
+            logger.error(f"Failed to publish order {order['order_id']} to queue: {e}")
+
         return {
             "status": "success",
             "order_id": order["order_id"],
