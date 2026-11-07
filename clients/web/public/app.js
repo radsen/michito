@@ -25,6 +25,8 @@ const downloadDossierBtn = document.getElementById("download-dossier-btn");
 
 let currentOrderId = null;
 let pollInterval = null;
+let currentOrderAmount = null;
+let currentOrderCurrency = null;
 
 function calculateClientPrice(totalLeads, tier = 2, currency = "COP") {
   const baseRates = currency === "DOP"
@@ -201,6 +203,8 @@ function handleStatusUpdate(status, order) {
     const currency = order?.payment?.currency || "COP";
     const tier = order?.request?.tier || 2;
     const priceCents = order?.payment?.amount_in_cents || calculateClientPrice(totalLeads, tier, currency);
+    currentOrderAmount = priceCents;
+    currentOrderCurrency = currency;
     const formattedPrice = (priceCents / 100).toLocaleString(currency === "DOP" ? "es-DO" : "es-CO");
     priceAmount.textContent = `${currency === "DOP" ? "RD$" : "$"}${formattedPrice} ${currency}`;
 
@@ -226,22 +230,50 @@ function showPaidDeliveryUI(order) {
   downloadDossierBtn.href = `${API_BASE_URL}/${orderId}/download/dossier`;
 }
 
-// Payment Action (Calls FastAPI /pay endpoint)
+async function generateWompiSignature(reference, amount, currency, secret) {
+  const data = reference.toString() + amount.toString() + currency.toString() + secret;
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Payment Action (Opens Wompi Widget)
 payBtn.addEventListener("click", async () => {
   payBtn.disabled = true;
-  payBtn.innerHTML = "<span>⏳ Procesando Pago con Wompi...</span>";
+  payBtn.innerHTML = "<span>⏳ Abriendo Wompi...</span>";
 
   try {
-    const resp = await fetch(`${API_BASE_URL}/${currentOrderId}/pay`, {
-      method: "POST"
+    const WOMPI_PUBLIC_KEY = 'pub_test_IcBzwUvqUDy85sD7i3snlgxvMLj4A1eL';
+    const WOMPI_INTEGRITY_SECRET = 'test_integrity_r5SIpk6PnYywRaCxQlOXgySj28wNNlmj';
+    
+    const signature = await generateWompiSignature(
+      currentOrderId,
+      currentOrderAmount,
+      currentOrderCurrency,
+      WOMPI_INTEGRITY_SECRET
+    );
+
+    const checkout = new WidgetCheckout({
+      currency: currentOrderCurrency,
+      amountInCents: currentOrderAmount,
+      reference: currentOrderId,
+      publicKey: WOMPI_PUBLIC_KEY,
+      signature: { integrity: signature }
     });
 
-    if (!resp.ok) {
-      throw new Error(`Payment failed with status ${resp.status}`);
-    }
-
-    const data = await resp.json();
-    showPaidDeliveryUI(data.order);
+    checkout.open(function(result) {
+      const transaction = result.transaction;
+      if (transaction && transaction.status === 'APPROVED') {
+        payBtn.innerHTML = "<span>✅ Pago Aprobado. Verificando...</span>";
+        // Start polling again to wait for backend webhook
+        pollForPayment(currentOrderId);
+      } else {
+        payBtn.disabled = false;
+        payBtn.innerHTML = "<span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>";
+      }
+    });
 
   } catch (err) {
     alert(`Error procesando pago: ${err.message}`);
@@ -325,3 +357,27 @@ if (btnEn) btnEn.addEventListener("click", () => applyLanguage("en"));
 document.addEventListener("DOMContentLoaded", () => {
   applyLanguage(currentLang);
 });
+
+function pollForPayment(orderId) {
+  let attempts = 0;
+  const paymentInterval = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch(`${API_BASE_URL}/${orderId}`);
+      if (!res.ok) return;
+
+      const order = await res.json();
+      if (order.status === "paid" || order.status === "completed") {
+        clearInterval(paymentInterval);
+        showPaidDeliveryUI(order);
+      } else if (attempts > 30) {
+        clearInterval(paymentInterval);
+        alert("El pago fue aprobado, pero el sistema está tardando en procesarlo. Por favor, recarga la página en unos minutos.");
+        payBtn.disabled = false;
+        payBtn.innerHTML = "<span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>";
+      }
+    } catch (err) {
+      console.warn("Polling payment error:", err);
+    }
+  }, 2000);
+}
