@@ -249,3 +249,79 @@ payBtn.addEventListener("click", async () => {
     payBtn.innerHTML = "<span>💳 Pagar Seguro con Wompi (PSE / Tarjeta)</span>";
   }
 });
+
+// ------------------------------------------------------------------------------
+// Dual Language Localization (es_CO Default, en_US Toggle)
+// ------------------------------------------------------------------------------
+const TRANSLATIONS = {
+  es: {
+    statusText: "Motor Activo",
+    navCta: "🚀 Configurar Lote",
+    heroTitle: 'Inteligencia Comercial B2B con <span class="gradient-text">Señales Reales de Actividad y Crecimiento</span>.',
+    heroSubtitle: 'Dejamos atrás las listas estáticas y obsoletas. Michito procesa registros institucionales, audita presencia web operativa y valida la entregabilidad de cada buzón corporativo en tiempo real para conectar a tu equipo comercial con empresas en momento de compra.',
+    heroCtaPrimary: "⚡ Configurar Lote de Prospección",
+    heroCtaSecondary: "Ver Cómo Funciona la Metodología",
+    formSubmit: "⚡ Iniciar Calificación Asíncrona",
+  },
+  en: {
+    statusText: "Engine Active",
+    navCta: "🚀 Configure Batch",
+    heroTitle: 'B2B Sales Intelligence with <span class="gradient-text">Real Activity & Growth Triggers</span>.',
+    heroSubtitle: 'Leave obsolete static lists behind. Michito scans statutory corporate registries, audits operational web presence, and verifies physical mailbox deliverability in real-time to connect your sales team with ready-to-buy accounts.',
+    heroCtaPrimary: "⚡ Configure Prospecting Batch",
+    heroCtaSecondary: "Explore Methodology",
+    formSubmit: "⚡ Launch Asynchronous Extraction",
+  }
+};
+
+let currentLang = localStorage.getItem("michito_lang") || "es";
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("michito_lang", lang);
+
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.es;
+
+  const btnEs = document.getElementById("btn-lang-es");
+  const btnEn = document.getElementById("btn-lang-en");
+  if (btnEs && btnEn) {
+    if (lang === "es") {
+      btnEs.classList.add("active");
+      btnEn.classList.remove("active");
+    } else {
+      btnEn.classList.add("active");
+      btnEs.classList.remove("active");
+    }
+  }
+
+  const navStatus = document.getElementById("nav-status-text");
+  if (navStatus) navStatus.textContent = t.statusText;
+
+  const navCta = document.getElementById("nav-cta-btn");
+  if (navCta) navCta.textContent = t.navCta;
+
+  const heroTitle = document.querySelector(".hero-title");
+  if (heroTitle) heroTitle.innerHTML = t.heroTitle;
+
+  const heroSubtitle = document.querySelector(".hero-subtitle");
+  if (heroSubtitle) heroSubtitle.textContent = t.heroSubtitle;
+
+  const heroCta1 = document.querySelector(".btn-hero-primary");
+  if (heroCta1) heroCta1.textContent = t.heroCtaPrimary;
+
+  const heroCta2 = document.querySelector(".btn-hero-secondary");
+  if (heroCta2) heroCta2.textContent = t.heroCtaSecondary;
+
+  const submitBtnText = document.querySelector("#submit-btn .btn-text");
+  if (submitBtnText) submitBtnText.textContent = t.formSubmit;
+}
+
+const btnEs = document.getElementById("btn-lang-es");
+const btnEn = document.getElementById("btn-lang-en");
+if (btnEs) btnEs.addEventListener("click", () => applyLanguage("es"));
+if (btnEn) btnEn.addEventListener("click", () => applyLanguage("en"));
+
+// Apply saved language preference on load
+document.addEventListener("DOMContentLoaded", () => {
+  applyLanguage(currentLang);
+});

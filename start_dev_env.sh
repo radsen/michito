@@ -3,7 +3,7 @@
 # Michito Engine — TMUX Development Infrastructure Launcher
 # Starts all services in dedicated TMUX tabs (windows):
 #   Tab 1: [api]      -> FastAPI Backend (:8000)
-#   Tab 2: [firebase] -> Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)
+#   Tab 2: [firebase] -> Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001, Hub :4401)
 #   Tab 3: [worker]   -> Asynchronous Order Worker Daemon
 #   Tab 4: [dev]      -> Interactive Dev Shell & Test Runner
 # ==============================================================================
@@ -78,9 +78,9 @@ SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && export DATABASE_URL='
 tmux new-session -d -s "$SESSION_NAME" -n "api" -c "$SCRIPT_DIR"
 tmux send-keys -t "$SESSION_NAME:api" "$SETUP_CMD && clear && echo '🚀 Starting FastAPI Backend (Port 8000)...' && uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port 8000 --reload" C-m
 
-# Tab 2: Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)
+# Tab 2: Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001, Hub :4401)
 tmux new-window -t "$SESSION_NAME" -n "firebase" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:firebase" "$SETUP_CMD && clear && echo '📦 Starting Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085)...' && firebase emulators:start --only hosting,storage,pubsub" C-m
+tmux send-keys -t "$SESSION_NAME:firebase" "$SETUP_CMD && clear && echo '📦 Starting Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001)...' && firebase emulators:start --only hosting,storage,pubsub" C-m
 
 # Tab 3: Order Worker Daemon
 tmux new-window -t "$SESSION_NAME" -n "worker" -c "$SCRIPT_DIR"

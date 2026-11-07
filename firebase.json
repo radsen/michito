@@ -37,9 +37,17 @@
       "port": 5005,
       "host": "0.0.0.0"
     },
+    "hub": {
+      "port": 4401,
+      "host": "0.0.0.0"
+    },
+    "logging": {
+      "port": 4501,
+      "host": "0.0.0.0"
+    },
     "ui": {
       "enabled": true,
-      "port": 4000,
+      "port": 4001,
       "host": "0.0.0.0"
     },
     "singleProjectMode": true

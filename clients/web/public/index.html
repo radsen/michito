@@ -34,11 +34,15 @@
       </nav>
 
       <div class="header-actions">
+        <div class="lang-switch-group" id="lang-switch-group">
+          <button type="button" class="lang-btn active" id="btn-lang-es" data-lang="es">🇨🇴 ES</button>
+          <button type="button" class="lang-btn" id="btn-lang-en" data-lang="en">🇺🇸 EN</button>
+        </div>
         <span class="status-pill">
           <span class="status-dot"></span>
-          <span>Motor Activo</span>
+          <span id="nav-status-text">Motor Activo</span>
         </span>
-        <a href="#generador" class="btn-nav">🚀 Configurar Lote</a>
+        <a href="#generador" class="btn-nav" id="nav-cta-btn">🚀 Configurar Lote</a>
       </div>
     </div>
   </header>
