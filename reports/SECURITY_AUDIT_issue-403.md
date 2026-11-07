@@ -1,39 +1,32 @@
-# Security Audit Report - Issue 403
+# Security Audit Report for PR: feature/issue-403
 
 ## Overview
-A Static Application Security Testing (SAST) was performed using Bandit on the `feature/issue-403` branch.
+This security audit was performed against the `feature/issue-403` branch using Bandit for Static Application Security Testing (SAST). 
 
 ## Findings Summary
-- **High Severity**: 0
-- **Medium Severity**: 6
-- **Low Severity**: 7
+- **High Severity:** 0
+- **Medium Severity:** 6
+- **Low Severity:** 5
 
 ## Detailed Findings
 
-### Medium Severity (6)
-**[B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected. (CWE-22)**
-*The use of `urllib.request.urlopen` without scheme validation can lead to file read vulnerabilities if user input is passed as the URL.*
-- `src/adapters/enrichment/apollo_enrichment_adapter.py:82`
-- `src/adapters/registries/colombia/secop_contracts_adapter.py:47`
-- `src/adapters/registries/colombia/secop_harvester_adapter.py:90`
-- `src/adapters/registries/colombia/supersociedades_soda_adapter.py:58`
-- `src/adapters/registries/dominican_republic/dgcp_dr_adapter.py:34`
-- `src/adapters/verifiers/website_auditor.py:96`
+### Medium Severity (B310: Audit url open for permitted schemes)
+The codebase uses `urllib.request.urlopen` which can potentially allow the use of `file:/` or custom schemes if user input is passed directly to the URL. It is recommended to use the `requests` library or validate schemas strictly (e.g., restrict to `http` and `https`).
+- `src/adapters/enrichment/apollo_enrichment_adapter.py` (Line 82)
+- `src/adapters/registries/colombia/secop_contracts_adapter.py` (Line 47)
+- `src/adapters/registries/colombia/secop_harvester_adapter.py` (Line 90)
+- `src/adapters/registries/colombia/supersociedades_soda_adapter.py` (Line 58)
+- `src/adapters/registries/dominican_republic/dgcp_dr_adapter.py` (Line 34)
+- `src/adapters/verifiers/website_auditor.py` (Line 96)
 
-*Recommendation: Validate URLs to ensure they begin with `http://` or `https://` before calling `urllib.request.urlopen`, or migrate to using the `requests` library which defaults to safe behavior.*
+### Low Severity (B110: Try, Except, Pass detected)
+Silently catching and passing exceptions (`except Exception: pass`) can mask underlying issues, making debugging difficult and potentially failing silently when an error occurs.
+- `src/adapters/enrichment/apollo_enrichment_adapter.py` (Line 100)
+- `src/adapters/registries/colombia/supersociedades_soda_adapter.py` (Line 70)
+- `src/adapters/storage/gcs_storage_adapter.py` (Line 82)
+- `src/adapters/storage/gcs_storage_adapter.py` (Line 113)
+- `src/config.py` (Line 30)
 
-### Low Severity (7)
-**[B110:try_except_pass] Try, Except, Pass detected. (CWE-703)**
-*Silently ignoring exceptions can mask potential bugs or system failures.*
-- `src/adapters/enrichment/apollo_enrichment_adapter.py:100`
-- `src/adapters/queue/gcp_pubsub_adapter.py:39`
-- `src/adapters/queue/gcp_pubsub_adapter.py:47`
-- `src/adapters/registries/colombia/supersociedades_soda_adapter.py:70`
-- `src/adapters/storage/gcs_storage_adapter.py:82`
-- `src/adapters/storage/gcs_storage_adapter.py:113`
-- `src/config.py:30`
-
-*Recommendation: Log exceptions instead of using `pass` to maintain visibility into application errors.*
-
-## Conclusion
-The findings are primarily medium-level issues related to `urllib.request.urlopen`. Ensure that any dynamically constructed URLs are properly validated to restrict schemes to HTTPS. The empty except blocks should also be refactored to include logging where appropriate. No critical or high severity issues were found.
+## Recommendations
+1. Replace `urllib.request.urlopen` calls with the `requests` library where feasible, or ensure inputs are strongly validated and strictly enforce `https://`.
+2. Avoid using `except Exception: pass`. Instead, explicitly log the exception (e.g., using `logging.error` or `logging.warning`) so that failures are not entirely silent.
