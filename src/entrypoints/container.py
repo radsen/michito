@@ -1,3 +1,4 @@
+from src.adapters.queue.pubsub_queue_adapter import PubSubQueueAdapter
 import os
 from typing import List, Dict
 from src.adapters.registries.colombia.supersociedades_soda_adapter import SupersociedadesSodaAdapter
@@ -58,6 +59,14 @@ class Container:
             webhook_secret=os.environ.get("WOMPI_WEBHOOK_SECRET", "secret_123")
         )
         self.repository = MemoryRepositoryAdapter()
+        try:
+            self.queue_adapter = PubSubQueueAdapter()
+        except Exception as e:
+            # Fallback or log if we can't connect, e.g. local dev without emulator
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to initialize PubSub adapter: {e}")
+            self.queue_adapter = None
+
 
         # Use Cases
         self.calculate_ebitda_use_case = CalculateCompanyEbitdaUseCase()

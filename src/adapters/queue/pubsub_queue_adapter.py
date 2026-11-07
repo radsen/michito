@@ -3,12 +3,14 @@ import json
 import logging
 from typing import Dict, Any, Callable
 from google.cloud import pubsub_v1
+from google.api_core.exceptions import AlreadyExists, RetryError, ServiceUnavailable
+import grpc
 
 from src.application.ports.order_queue_port import OrderQueuePort
 
 logger = logging.getLogger(__name__)
 
-class GcpPubSubQueueAdapter(OrderQueuePort):
+class PubSubQueueAdapter(OrderQueuePort):
     def __init__(
         self,
         project_id: str = None,
@@ -32,20 +34,23 @@ class GcpPubSubQueueAdapter(OrderQueuePort):
         self._ensure_topic_and_subscription()
 
     def _ensure_topic_and_subscription(self):
-        # We try to create the topic and subscription, if they exist it will fail and we ignore
         try:
             self.publisher.create_topic(request={"name": self.topic_path})
             logger.info(f"Created topic: {self.topic_path}")
-        except Exception:
-            pass # Topic might already exist
+        except AlreadyExists:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to create topic (may already exist or emulator unreachable): {e}")
 
         try:
             self.subscriber.create_subscription(
                 request={"name": self.subscription_path, "topic": self.topic_path}
             )
             logger.info(f"Created subscription: {self.subscription_path}")
-        except Exception:
-            pass # Subscription might already exist
+        except AlreadyExists:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to create subscription (may already exist or emulator unreachable): {e}")
             
     def publish_order(self, order_payload: Dict[str, Any]) -> str:
         data_str = json.dumps(order_payload)
@@ -53,18 +58,18 @@ class GcpPubSubQueueAdapter(OrderQueuePort):
         
         try:
             future = self.publisher.publish(self.topic_path, data_bytes)
-            message_id = future.result()
+            message_id = future.result(timeout=10)
             logger.info(f"Published order payload to pubsub, message_id: {message_id}")
             return message_id
         except Exception as e:
             logger.error(f"Failed to publish order: {e}")
-            # Fallback or raise
-            raise
+            raise RuntimeError(f"Failed to publish order to Pub/Sub: {e}")
 
     def listen_orders(self, handler: Callable[[Dict[str, Any]], bool], max_messages: int = 1) -> None:
         try:
             response = self.subscriber.pull(
-                request={"subscription": self.subscription_path, "max_messages": max_messages}
+                request={"subscription": self.subscription_path, "max_messages": max_messages},
+                timeout=10
             )
             
             ack_ids = []
@@ -80,12 +85,15 @@ class GcpPubSubQueueAdapter(OrderQueuePort):
                         ack_ids.append(received_message.ack_id)
                 except Exception as e:
                     logger.error(f"Error handling message: {e}")
+                    # Acknowledging invalid messages so they don't block the queue
+                    ack_ids.append(received_message.ack_id)
                     
             if ack_ids:
                 self.subscriber.acknowledge(
                     request={"subscription": self.subscription_path, "ack_ids": ack_ids}
                 )
                 
+        except (ServiceUnavailable, RetryError) as e:
+            logger.error(f"Pub/Sub emulator/service unavailable: {e}")
         except Exception as e:
             logger.error(f"Error pulling messages from pubsub: {e}")
-
