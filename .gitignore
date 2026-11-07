@@ -30,3 +30,7 @@ MISSED_NOTIFICATIONS.md
 PAUSED_TASKS.md
 
 CRASH_REPORTS.md
+
+.coverage
+
+.pytest_cache/
