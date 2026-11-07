@@ -19,6 +19,8 @@ from src.domain.entities.lead_order import LeadOrder
 from src.domain.entities.company import Company
 from src.domain.value_objects.tax_id import TaxId
 from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
+from src.application.use_cases.deliver_order_use_case import DeliverOrderUseCase
 from campaign_loader import list_available_campaigns, load_campaign
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,9 @@ app.add_middleware(
 
 templates = Jinja2Templates(directory="templates")
 sql_adapter = SqlOrderAdapter()
+omnichannel_delivery_adapter = OmnichannelDeliveryAdapter()
+deliver_order_use_case = DeliverOrderUseCase(omnichannel_delivery_adapter, sql_adapter)
+
 
 def get_container() -> Container:
     return app_container
@@ -207,6 +212,11 @@ def pay_prospecting_order(order_id: str):
     if not ok:
         raise HTTPException(status_code=400, detail="Could not mark order paid")
 
+    try:
+        deliver_order_use_case.execute(order_id)
+    except Exception as e:
+        logger.error(f"Error during delivery dispatch for order {order_id}: {e}")
+
     updated_order = sql_adapter.get_order(order_id)
     return {
         "status": "success",
@@ -336,6 +346,12 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                         amount_in_cents=int(amount_in_cents)
                     )
                     logger.info(f"[WompiWebhook] ✅ Order `{reference}` marked paid in PostgreSQL.")
+
+                    try:
+                        deliver_order_use_case.execute(reference)
+                        logger.info(f"[WompiWebhook] ✅ Order `{reference}` dispatched via omnichannel delivery.")
+                    except Exception as e:
+                        logger.error(f"[WompiWebhook] Error during delivery dispatch for order {reference}: {e}")
             except Exception as e:
                 logger.error(f"[WompiWebhook] Error updating order in database: {e}")
 
