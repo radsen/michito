@@ -53,7 +53,7 @@ fi
 if [ ! -d "venv" ]; then
     echo -e "${YELLOW}⚠️ Virtualenv 'venv' not found. Creating one...${NC}"
     python3 -m venv venv
-    venv/bin/pip install -r requirements.txt
+    venv/bin/pip install -r backend/requirements.txt
 fi
 
 # 2. Database Setup (PostgreSQL)
@@ -82,23 +82,27 @@ elif [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 
 # Common setup script string to run in every tab
-SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && ([ -z '$ENV_FILE' ] || (set -a && source '$ENV_FILE' && set +a)) && export DATABASE_URL='$DB_URL' && export PYTHONPATH='$SCRIPT_DIR'"
+SETUP_CMD="cd '$SCRIPT_DIR' && source venv/bin/activate && ([ -z '$ENV_FILE' ] || (set -a && source '$ENV_FILE' && set +a)) && export DATABASE_URL='$DB_URL' && export PYTHONPATH='$SCRIPT_DIR/backend:$SCRIPT_DIR'"
 
 # Tab 1: FastAPI Backend (:8000)
-tmux new-session -d -s "$SESSION_NAME" -n "api" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:api" "$SETUP_CMD && clear && echo '🚀 Starting FastAPI Backend (Port 8000)...' && uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port 8000 --reload" C-m
+tmux new-session -d -s "$SESSION_NAME" -n "api" -c "$SCRIPT_DIR/backend"
+tmux send-keys -t "$SESSION_NAME:api" "$SETUP_CMD && cd '$SCRIPT_DIR/backend' && clear && echo '🚀 Starting FastAPI Backend (Port 8000)...' && uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port 8000 --reload" C-m
 
-# Tab 2: Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001, Hub :4401)
+# Tab 2: React 18 + Redux SPA (:3000)
+tmux new-window -t "$SESSION_NAME" -n "web" -c "$SCRIPT_DIR/clients/web"
+tmux send-keys -t "$SESSION_NAME:web" "cd '$SCRIPT_DIR/clients/web' && clear && echo '⚡ Starting Vite React Web Client (Port 3000)...' && npm run dev" C-m
+
+# Tab 3: Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001, Hub :4401)
 tmux new-window -t "$SESSION_NAME" -n "firebase" -c "$SCRIPT_DIR"
 tmux send-keys -t "$SESSION_NAME:firebase" "$SETUP_CMD && clear && echo '📦 Starting Firebase Emulators (Hosting :5005, Storage :9199, Pub/Sub :8085, UI :4001)...' && firebase emulators:start --only hosting,storage,pubsub" C-m
 
-# Tab 3: Order Worker Daemon
-tmux new-window -t "$SESSION_NAME" -n "worker" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:worker" "$SETUP_CMD && clear && echo '⚙️ Starting Asynchronous Order Worker Daemon...' && sleep 2 && python3 order_worker.py --interval 3" C-m
+# Tab 4: Order Worker Daemon
+tmux new-window -t "$SESSION_NAME" -n "worker" -c "$SCRIPT_DIR/backend"
+tmux send-keys -t "$SESSION_NAME:worker" "$SETUP_CMD && cd '$SCRIPT_DIR/backend' && clear && echo '⚙️ Starting Asynchronous Order Worker Daemon...' && sleep 2 && python3 order_worker.py --interval 3" C-m
 
-# Tab 4: Interactive Dev Shell & Test Runner
+# Tab 5: Interactive Dev Shell & Test Runner
 tmux new-window -t "$SESSION_NAME" -n "dev" -c "$SCRIPT_DIR"
-tmux send-keys -t "$SESSION_NAME:dev" "$SETUP_CMD && clear && echo '💻 Michito Interactive Dev Shell' && echo 'Quick test command: venv/bin/pytest' && echo ''" C-m
+tmux send-keys -t "$SESSION_NAME:dev" "$SETUP_CMD && clear && echo '💻 Michito Interactive Dev Shell' && echo 'Quick test commands: venv/bin/pytest or make test' && echo ''" C-m
 
 # TMUX UI Styling & Tab Bar
 tmux set-option -t "$SESSION_NAME" mouse on 2>/dev/null || true

@@ -9,20 +9,30 @@ venv/
 .DS_Store
 outputs/*
 !outputs/.gitkeep
+backend/outputs/*
+!backend/outputs/.gitkeep
 
 # Data ledger (runtime)
 data/prospects_ledger.json
 !data/prospects_ledger.example.json
 !data/.gitkeep
+backend/data/prospects_ledger.json
+!backend/data/prospects_ledger.example.json
+!backend/data/.gitkeep
 
 # Local / private campaigns
 campaigns/*.local.yaml
 campaigns/private_*
+backend/campaigns/*.local.yaml
+backend/campaigns/private_*
 
 # Local / temporary reports
 reports/local_*
 reports/*.tmp.md
 !reports/.gitkeep
+backend/reports/local_*
+backend/reports/*.tmp.md
+!backend/reports/.gitkeep
 
 *.db
 *.sqlite3

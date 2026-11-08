@@ -1,0 +1,23 @@
+{
+  "name": "michito-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Michito Monorepo — B2B Lead Intelligence & Prospecting Engine",
+  "workspaces": [
+    "clients/web"
+  ],
+  "scripts": {
+    "install:all": "npm install && (test -d venv || python3 -m venv venv) && ./venv/bin/pip install -r backend/requirements.txt",
+    "dev": "./start_dev_env.sh",
+    "dev:web": "npm run dev --workspace=clients/web",
+    "dev:api": "./venv/bin/uvicorn src.entrypoints.api.main:app --app-dir backend --reload --port 8000",
+    "dev:worker": "cd backend && ../venv/bin/python order_worker.py --daemon",
+    "build": "npm run build --workspace=clients/web",
+    "test": "./venv/bin/pytest",
+    "test:unit": "./venv/bin/pytest backend/tests/unit/",
+    "test:integration": "./venv/bin/pytest backend/tests/integration/",
+    "test:e2e": "./venv/bin/pytest backend/tests/e2e/",
+    "generate:prospects": "cd backend && ../venv/bin/python generate_prospects.py",
+    "clean": "rm -rf clients/web/dist .pytest_cache backend/.pytest_cache"
+  }
+}

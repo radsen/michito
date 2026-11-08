@@ -19,36 +19,44 @@ Global lead providers (such as Apollo.io, ZoomInfo, or Lusha) suffer from high e
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Monorepo Architecture Overview
 
-Michito follows strict **Clean & Onion Architecture** principles with clear separation of concerns:
+Michito is organized as a clean **polyglot monorepo** with strict separation between backend engine logic and consumer clients:
 
 ```
-src/
-├── domain/                      # Enterprise Business Rules & Core Entities
-│   ├── entities/                # Company, LeadOrder, DecisionMaker, FinancialReport, LitigationRecord
-│   └── value_objects/           # CIIUCode, EbitdaMargin, ConfidenceScore, EmailAddress, TaxId
-├── application/                 # Application Business Rules (Use Cases & Ports)
-│   ├── ports/                   # Abstract Interfaces (DB, Queue, Verification, Storage, Payments)
-│   ├── dto/                     # LeadDossierDTO, SearchRequestDTO
-│   └── use_cases/               # GenerateProspects, UnderwriteLead, CreateOrder, FulfillWebhook, etc.
-├── adapters/                    # Interface Adapters (External Services & Infrastructure)
-│   ├── db/                      # FirestoreOrderAdapter, SqlOrderAdapter (PostgreSQL / SQLite)
-│   ├── queue/                   # PubSubQueueAdapter (GCP Pub/Sub), MemoryQueueAdapter
-│   ├── registries/              # Colombia SECOP I/II, SODA Supersociedades, DR DGCP
-│   ├── verifiers/               # Socket SMTP Handshake, Google X-Ray, Website Auditor
-│   ├── litigation/              # Contraloría BDME, Rama Judicial Court Records
-│   ├── payments/                # Wompi Colombia Payment Gateway (Card, PSE, Bancolombia)
-│   ├── storage/                 # Google Cloud Storage (GCS), LocalStorage, DeduplicationLedger
-│   └── export/                  # Multi-tab Excel Dossiers, HTML One-Pager Teasers
-└── entrypoints/                 # System Delivery Mechanisms
-    ├── api/                     # FastAPI Application, Webhook Handlers, Static Mounts
-    ├── container.py             # Dependency Injection Container
-    └── workers/                 # OrderWorkerDaemon (Async Order Fulfillment)
-
-clients/
-├── web/                         # React 18 + Redux Toolkit SPA (Vite + Tailwind CSS)
-└── whatsapp/                    # WhatsApp Business Cloud API Bot Service
+michito/
+├── backend/                       # Python Engine, API, & CLI Prospector
+│   ├── src/
+│   │   ├── domain/                # Pure Business Entities & Value Objects
+│   │   ├── application/           # Ports, DTOs & Use Cases
+│   │   ├── adapters/              # Registries, DBs, Queues, Payments, Verifiers
+│   │   ├── entrypoints/           # FastAPI Web API & Background Workers
+│   │   └── config.py              # Environment configuration loader
+│   ├── tests/                     # Unit, Integration, and E2E test suite (131 tests)
+│   ├── campaigns/                 # Target ICP YAML profiles (Hebi, Chiketto, etc.)
+│   ├── data/                      # Deduplication ledger tracking
+│   ├── templates/                 # HTML one-pager teaser templates
+│   ├── outputs/                   # Generated batch deliverables (gitignored)
+│   ├── reports/                   # QA & security audit logs
+│   ├── scripts/                   # Commercial batch generator scripts
+│   ├── requirements.txt           # Python backend dependencies
+│   ├── pytest.ini                 # Backend test runner configuration
+│   ├── Dockerfile                 # Production multi-stage Docker build
+│   ├── generate_prospects.py      # CLI runner for lead generation
+│   └── order_worker.py            # Async order worker daemon
+├── clients/                       # Consumer Clients
+│   ├── web/                       # React 18 + Redux Toolkit SPA (Vite + Tailwind CSS)
+│   │   ├── src/                   # Components, Slices, RTK Query API, Locales
+│   │   ├── package.json           # Frontend package dependencies
+│   │   └── vite.config.ts         # Vite bundler & reverse proxy configuration
+│   └── whatsapp/                  # WhatsApp Business Cloud API Bot Service
+├── package.json                   # Root monorepo workspace orchestrator (npm workspaces)
+├── Makefile                       # Unified developer task runner
+├── docker-compose.yml             # Local PostgreSQL & container orchestration
+├── start_dev_env.sh               # One-click tabbed TMUX development stack launcher
+├── .env.example                   # Committed environment variable template
+├── .gitignore                     # Monorepo-wide git exclusion rules
+└── README.md                      # Primary project documentation
 ```
 
 ---
@@ -67,7 +75,7 @@ clients/
 
 ## ⚙️ Environment Configuration
 
-Michito automatically loads environment variables through `src/config.py` following standard stage priority (`.env.local` $\rightarrow$ `.env.stg` $\rightarrow$ `.env`):
+Michito automatically loads environment variables through `backend/src/config.py` following standard stage priority (`.env.local` $\rightarrow$ `.env.stg` $\rightarrow$ `.env`):
 
 ```bash
 # 1. Copy the committed template to your local environment file
@@ -91,55 +99,44 @@ GCS_BUCKET_NAME=michito-dossiers
 
 ### Option A: Complete Dev Environment (One-Command)
 
-The repository provides an automated startup script that spins up the full stack:
+The repository provides an automated startup script that spins up the full stack in dedicated TMUX tabs:
 
 ```bash
-./start_dev_env.sh
+make dev
+# or: ./start_dev_env.sh
 ```
 
 This launches:
-- **Firebase Emulators** (Firestore, Storage, Pub/Sub) with Web UI at `http://localhost:4001`
-- **FastAPI API Backend** at `http://localhost:8000` (Swagger docs at `/docs`)
-- **Vite React Web Client** at `http://localhost:3000`
+- **Tab 1: [api]** -> FastAPI Backend at `http://localhost:8000` (Swagger docs at `/docs`)
+- **Tab 2: [web]** -> Vite React SPA at `http://localhost:3000`
+- **Tab 3: [firebase]** -> Firebase Emulators (Hosting, Storage, Pub/Sub, Web UI at `:4001`)
+- **Tab 4: [worker]** -> Asynchronous Order Worker Daemon
+- **Tab 5: [dev]** -> Interactive Dev Shell & Test Runner
+
+*Stop all services anytime with: `./start_dev_env.sh --stop`*
 
 ---
 
-### Option B: Running Services Individually
+### Option B: Running Services via Unified Makefile / npm Scripts
 
-#### 1. Python Virtual Environment Setup
+From the repository root:
+
 ```bash
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Install all dependencies (Python venv + Node npm)
+make install
+# or: npm run install:all
 
-# Install dependencies
-pip install -r requirements.txt
-```
+# Run FastAPI backend directly
+make dev-api
+# or: npm run dev:api
 
-#### 2. Running the FastAPI Backend Server
-```bash
-uvicorn src.entrypoints.api.main:app --reload --host 0.0.0.0 --port 8000
-```
-- API Base URL: `http://localhost:8000`
-- Swagger UI Documentation: `http://localhost:8000/docs`
-- Health Check: `http://localhost:8000/api/v1/health`
+# Run Vite React web client directly
+make dev-web
+# or: npm run dev:web
 
-#### 3. Running the React 18 + Redux Web Client
-```bash
-cd clients/web
-
-# Install npm dependencies
-npm install
-
-# Start Vite dev server with proxy to :8000
-npm run dev
-```
-- Client URL: `http://localhost:3000`
-
-#### 4. Running the Asynchronous Order Worker Daemon
-```bash
-# Polls Firestore/SQL queue and processes paid orders
-python3 order_worker.py --daemon --poll-interval=5
+# Run background order worker daemon
+make dev-worker
+# or: npm run dev:worker
 ```
 
 ---
@@ -151,28 +148,30 @@ Michito includes ready-to-run CLI commands for batch lead generation, campaign d
 ### 1. Generate Leads for a Target Campaign
 ```bash
 # Mid-market leads for Hebi in Bogotá (25 leads)
-python3 generate_prospects.py --campaign=hebi --segment=midmarket --city=Bogota --limit=25
+make prospects ARGS="--campaign=hebi --segment=midmarket --city=Bogota --limit=25"
 
 # Small business leads for Chiketto Invoicing in Medellín
-python3 generate_prospects.py --campaign=chiketto --segment=small --city=Medellin --limit=25
+make prospects ARGS="--campaign=chiketto --segment=small --city=Medellin --limit=25"
 
-# Facility Services B2B in Cali
-python3 generate_prospects.py --campaign=facility_services_b2b --segment=enterprise --city=Cali --limit=15
+# Directly via python
+./venv/bin/python backend/generate_prospects.py --campaign=hebi --segment=midmarket --city=Bogota --limit=25
 ```
 
 ### 2. Dry-Run Mode (Preview Without Modifying Deduplication Ledger)
 ```bash
-python3 generate_prospects.py --campaign=hebi --limit=5 --dry-run
+make prospects ARGS="--campaign=hebi --limit=5 --dry-run"
 ```
 
 ### 3. Check Deduplication Ledger Statistics
 ```bash
-python3 generate_prospects.py --stats
+make stats
+# or: ./venv/bin/python backend/generate_prospects.py --stats
 ```
 
 ### 4. Run Commercial Pilot Batch Generator
 ```bash
-python3 scripts/generate_tinkko_pilot_batch.py
+make pilot
+# or: ./venv/bin/python backend/scripts/generate_tinkko_pilot_batch.py
 ```
 
 ---
@@ -183,26 +182,25 @@ Michito maintains **100% passing automated test coverage** across domain logic, 
 
 ### Run Full Test Suite
 ```bash
-./venv/bin/pytest -v
+make test
+# or: npm test
+# or: ./venv/bin/pytest -v
 ```
 *(131 tests complete in ~0.70s)*
 
-### Run by Test Category
+### Run by Category
 ```bash
 # Unit Tests (Domain Entities, Value Objects, Adapters, Use Cases)
-./venv/bin/pytest tests/unit/
+make test-unit
 
 # Integration Tests (SODA API, Repository fallbacks, GCS Storage)
-./venv/bin/pytest tests/integration/
+make test-integration
 
 # End-to-End Tests (FastAPI endpoints, Wompi webhooks, WhatsApp webhooks)
-./venv/bin/pytest tests/e2e/
-
-# Run a specific test file
-./venv/bin/pytest tests/unit/test_bot_service.py
+make test-e2e
 
 # Run with test coverage report
-./venv/bin/pytest --cov=src tests/
+make test-cov
 ```
 
 ---
@@ -211,69 +209,18 @@ Michito maintains **100% passing automated test coverage** across domain logic, 
 
 ### 1. Build Frontend Client
 ```bash
-cd clients/web
-npm run build
+make build
+# or: npm run build
 ```
 Builds the optimized production bundle to `clients/web/dist/`. FastAPI serves this static bundle directly at `/` and `/assets`.
 
 ### 2. Docker Container Build
 ```bash
 # Build Docker image
-docker build -t michito-api:latest .
+docker build -f backend/Dockerfile -t michito-api:latest .
 
-# Run container with docker-compose
+# Run with docker-compose
 docker compose up -d
-```
-
----
-
-## 📁 Repository Directory Structure
-
-```
-michito/
-├── clients/
-│   ├── web/                          # React 18 + Redux SPA
-│   │   ├── src/
-│   │   │   ├── components/           # UI, Landing, Order & Tracker components
-│   │   │   ├── store/                # Redux Toolkit store, slices, RTK Query API
-│   │   │   └── locales/              # es_CO and en_US localization dictionaries
-│   │   ├── package.json
-│   │   └── vite.config.ts
-│   └── whatsapp/                     # WhatsApp Cloud API bot service
-├── campaigns/                        # Target campaign YAML profiles
-│   ├── chiketto.yaml                 # Electronic invoicing ICP profile
-│   ├── hebi.yaml                     # B2B SaaS Triad OS profile
-│   ├── facility_services_b2b.yaml    # Facility management profile
-│   └── warehouse_aburra_norte.yaml   # Logistics & industrial warehouse profile
-├── data/                             # Deduplication ledger tracking
-│   ├── .gitkeep
-│   └── prospects_ledger.example.json # Template ledger file
-├── docs/                             # Architecture specifications & financial models
-│   ├── developer_handoff_specification.md
-│   └── strategy/financial_model_unit_economics.md
-├── outputs/                          # Generated lead batches & Excel dossiers (gitignored)
-│   └── .gitkeep
-├── reports/                          # QA & security audit logs
-│   └── .gitkeep
-├── scripts/                          # Batch generation & automation utilities
-│   └── generate_tinkko_pilot_batch.py
-├── src/                              # Core Clean Architecture source tree
-│   ├── domain/                       # Pure business models & value objects
-│   ├── application/                  # Ports, DTOs & Use Cases
-│   ├── adapters/                     # Registries, DBs, Queues, Payments, Verifiers
-│   ├── entrypoints/                  # FastAPI app & background workers
-│   └── config.py                     # Centralized environment loader
-├── templates/                        # HTML one-pager teaser templates
-├── tests/                            # Unit, Integration, and E2E test suite (131 tests)
-├── .env.example                      # Committed configuration template
-├── .gitignore                        # Git exclusion rules
-├── Dockerfile                        # Multi-stage production container
-├── docker-compose.yml                # Multi-service container orchestration
-├── generate_prospects.py             # Root CLI entrypoint for prospecting
-├── order_worker.py                   # Root CLI entrypoint for background worker
-├── pytest.ini                        # Pytest configuration
-├── requirements.txt                  # Python dependencies
-└── start_dev_env.sh                  # One-click local development stack launcher
 ```
 
 ---

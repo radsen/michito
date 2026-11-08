@@ -10,8 +10,12 @@ import argparse
 import json
 from typing import Optional
 
-# Ensure project root is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+# Ensure backend directory and monorepo root are on sys.path
+backend_dir = os.path.abspath(os.path.dirname(__file__))
+repo_root = os.path.abspath(os.path.join(backend_dir, ".."))
+for p in [backend_dir, repo_root]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from campaign_loader import list_available_campaigns
 from deduplication_ledger import DeduplicationLedger

@@ -32,23 +32,30 @@ def load_env_file(filepath: Path) -> None:
 
 
 def init_environment() -> str:
-    root_dir = Path(__file__).resolve().parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent
+    repo_root = backend_dir.parent
     env_name = os.environ.get("ENVIRONMENT", "development").lower()
 
     # Precedence:
     # 1. .env.local (Local developer machine overrides)
     # 2. .env.stg (Staging)
     # 3. .env (Production / base)
-    local_env = root_dir / ".env.local"
-    stg_env = root_dir / ".env.stg"
-    prod_env = root_dir / ".env"
+    candidates = [
+        # Check repo root first (shared monorepo env), then backend dir
+        repo_root / ".env.local",
+        backend_dir / ".env.local",
+        repo_root / ".env.stg" if env_name == "staging" else None,
+        backend_dir / ".env.stg" if env_name == "staging" else None,
+        repo_root / ".env",
+        backend_dir / ".env",
+    ]
 
-    if local_env.exists():
-        load_env_file(local_env)
-    elif env_name == "staging" and stg_env.exists():
-        load_env_file(stg_env)
-    elif prod_env.exists():
-        load_env_file(prod_env)
+    for env_file in candidates:
+        if env_file and env_file.exists():
+            load_env_file(env_file)
+            break
+
+    return os.environ.get("ENVIRONMENT", env_name)
 
     return os.environ.get("ENVIRONMENT", env_name)
 

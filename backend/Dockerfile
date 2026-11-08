@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ------------------------------------------------------------------------------
@@ -46,11 +46,11 @@ ENV PATH="/home/michito/.local/bin:${PATH}" \
     PORT=8000
 
 # Copy application source code and configurations
-COPY --chown=michito:michito src/ /app/src/
-COPY --chown=michito:michito campaigns/ /app/campaigns/
-COPY --chown=michito:michito templates/ /app/templates/
+COPY --chown=michito:michito backend/src/ /app/src/
+COPY --chown=michito:michito backend/campaigns/ /app/campaigns/
+COPY --chown=michito:michito backend/templates/ /app/templates/
 COPY --chown=michito:michito clients/ /app/clients/
-COPY --chown=michito:michito requirements.txt /app/
+COPY --chown=michito:michito backend/requirements.txt /app/
 
 # Create deliverables outputs directory with appropriate write permissions
 RUN mkdir -p /app/outputs && chown -R michito:michito /app/outputs

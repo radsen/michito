@@ -22,7 +22,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     container_name: michito-api
     restart: unless-stopped
     depends_on:
@@ -44,7 +44,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     container_name: michito-worker
     restart: unless-stopped
     command: ["python", "-m", "src.entrypoints.workers.order_worker_daemon"]

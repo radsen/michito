@@ -37,7 +37,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-templates = Jinja2Templates(directory="templates")
+def _find_templates_dir() -> str:
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../templates")),
+        os.path.abspath("backend/templates"),
+        os.path.abspath("templates"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return "templates"
+
+templates = Jinja2Templates(directory=_find_templates_dir())
 sql_adapter = SqlOrderAdapter()
 omnichannel_delivery_adapter = OmnichannelDeliveryAdapter()
 deliver_order_use_case = DeliverOrderUseCase(omnichannel_delivery_adapter, sql_adapter)
@@ -97,22 +108,36 @@ NO_CACHE_HEADERS = {
     "Expires": "0",
 }
 
-if os.path.exists("clients/web/dist/assets"):
-    app.mount("/assets", StaticFiles(directory="clients/web/dist/assets"), name="assets")
+def _find_static_file(rel_path: str) -> str:
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../", rel_path)),
+        os.path.abspath(rel_path),
+        os.path.abspath(os.path.join("..", rel_path)),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return rel_path
+
+assets_dir = _find_static_file("clients/web/dist/assets")
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 @app.get("/", response_class=HTMLResponse)
 def get_root_portal():
     """Serves the primary Michito B2B Lead Intelligence Order Portal (No Cache)."""
-    index_path = "clients/web/dist/index.html" if os.path.exists("clients/web/dist/index.html") else "clients/web/public/index.html"
+    dist_index = _find_static_file("clients/web/dist/index.html")
+    public_index = _find_static_file("clients/web/public/index.html")
+    index_path = dist_index if os.path.exists(dist_index) else public_index
     return FileResponse(index_path, media_type="text/html", headers=NO_CACHE_HEADERS)
 
 @app.get("/styles.css")
 def get_styles():
-    return FileResponse("clients/web/public/styles.css", media_type="text/css", headers=NO_CACHE_HEADERS)
+    return FileResponse(_find_static_file("clients/web/public/styles.css"), media_type="text/css", headers=NO_CACHE_HEADERS)
 
 @app.get("/app.js")
 def get_app_js():
-    return FileResponse("clients/web/public/app.js", media_type="application/javascript", headers=NO_CACHE_HEADERS)
+    return FileResponse(_find_static_file("clients/web/public/app.js"), media_type="application/javascript", headers=NO_CACHE_HEADERS)
 
 @app.get("/legacy-warehouse-teaser", response_class=HTMLResponse)
 def get_legacy_teaser(request: Request):
