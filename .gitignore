@@ -34,3 +34,15 @@ CRASH_REPORTS.md
 .coverage
 
 .pytest_cache/
+
+# Node & Frontend Build Artifacts
+node_modules/
+dist/
+clients/web/node_modules/
+clients/web/dist/
+
+# Security & Temp Reports / Scripts
+bandit_report.*
+*.py.bak
+*.bak
+
