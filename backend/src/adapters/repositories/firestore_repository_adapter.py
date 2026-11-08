@@ -78,11 +78,13 @@ class FirestoreRepositoryAdapter(LeadOrderRepositoryPort):
         )
         
         for dm in data.get("decision_makers", []):
+            raw_email = dm.get("email")
+            email_val = raw_email if isinstance(raw_email, EmailAddress) else EmailAddress(raw_email or "unknown@domain.com")
             lead_order.add_decision_maker(DecisionMaker(
                 id=dm["id"],
                 name=dm["name"],
-                role=dm["role"],
-                email=dm.get("email"),
+                role=dm.get("role"),
+                email=email_val,
                 linkedin_url=dm.get("linkedin_url")
             ))
             

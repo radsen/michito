@@ -8,6 +8,7 @@ class DecisionMaker:
     name: str
     email: EmailAddress
     role: Optional[str] = None
+    linkedin_url: Optional[str] = None
     
     def __post_init__(self):
         if not self.id:
