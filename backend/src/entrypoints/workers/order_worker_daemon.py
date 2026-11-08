@@ -193,7 +193,7 @@ class OrderWorkerDaemon:
                 if self.order_queue:
                     def _queue_handler(payload: Dict[str, Any]) -> bool:
                         order_id = payload.get("order_id")
-                        order = self.order_repository.get_order(order_id) or payload
+                        order = self.order_repository.get_order(str(order_id)) if order_id else payload
                         return self.process_order(order)
 
                     self.order_queue.listen_orders(
