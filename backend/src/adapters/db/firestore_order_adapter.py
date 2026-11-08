@@ -80,7 +80,7 @@ class FirestoreOrderAdapter:
                 "cities": resolved_cities,
                 "country": country.upper(),
                 "currency": currency.upper(),
-                "limit": int(limit),
+                "limit": limit,
                 "segment": segment,
                 "tier": tier,
                 "sectors": sectors or [],
@@ -137,7 +137,7 @@ class FirestoreOrderAdapter:
                 .where("status", "==", "queued")
                 .limit(limit)
             )
-            return [doc.to_dict() for doc in query.stream()]
+            return [d for doc in query.stream() if (d := doc.to_dict()) is not None]
         else:
             return [
                 doc for doc in self._in_memory_orders.values()
@@ -152,7 +152,8 @@ class FirestoreOrderAdapter:
         if self.db:
             ref = self.db.collection("orders").document(order_id)
             doc = ref.get()
-            if not doc.exists or doc.to_dict().get("status") != "queued":
+            doc_data = doc.to_dict() or {}
+            if not doc.exists or doc_data.get("status") != "queued":
                 return False
             ref.update({
                 "status": "processing",

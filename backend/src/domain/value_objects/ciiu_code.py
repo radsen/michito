@@ -170,7 +170,7 @@ class CiiuCode:
 
     @classmethod
     def from_code(cls, code: str) -> "CiiuCode":
-        clean_code = str(code).strip().zfill(4)
+        clean_code = code.strip().zfill(4)
         if clean_code in OFFICIAL_CIIU_CATALOG:
             data = OFFICIAL_CIIU_CATALOG[clean_code]
             return cls(

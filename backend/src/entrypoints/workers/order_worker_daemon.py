@@ -62,7 +62,7 @@ class OrderWorkerDaemon:
         self,
         order_repository: Optional[Any] = None,
         order_queue: Optional[OrderQueuePort] = None,
-        use_case: Optional[GenerateProspectsUseCase] = None,
+        use_case: Optional[Any] = None,
         storage_adapter: Optional[StoragePort] = None,
     ):
         if order_repository:

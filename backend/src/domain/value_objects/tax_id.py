@@ -6,7 +6,7 @@ class TaxId:
     value: str
 
     def __post_init__(self):
-        cleaned_value = str(self.value).strip()
+        cleaned_value = self.value.strip()
         if not cleaned_value:
             raise InvalidTaxIdException("Tax ID cannot be empty.")
         

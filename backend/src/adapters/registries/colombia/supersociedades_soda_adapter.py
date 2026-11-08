@@ -78,13 +78,13 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
             if filter_dto.min_revenue and Decimal(str(item["revenue_cop"])) < filter_dto.min_revenue:
                 continue
             
-            nit_val = item["nit"].replace(".", "")
+            nit_val = str(item["nit"]).replace(".", "")
             nit_base = nit_val.split('-')[0]
             companies.append(Company(
                 id=f"CO-{nit_base}",
                 tax_id=TaxId(nit_base),
-                name=item["name"],
-                industry=item["sector"]
+                name=str(item["name"]),
+                industry=str(item["sector"])
             ))
             
         return companies
@@ -92,12 +92,12 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
     def get_financial_statements(self, tax_id: str) -> FinancialReport:
         tax_id_base = tax_id.replace(".", "").split('-')[0]
         for item in CURATED_COLOMBIAN_REGISTRY:
-            if item["nit"].replace(".", "").split('-')[0] == tax_id_base:
+            if str(item["nit"]).replace(".", "").split('-')[0] == tax_id_base:
                 return FinancialReport(
                     id=f"FR-{tax_id_base}",
                     company_id=f"CO-{tax_id_base}",
-                    revenue=Decimal(item["revenue_cop"]),
-                    ebitda=Decimal(item["ebitda_cop"])
+                    revenue=Decimal(str(item["revenue_cop"])),
+                    ebitda=Decimal(str(item["ebitda_cop"]))
                 )
         return FinancialReport(
             id=f"FR-{tax_id_base}",
@@ -112,13 +112,14 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
     def fetch_raw_financials(self, tax_id: str) -> Dict[str, Any]:
         tax_id_base = tax_id.replace(".", "").split('-')[0]
         for item in CURATED_COLOMBIAN_REGISTRY:
-            if item["nit"].replace(".", "").split('-')[0] == tax_id_base:
+            if str(item["nit"]).replace(".", "").split('-')[0] == tax_id_base:
+                revenue_num = float(item["revenue_cop"])
                 return {
-                    "operating_revenue": item["revenue_cop"],
-                    "cost_of_sales": item["revenue_cop"] * 0.6,
-                    "operating_expenses": item["revenue_cop"] * 0.2,
-                    "depreciation": item["revenue_cop"] * 0.05,
-                    "amortization": item["revenue_cop"] * 0.05,
+                    "operating_revenue": revenue_num,
+                    "cost_of_sales": revenue_num * 0.6,
+                    "operating_expenses": revenue_num * 0.2,
+                    "depreciation": revenue_num * 0.05,
+                    "amortization": revenue_num * 0.05,
                 }
         return {
             "operating_revenue": 0,

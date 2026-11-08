@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Optional
 from google.cloud import pubsub_v1
 from google.api_core.exceptions import AlreadyExists, RetryError, ServiceUnavailable
 import grpc
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class PubSubQueueAdapter(OrderQueuePort):
     def __init__(
         self,
-        project_id: str = None,
+        project_id: Optional[str] = None,
         topic_id: str = "michito-orders",
         subscription_id: str = "michito-worker-sub"
     ):

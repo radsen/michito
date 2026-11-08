@@ -57,8 +57,6 @@ def init_environment() -> str:
 
     return os.environ.get("ENVIRONMENT", env_name)
 
-    return os.environ.get("ENVIRONMENT", env_name)
-
 
 # Auto-initialize on import
 ACTIVE_ENV = init_environment()

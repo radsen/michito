@@ -6,6 +6,7 @@ from src.domain.entities.decision_maker import DecisionMaker
 from src.domain.entities.financial_report import FinancialReport
 from src.domain.entities.litigation_record import LitigationRecord
 from src.domain.value_objects.tax_id import TaxId
+from src.domain.value_objects.email_address import EmailAddress
 from src.domain.value_objects.confidence_score import ConfidenceScore
 from decimal import Decimal
 
@@ -64,6 +65,8 @@ class FirestoreRepositoryAdapter(LeadOrderRepositoryPort):
             raise KeyError(f"LeadOrder {order_id} not found in Firestore")
         
         data = doc.to_dict()
+        if not data:
+            raise KeyError(f"LeadOrder {order_id} has empty data in Firestore")
         
         company = Company(
             id=data["company"]["id"],
