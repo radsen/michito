@@ -68,3 +68,4 @@ pilot:
 
 clean:
 	rm -rf clients/web/dist .pytest_cache backend/.pytest_cache
+
