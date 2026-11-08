@@ -2,6 +2,7 @@ import hashlib
 import hmac
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -96,10 +97,14 @@ NO_CACHE_HEADERS = {
     "Expires": "0",
 }
 
+if os.path.exists("clients/web/dist/assets"):
+    app.mount("/assets", StaticFiles(directory="clients/web/dist/assets"), name="assets")
+
 @app.get("/", response_class=HTMLResponse)
 def get_root_portal():
     """Serves the primary Michito B2B Lead Intelligence Order Portal (No Cache)."""
-    return FileResponse("clients/web/public/index.html", media_type="text/html", headers=NO_CACHE_HEADERS)
+    index_path = "clients/web/dist/index.html" if os.path.exists("clients/web/dist/index.html") else "clients/web/public/index.html"
+    return FileResponse(index_path, media_type="text/html", headers=NO_CACHE_HEADERS)
 
 @app.get("/styles.css")
 def get_styles():

@@ -35,7 +35,7 @@ class PubSubQueueAdapter(OrderQueuePort):
 
     def _ensure_topic_and_subscription(self):
         try:
-            self.publisher.create_topic(request={"name": self.topic_path})
+            self.publisher.create_topic(request={"name": self.topic_path}, timeout=1.0)
             logger.info(f"Created topic: {self.topic_path}")
         except AlreadyExists:
             pass
@@ -44,7 +44,8 @@ class PubSubQueueAdapter(OrderQueuePort):
 
         try:
             self.subscriber.create_subscription(
-                request={"name": self.subscription_path, "topic": self.topic_path}
+                request={"name": self.subscription_path, "topic": self.topic_path},
+                timeout=1.0
             )
             logger.info(f"Created subscription: {self.subscription_path}")
         except AlreadyExists:

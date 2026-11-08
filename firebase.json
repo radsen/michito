@@ -7,7 +7,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
-    "public": "clients/web/public",
+    "public": "clients/web/dist",
     "ignore": [
       "firebase.json",
       "**/.*",

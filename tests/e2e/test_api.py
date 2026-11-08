@@ -88,3 +88,20 @@ def test_whatsapp_verify_webhook():
 def test_whatsapp_verify_webhook_invalid():
     response = client.get("/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong_token&hub.challenge=12345")
     assert response.status_code == 403
+
+def test_whatsapp_post_message_webhook():
+    payload = {
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": "573001234567",
+                        "text": {"body": "hola"}
+                    }]
+                }
+            }]
+        }]
+    }
+    response = client.post("/api/v1/webhooks/whatsapp", json=payload)
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
