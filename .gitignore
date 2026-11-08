@@ -7,8 +7,23 @@ venv/
 .env.*
 !.env.example
 .DS_Store
-outputs/*/
+outputs/*
 !outputs/.gitkeep
+
+# Data ledger (runtime)
+data/prospects_ledger.json
+!data/prospects_ledger.example.json
+!data/.gitkeep
+
+# Local / private campaigns
+campaigns/*.local.yaml
+campaigns/private_*
+
+# Local / temporary reports
+reports/local_*
+reports/*.tmp.md
+!reports/.gitkeep
+
 *.db
 *.sqlite3
 *-debug.log
