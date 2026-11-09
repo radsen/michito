@@ -39,7 +39,7 @@ def process_single_order(adapter: FirestoreOrderAdapter, order: Dict[str, Any]) 
 
 def run_worker_loop(poll_interval_sec: int = 5, run_once: bool = False):
     queue_adapter = None
-    if os.environ.get("ENABLE_PUBSUB_QUEUE", "false").lower() == "true":
+    if os.environ.get("PUBSUB_EMULATOR_HOST") or os.environ.get("ENABLE_PUBSUB_QUEUE", "false").lower() == "true":
         try:
             from src.adapters.queue.pubsub_queue_adapter import PubSubQueueAdapter
             queue_adapter = PubSubQueueAdapter()

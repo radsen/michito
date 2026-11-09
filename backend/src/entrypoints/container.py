@@ -1,5 +1,6 @@
 from src.adapters.queue.memory_queue_adapter import MemoryQueueAdapter
 import os
+import sys
 from typing import List, Dict
 from src.adapters.registries.colombia.supersociedades_soda_adapter import SupersociedadesSodaAdapter
 from src.adapters.payments.wompi_adapter import WompiPaymentGatewayAdapter
@@ -59,7 +60,8 @@ class Container:
             webhook_secret=os.environ.get("WOMPI_WEBHOOK_SECRET", "secret_123")
         )
         self.repository = MemoryRepositoryAdapter()
-        if os.environ.get("ENABLE_PUBSUB_QUEUE", "false").lower() == "true":
+        is_testing = bool(os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in sys.modules)
+        if not is_testing and (os.environ.get("PUBSUB_EMULATOR_HOST") or os.environ.get("ENABLE_PUBSUB_QUEUE", "false").lower() == "true"):
             try:
                 from src.adapters.queue.pubsub_queue_adapter import PubSubQueueAdapter
                 self.queue_adapter = PubSubQueueAdapter()

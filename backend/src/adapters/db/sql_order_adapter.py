@@ -203,7 +203,18 @@ class SqlOrderAdapter:
         with self._get_session() as session:
             order_obj = session.get(OrderModel, order_id)
             if order_obj:
-                return order_obj.to_dict()
+                d = order_obj.to_dict()
+                delivery = d.get("delivery", {})
+                payment = d.get("payment", {})
+                d["sample_leads"] = delivery.get("sample_teaser") or []
+                d["total_qualified"] = delivery.get("total_qualified") or 0
+                d["payment_status"] = payment.get("status")
+                d["amount_in_cents"] = payment.get("amount_in_cents") or 0
+                d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
+                d["error_message"] = getattr(order_obj, "error_message", None)
+                d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if delivery.get("csv_path") else None
+                d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if delivery.get("dossier_path") else None
+                return d
             return None
 
     def fetch_queued_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
@@ -415,6 +426,7 @@ class SqlOrderAdapter:
             if not order_obj:
                 return False
             order_obj.status = "failed"
+            order_obj.error_message = error_message
             order_obj.updated_at = now
             session.commit()
             return True

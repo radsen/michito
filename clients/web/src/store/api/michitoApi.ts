@@ -53,6 +53,7 @@ export interface OrderStatusResponse {
   }>;
   csv_download_url?: string;
   dossier_download_url?: string;
+  error_message?: string;
 }
 
 export interface PartnerProfile {

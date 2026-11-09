@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 from fastapi import FastAPI, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -298,10 +298,26 @@ def download_deliverable(order_id: str, file_type: str):
     else:
         raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv' or 'md')")
 
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Deliverable file not found on disk at {file_path}")
+    if not file_path:
+        raise HTTPException(status_code=404, detail="No deliverable file path recorded for this order.")
 
-    return FileResponse(path=file_path, media_type=media_type, filename=filename)
+    # 1. Cloud Storage or Firebase Emulator gs:// path -> redirect to secure download URL
+    if file_path.startswith("gs://"):
+        try:
+            from src.adapters.storage.gcs_storage_adapter import GcsStorageAdapter
+            gcs = GcsStorageAdapter()
+            parts = file_path.replace("gs://", "").split("/", 1)
+            dest_blob = parts[1] if len(parts) > 1 else parts[0]
+            download_url = gcs.generate_download_url(dest_blob)
+            return RedirectResponse(url=download_url, status_code=307)
+        except Exception as e:
+            logger.warning(f"Failed to generate GCS signed URL for {file_path}: {e}")
+
+    # 2. Local disk file fallback
+    if os.path.exists(file_path):
+        return FileResponse(path=file_path, media_type=media_type, filename=filename)
+
+    raise HTTPException(status_code=404, detail=f"Deliverable file not found at {file_path}")
 
 # ------------------------------------------------------------------------------
 # Legacy Endpoints & Webhooks

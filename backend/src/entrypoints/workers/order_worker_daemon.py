@@ -78,7 +78,7 @@ class OrderWorkerDaemon:
 
         if storage_adapter:
             self.storage_adapter = storage_adapter
-        elif os.environ.get("GCS_BUCKET_NAME") or os.environ.get("ENVIRONMENT") == "production":
+        elif os.environ.get("STORAGE_EMULATOR_HOST") or os.environ.get("GCS_BUCKET_NAME") or os.environ.get("ENVIRONMENT") == "production":
             from src.adapters.storage.gcs_storage_adapter import GcsStorageAdapter
             self.storage_adapter = GcsStorageAdapter()
         else:
@@ -102,6 +102,7 @@ class OrderWorkerDaemon:
         print(f"\n[WorkerDaemon] ⚡ Locking and starting processing for Order `{order_id}`...")
         print(f"               Client:   {client_name}")
         print(f"               Campaign: {campaign_id} | City: {city} | Limit: {limit} | Tier: {tier}")
+        print(f"[WorkerDaemon] ⏳ [1/4] Ingestion & Chamber of Commerce Harvester running...")
 
         # 1. Lock the order in the repository to prevent double processing
         if not self.order_repository.mark_processing(order_id):
@@ -110,6 +111,8 @@ class OrderWorkerDaemon:
 
         # 2. Execute the heavy harvesting, verification, and intent pipeline
         try:
+            print(f"[WorkerDaemon] 🔍 [2/4] Verifying domains, HTTP footprint & Socket MX servers...")
+            print(f"[WorkerDaemon] 🛡️ [3/4] Underwriting solvency risk & composing 5 tailored multichannel touches...")
             t0 = time.time()
             job_result = self.use_case.execute(
                 campaign=campaign_id,
@@ -124,6 +127,13 @@ class OrderWorkerDaemon:
 
             # Fair Pay-Per-Lead Tiered Pricing (Strategy Financial Model)
             total_qualified = job_result.get("total_qualified", len(job_result.get("leads", [])))
+            if total_qualified == 0:
+                err_msg = job_result.get("message") or "No se encontraron prospectos que superaran los filtros de calidad o el registro mercantil estuvo inaccesible."
+                print(f"[WorkerDaemon] ⚠️ Order `{order_id}` produced 0 qualified leads. Marking failed.")
+                if hasattr(self.order_repository, "mark_failed"):
+                    self.order_repository.mark_failed(order_id, err_msg)
+                return False
+
             country = req.get("country", "CO")
             currency = job_result.get("currency", "DOP" if country == "DO" else "COP")
 
@@ -134,6 +144,7 @@ class OrderWorkerDaemon:
             )
 
             # Upload deliverables to Storage Adapter (Local or GCS)
+            print(f"[WorkerDaemon] 📦 [4/4] Packaging structured CSV manifest and executive dossier...")
             csv_path = job_result.get("csv_path")
             dossier_path = job_result.get("dossier_path")
 
@@ -161,6 +172,7 @@ class OrderWorkerDaemon:
             print(f"[WorkerDaemon] ✅ Order `{order_id}` completed successfully in {elapsed:.2f}s!")
             print(f"               Qualified Leads: {job_result.get('total_qualified', 0)}")
             print(f"               Status: awaiting_payment (Quote: ${total_price_cents // 100:,.0f} COP)")
+            print(f"               Ready for buyer review and Wompi unlock.\n")
             return True
 
         except Exception as e:
@@ -187,33 +199,50 @@ class OrderWorkerDaemon:
         print(f"• Mode:                {'Run-Once (Batch)' if run_once else 'Continuous Listener'}")
         print("=" * 80)
 
+        loop_count = 0
         try:
             while True:
-                # 1. Check Queue if available
+                loop_count += 1
+                # 1. Check Queue if available (Pub/Sub)
+                queue_processed = False
                 if self.order_queue:
                     def _queue_handler(payload: Dict[str, Any]) -> bool:
+                        nonlocal queue_processed
                         order_id = payload.get("order_id")
                         fetched = self.order_repository.get_order(str(order_id)) if order_id else None
                         order = fetched or payload
                         if not order:
                             return False
-                        return self.process_order(order)
+                        res = self.process_order(order)
+                        if res is not False:
+                            queue_processed = True
+                        return res
 
-                    self.order_queue.listen_orders(
-                        handler=_queue_handler,
-                        max_messages=1 if run_once else 10
-                    )
-                    if run_once:
-                        break
-                    time.sleep(poll_interval_sec)
-                    continue
+                    try:
+                        self.order_queue.listen_orders(
+                            handler=_queue_handler,
+                            max_messages=1 if run_once else 10
+                        )
+                    except Exception as e:
+                        pass
 
-                # 2. Fallback to direct repository query (DB polling)
+                    if queue_processed:
+                        if run_once:
+                            break
+                        time.sleep(poll_interval_sec)
+                        continue
+
+                # 2. Check repository directly (Dual-Intake safety net)
+                # Guarantees that even if Pub/Sub drops or delays a message, no order gets stuck
                 queued_orders = self.order_repository.fetch_queued_orders(limit=5)
                 if queued_orders:
-                    print(f"[WorkerDaemon] Found {len(queued_orders)} queued order(s) waiting for processing.")
+                    print(f"[WorkerDaemon] ⚡ Found {len(queued_orders)} queued order(s) waiting in database. Processing now...")
                     for ord_doc in queued_orders:
                         self.process_order(ord_doc)
+                else:
+                    if loop_count % 4 == 1 and not run_once:
+                        now_str = time.strftime("%H:%M:%S")
+                        print(f"[{now_str}] 🟢 [WorkerDaemon] Heartbeat: Daemon healthy • Polling {mode_str} (Interval: {poll_interval_sec}s)...")
 
                 if run_once:
                     print("[WorkerDaemon] Run-once flag active. Exiting worker process.")

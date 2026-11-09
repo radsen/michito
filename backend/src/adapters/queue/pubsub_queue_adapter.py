@@ -15,14 +15,24 @@ class PubSubQueueAdapter(OrderQueuePort):
         self,
         project_id: Optional[str] = None,
         topic_id: str = "michito-orders",
-        subscription_id: str = "michito-worker-sub"
+        subscription_id: str = "michito-worker-sub",
+        check_connectivity: bool = False
     ):
-        self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "michito-dev")
-        self.topic_id = topic_id
-        self.subscription_id = subscription_id
+        self.project_id = (
+            project_id
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT_ID")
+            or "michito-growth"
+        )
+        self.topic_id = topic_id or os.environ.get("PUBSUB_TOPIC_ORDERS", "michito-orders")
+        self.subscription_id = subscription_id or os.environ.get("PUBSUB_SUBSCRIPTION_WORKER", "michito-worker-sub")
         
         # In case we're using emulator
         if "PUBSUB_EMULATOR_HOST" in os.environ:
+            # On macOS, 'localhost' resolves to IPv6 (::1) which the emulator may not bind to.
+            # Normalizing to 127.0.0.1 guarantees IPv4 connection to the Java fake emulator.
+            if os.environ["PUBSUB_EMULATOR_HOST"].startswith("localhost:"):
+                os.environ["PUBSUB_EMULATOR_HOST"] = os.environ["PUBSUB_EMULATOR_HOST"].replace("localhost:", "127.0.0.1:")
             logger.info(f"Connecting to Pub/Sub Emulator at {os.environ['PUBSUB_EMULATOR_HOST']}")
             
         self.publisher = pubsub_v1.PublisherClient()
@@ -70,7 +80,7 @@ class PubSubQueueAdapter(OrderQueuePort):
         try:
             response = self.subscriber.pull(
                 request={"subscription": self.subscription_path, "max_messages": max_messages},
-                timeout=10
+                timeout=1.5
             )
             
             ack_ids = []
@@ -97,4 +107,7 @@ class PubSubQueueAdapter(OrderQueuePort):
         except (ServiceUnavailable, RetryError) as e:
             logger.error(f"Pub/Sub emulator/service unavailable: {e}")
         except Exception as e:
+            err_str = str(e)
+            if "Deadline" in err_str or "504" in err_str:
+                return  # Normal idle timeout waiting for messages
             logger.error(f"Error pulling messages from pubsub: {e}")

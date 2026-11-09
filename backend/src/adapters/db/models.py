@@ -194,6 +194,7 @@ class OrderModel(Base):
                 "delivered_at": self.delivery_delivered_at.isoformat() if self.delivery_delivered_at else None,
             },
             "metrics": self.metrics or {},
+            "error_message": self.error_message,
             "partner": {
                 "referral_partner": self.referral_partner or "direct",
                 "commission_rate": self.partner_commission_rate or 0.0,

@@ -29,6 +29,8 @@ class GcsStorageAdapter(StoragePort):
         self.bucket_name = bucket_name or os.environ.get("GCS_BUCKET_NAME", "michito-deliverables")
         self.project_id = project_id or os.environ.get("GCP_PROJECT_ID", "chiketto-michito")
         self.emulator_host = os.environ.get("STORAGE_EMULATOR_HOST")
+        if self.emulator_host and self.emulator_host.startswith("localhost:"):
+            self.emulator_host = self.emulator_host.replace("localhost:", "127.0.0.1:")
         self.force_mock = force_mock
 
         self._client: Any = None
@@ -79,8 +81,12 @@ class GcsStorageAdapter(StoragePort):
                 res = requests.post(url, data=file_data, headers=headers, timeout=5)
                 if res.status_code in (200, 201):
                     return f"gs://{self.bucket_name}/{blob_name}"
-            except Exception:
-                pass  # Fall through to mock registry
+                else:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Storage emulator upload returned {res.status_code}: {res.text}")
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Storage emulator upload exception: {e}")
 
         # 3. Offline / Test Mock Fallback
         self._mock_registry[blob_name] = {
@@ -116,7 +122,8 @@ class GcsStorageAdapter(StoragePort):
         # 2. Local Firebase Storage Emulator URL
         if not self.force_mock and self.emulator_host:
             encoded_name = urllib.parse.quote(blob_name, safe="")
-            return f"http://{self.emulator_host}/v0/b/{self.bucket_name}/o/{encoded_name}?alt=media"
+            host_for_url = os.environ.get("STORAGE_EMULATOR_HOST") or self.emulator_host
+            return f"http://{host_for_url}/v0/b/{self.bucket_name}/o/{encoded_name}?alt=media"
 
         # 3. Simulated Signed URL for Dev/Tests
         return (

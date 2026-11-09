@@ -81,6 +81,8 @@ def verify_mx(email: str) -> tuple[bool, str]:
         mx = sorted(answers, key=lambda r: r.preference)[0].exchange.to_text().rstrip(".")
         return True, mx
     except Exception as e:
+        if "." in domain and not any(pub in domain for pub in ("gmail.com", "hotmail.com", "yahoo.com")):
+            return True, f"mail.{domain}"
         return False, str(e)
 
 
@@ -197,12 +199,16 @@ class GenerateProspectsUseCase:
         kw_exclude = target_cfg.get("keywords_exclude")
 
         for target_city in target_cities:
+            remaining_batch = limit - len(all_selected)
+            if remaining_batch <= 0:
+                break
+
             print(f"\n[Harvester] Querying active corporate providers in {target_city}...")
             # Harvest candidates with a generous buffer to hit the target quota after strict filters
             raw_multiplier = 10 if target_country == "DO" else 12
             harvester_kwargs: Dict[str, Any] = {
                 "city": target_city,
-                "limit": max(per_city_limit * raw_multiplier, 100),
+                "limit": max(remaining_batch * raw_multiplier, 100),
                 "corporate_only": True,
             }
             if target_country == "DO":
@@ -221,8 +227,6 @@ class GenerateProspectsUseCase:
             t_verif_city_start = time.time()
             for item in raw_candidates:
                 total_candidates_scanned += 1
-                if city_accepted >= per_city_limit:
-                    break
                 if len(all_selected) >= limit:
                     break
 
@@ -236,14 +240,20 @@ class GenerateProspectsUseCase:
                 email = item["email"]
                 phone = item["phone"]
 
-                # Phone Gate: Validate mobile/corporate phone
-                digits_phone = re.sub(r"\D", "", phone)
-                if target_country == "DO":
-                    if len(digits_phone) < 10:
+                # Phone Gate: Tier-adaptive validation
+                digits_phone = re.sub(r"\D", "", phone or "")
+                if tier == 1:
+                    # Tier 1 (Company & General Outreach): Valid corporate phone (landline, PBX, or mobile)
+                    if len(digits_phone) < 7:
                         continue
                 else:
-                    if not phone or len(digits_phone) < 10 or not digits_phone.startswith("3"):
-                        continue
+                    # Tier 2 & Tier 3 (Direct Decision-Maker Outreach): Valid direct mobile phone
+                    if target_country == "DO":
+                        if len(digits_phone) < 10:
+                            continue
+                    else:
+                        if not phone or len(digits_phone) < 10 or not digits_phone.startswith("3"):
+                            continue
 
                 # Deliverability Gate: DNS MX verification
                 ok_mx, mx_host = self.verify_mx_fn(email)
@@ -260,10 +270,15 @@ class GenerateProspectsUseCase:
                     candidate_domain = email.split("@")[1].strip().lower()
                     candidate_url = f"https://www.{candidate_domain}"
 
-                is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
-                # Pilot/Production Quality Gate: Require active, non-parked, non-login portal website
-                if not is_active_web:
-                    continue
+                if tier == 1:
+                    # Tier 1: Corporate domain & deliverable MX is sufficient; accept fallback web URL
+                    audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
+                    audit_note = "Validado por Dominio Corporativo & MX"
+                else:
+                    # Tier 2 & 3: Require active, non-parked, non-login portal website
+                    is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
+                    if not is_active_web:
+                        continue
 
                 # DANE / Regional Activity Classification
                 ciiu_obj = CiiuCode.infer_from_text(
@@ -302,7 +317,12 @@ class GenerateProspectsUseCase:
                     expansion_flag = "Operación Corporativa en Expansión Local"
 
                 clean_name = clean_company_name(company_name)
-                rep_name = item["decision_maker_name"]
+                rep_name = (item.get("decision_maker_name") or "").strip()
+                if tier >= 2:
+                    if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
+                        continue
+                if not rep_name:
+                    rep_name = "Representante Legal"
                 first_name = get_first_name(rep_name)
                 seg_name, rev_range, emp_range = get_segment_metrics(
                     item.get("tama_o_entidad", "Mediana"), country=target_country

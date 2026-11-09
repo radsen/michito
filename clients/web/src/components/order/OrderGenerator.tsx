@@ -3,11 +3,11 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { selectCampaign, selectCity } from "../../store/slices/campaignSlice";
 import { setTier, setVolume } from "../../store/slices/pricingSlice";
-import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed } from "../../store/slices/orderSlice";
+import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed, restoreOrder, resetOrder } from "../../store/slices/orderSlice";
 import { useGetCampaignsQuery, useCreateOrderMutation } from "../../store/api/michitoApi";
 import { LiveStatusTracker } from "../tracker/LiveStatusTracker";
 import { WompiCheckoutModal } from "../payment/WompiCheckoutModal";
-import { Zap, Loader2, Sparkles, ShieldCheck, MapPin, Hash, Building2, User, Mail, Phone } from "lucide-react";
+import { Zap, Loader2, Sparkles, ShieldCheck, MapPin, Hash, Building2, User, Mail, Phone, Search, X } from "lucide-react";
 
 export const OrderGenerator: React.FC = () => {
   const dispatch = useDispatch();
@@ -19,6 +19,9 @@ export const OrderGenerator: React.FC = () => {
   const { activeOrderId } = useSelector((state: RootState) => state.order);
   const partner = useSelector((state: RootState) => state.partner);
   const g = dict.generator;
+
+  const [lookupId, setLookupId] = useState("");
+  const [showLookup, setShowLookup] = useState(false);
 
   // Campaigns catalog matching index.html
   const CAMPAIGN_OPTIONS = [
@@ -180,9 +183,91 @@ export const OrderGenerator: React.FC = () => {
         <div className="generator-layout">
           {/* Form Card */}
           <div className="generator-card">
+            {activeOrderId && (
+              <div className="active-order-floating-banner" data-testid="active-order-banner">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs sm:text-sm font-semibold text-white">
+                    Prospección activa: <strong className="font-mono text-sky-400">{activeOrderId}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="active-order-action-link"
+                  >
+                    Ver Estado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("¿Deseas iniciar una nueva búsqueda? Tu orden anterior no se borrará.")) {
+                        dispatch(resetOrder());
+                      }
+                    }}
+                    className="active-order-reset-link"
+                  >
+                    Nueva Orden
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="card-header-box">
-              <h3 className="generator-card-title">{g.step1Heading}</h3>
-              <p className="generator-card-sub">{g.step1Sub}</p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="generator-card-title">{g.step1Heading}</h3>
+                  <p className="generator-card-sub">{g.step1Sub}</p>
+                </div>
+                {!activeOrderId && !showLookup && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLookup(true)}
+                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 mt-1"
+                    title="Restaurar una orden anterior"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Consultar orden</span>
+                  </button>
+                )}
+              </div>
+
+              {showLookup && !activeOrderId && (
+                <div className="lookup-box">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (lookupId.trim()) {
+                        dispatch(restoreOrder(lookupId.trim()));
+                        setShowLookup(false);
+                      }
+                    }}
+                    className="flex items-center gap-2 mt-2"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Ej: ord_20261109_abc123"
+                      value={lookupId}
+                      onChange={(e) => setLookupId(e.target.value)}
+                      className="form-input text-xs py-1.5 font-mono"
+                    />
+                    <button type="submit" className="lookup-submit-btn text-xs">
+                      Cargar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowLookup(false)}
+                      className="text-slate-400 hover:text-white p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </form>
+                </div>
+              )}
+
               {partner.isAffiliate && (
                 <div className="partner-attribution-notice" data-testid="partner-order-notice">
                   <span className="partner-notice-text">🤝 Alianza Oficial: <strong>{partner.name}</strong></span>

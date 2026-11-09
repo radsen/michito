@@ -17,7 +17,7 @@ export interface OrderState {
   buyerEmail: string;
   buyerPhone: string;
   activeOrderId: string | null;
-  orderStatus: "idle" | "submitting" | "queued" | "processing" | "awaiting_payment" | "paid" | "error";
+  orderStatus: "idle" | "submitting" | "queued" | "processing" | "awaiting_payment" | "paid" | "failed" | "error";
   errorMessage: string | null;
   totalLeadsTarget: number;
   teaserLeads: TeaserLead[];
@@ -26,12 +26,32 @@ export interface OrderState {
   dossierDownloadUrl: string | null;
 }
 
+function getInitialActiveOrderId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromUrl = urlParams.get("order_id");
+    if (fromUrl && fromUrl.startsWith("ord_")) {
+      return fromUrl;
+    }
+    const fromStorage = localStorage.getItem("michito_active_order_id");
+    if (fromStorage && fromStorage.startsWith("ord_")) {
+      return fromStorage;
+    }
+  } catch (e) {
+    // Graceful fallback if localStorage is disabled
+  }
+  return null;
+}
+
+const initialOrderId = getInitialActiveOrderId();
+
 const initialState: OrderState = {
-  buyerName: "",
-  buyerEmail: "",
-  buyerPhone: "",
-  activeOrderId: null,
-  orderStatus: "idle",
+  buyerName: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_name") || "" : "",
+  buyerEmail: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_email") || "" : "",
+  buyerPhone: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_phone") || "" : "",
+  activeOrderId: initialOrderId,
+  orderStatus: initialOrderId ? "queued" : "idle",
   errorMessage: null,
   totalLeadsTarget: 25,
   teaserLeads: [],
@@ -39,6 +59,23 @@ const initialState: OrderState = {
   csvDownloadUrl: null,
   dossierDownloadUrl: null,
 };
+
+function syncUrlWithOrderId(orderId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (orderId) {
+      url.searchParams.set("order_id", orderId);
+      localStorage.setItem("michito_active_order_id", orderId);
+    } else {
+      url.searchParams.delete("order_id");
+      localStorage.removeItem("michito_active_order_id");
+    }
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {
+    // Ignore history API errors in tests/embedded
+  }
+}
 
 export const orderSlice = createSlice({
   name: "order",
@@ -51,6 +88,15 @@ export const orderSlice = createSlice({
       state.buyerName = action.payload.name;
       state.buyerEmail = action.payload.email;
       state.buyerPhone = action.payload.phone;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("michito_buyer_name", action.payload.name);
+          localStorage.setItem("michito_buyer_email", action.payload.email);
+          localStorage.setItem("michito_buyer_phone", action.payload.phone);
+        } catch (e) {
+          // ignore
+        }
+      }
     },
     startOrderSubmission: (state) => {
       state.orderStatus = "submitting";
@@ -63,6 +109,13 @@ export const orderSlice = createSlice({
       state.activeOrderId = action.payload.orderId;
       state.orderStatus = (action.payload.status as any) || "queued";
       state.totalAmountInCents = action.payload.totalAmountInCents;
+      syncUrlWithOrderId(action.payload.orderId);
+    },
+    restoreOrder: (state, action: PayloadAction<string>) => {
+      state.activeOrderId = action.payload;
+      state.orderStatus = "queued";
+      state.errorMessage = null;
+      syncUrlWithOrderId(action.payload);
     },
     updateOrderStatus: (
       state,
@@ -71,6 +124,7 @@ export const orderSlice = createSlice({
         teaserLeads?: TeaserLead[];
         csvUrl?: string;
         dossierUrl?: string;
+        totalAmountInCents?: number;
       }>
     ) => {
       state.orderStatus = action.payload.status as any;
@@ -82,6 +136,9 @@ export const orderSlice = createSlice({
       }
       if (action.payload.dossierUrl) {
         state.dossierDownloadUrl = action.payload.dossierUrl;
+      }
+      if (action.payload.totalAmountInCents && action.payload.totalAmountInCents > 0) {
+        state.totalAmountInCents = action.payload.totalAmountInCents;
       }
     },
     orderFailed: (state, action: PayloadAction<string>) => {
@@ -95,6 +152,7 @@ export const orderSlice = createSlice({
       state.teaserLeads = [];
       state.csvDownloadUrl = null;
       state.dossierDownloadUrl = null;
+      syncUrlWithOrderId(null);
     },
   },
 });
@@ -103,10 +161,10 @@ export const {
   setBuyerInfo,
   startOrderSubmission,
   orderCreatedSuccess,
+  restoreOrder,
   updateOrderStatus,
   orderFailed,
   resetOrder,
 } = orderSlice.actions;
 
 export default orderSlice.reducer;
-

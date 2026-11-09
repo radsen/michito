@@ -1,3 +1,4 @@
+import os
 import unittest
 from fastapi.testclient import TestClient
 from src.entrypoints.api.main import app
@@ -151,6 +152,46 @@ class TestOrdersApi(unittest.TestCase):
         self.assertGreaterEqual(stmt_data["statement"]["total_orders"], 1)
         self.assertGreaterEqual(stmt_data["statement"]["total_gross_revenue_cop"], 100000)
         self.assertGreaterEqual(stmt_data["statement"]["total_commission_owed_cop"], 25000)
+
+    def test_download_deliverable_endpoint(self):
+        from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+        import tempfile
+        sql = SqlOrderAdapter()
+
+        # Create dummy order with a real local file and a gs path
+        order = sql.create_order(
+            client_name="Download Client",
+            client_email="dl@test.com",
+            campaign_id="tinkko_enterprise_offices"
+        )
+        oid = order["order_id"]
+
+        with tempfile.NamedTemporaryFile(suffix=".csv", mode="w", delete=False) as f:
+            f.write("company_name,email\nAcme S.A.S.,info@acme.com\n")
+            temp_path = f.name
+
+        try:
+            sql.complete_order(
+                order_id=oid,
+                worker_result={
+                    "csv_path": temp_path,
+                    "dossier_path": f"gs://michito-deliverables/orders/{oid}/executive_dossier.md",
+                    "leads": []
+                }
+            )
+
+            # 1. Download CSV (served as FileResponse from local path)
+            res_csv = self.client.get(f"/api/v1/orders/{oid}/download/csv")
+            self.assertEqual(res_csv.status_code, 200)
+            self.assertIn("Acme S.A.S.", res_csv.text)
+
+            # 2. Download MD (redirects to GCS signed URL)
+            res_md = self.client.get(f"/api/v1/orders/{oid}/download/md", follow_redirects=False)
+            self.assertEqual(res_md.status_code, 307)
+            self.assertIn("michito-deliverables", res_md.headers["location"])
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 
