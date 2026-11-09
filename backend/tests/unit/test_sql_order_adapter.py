@@ -102,6 +102,7 @@ class TestSqlOrderAdapter(unittest.TestCase):
         self.assertTrue(ok_paid)
 
         updated = self.adapter.get_order(order_id)
+        assert updated is not None
         self.assertEqual(updated["status"], "paid")
         self.assertEqual(updated["payment"]["status"], "approved")
         self.assertEqual(updated["payment"]["transaction_id"], "tx_wompi_abc123")
@@ -125,6 +126,7 @@ class TestSqlOrderAdapter(unittest.TestCase):
         self.adapter.mark_order_paid(order_id, transaction_id="tx_tinkko_01", amount_in_cents=20000000)
 
         paid_order = self.adapter.get_order(order_id)
+        assert paid_order is not None
         self.assertEqual(paid_order["payment"]["status"], "approved")
         # 25% of 200,000 COP = 50,000 COP
         self.assertEqual(paid_order["partner"]["commission_cop"], 50000)
@@ -172,6 +174,7 @@ class TestSqlOrderAdapter(unittest.TestCase):
 
         self.adapter.mark_order_paid(order["order_id"], transaction_id="tx_dir_1", amount_in_cents=20000000)
         paid_order = self.adapter.get_order(order["order_id"])
+        assert paid_order is not None
         self.assertEqual(paid_order["partner"]["commission_cop"], 0)
         self.assertEqual(paid_order["partner"]["settlement_status"], "not_applicable")
 
