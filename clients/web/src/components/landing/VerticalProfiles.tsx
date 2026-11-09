@@ -85,7 +85,9 @@ export const VerticalProfiles: React.FC = () => {
             return (
               <div
                 key={item.id}
+                onClick={() => handleSelect(item.id)}
                 className={`vertical-card ${isSelected ? "selected-card" : ""}`}
+                style={{ cursor: "pointer" }}
               >
                 <div className="vertical-header">
                   <div className="vertical-icon-box">

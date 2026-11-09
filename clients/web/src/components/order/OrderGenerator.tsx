@@ -80,6 +80,13 @@ export const OrderGenerator: React.FC = () => {
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const camp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId);
+    if (camp) {
+      setTargetCity(camp.defaultCity);
+    }
+  }, [selectedCampaignId]);
+
   const [createOrderMutation, { isLoading: isSubmitting }] = useCreateOrderMutation();
 
   const handleCampaignChange = (newId: string) => {

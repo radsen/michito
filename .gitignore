@@ -27,11 +27,9 @@ backend/campaigns/*.local.yaml
 backend/campaigns/private_*
 
 # Local / temporary reports
-reports/local_*
-reports/*.tmp.md
+reports/*
 !reports/.gitkeep
-backend/reports/local_*
-backend/reports/*.tmp.md
+backend/reports/*
 !backend/reports/.gitkeep
 
 *.db
@@ -65,6 +63,16 @@ node_modules/
 dist/
 clients/web/node_modules/
 clients/web/dist/
+
+# Playwright Test Artifacts, Traces, Screenshots & Videos
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+clients/web/test-results/
+clients/web/playwright-report/
+clients/web/playwright/.cache/
+clients/web/blob-report/
 
 # Security & Temp Reports / Scripts
 bandit_report.*

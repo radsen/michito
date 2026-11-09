@@ -199,6 +199,10 @@ make test-integration
 # End-to-End Tests (FastAPI endpoints, Wompi webhooks, WhatsApp webhooks)
 make test-e2e
 
+# Playwright Browser UI E2E Tests (with video & screenshot captures)
+make test-playwright
+# or: npm run test:playwright
+
 # Run with test coverage report
 make test-cov
 ```
