@@ -4,6 +4,7 @@ import pricingReducer from "./slices/pricingSlice";
 import campaignReducer from "./slices/campaignSlice";
 import orderReducer from "./slices/orderSlice";
 import uiReducer from "./slices/uiSlice";
+import partnerReducer from "./slices/partnerSlice";
 import { michitoApi } from "./api/michitoApi";
 
 export const store = configureStore({
@@ -13,6 +14,7 @@ export const store = configureStore({
     campaign: campaignReducer,
     order: orderReducer,
     ui: uiReducer,
+    partner: partnerReducer,
     [michitoApi.reducerPath]: michitoApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -21,4 +23,3 @@ export const store = configureStore({
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-

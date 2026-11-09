@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Integer,
     BigInteger,
+    Float,
     DateTime,
     Text,
     JSON,
@@ -105,6 +106,13 @@ class OrderModel(Base):
     client_phone: Any = Column(String(64), nullable=True)
     client_channel: Any = Column(String(32), default="web_portal")
 
+    # Multi-Partner Affiliate & Commission Tracking (v1.2)
+    referral_partner: Any = Column(String(64), nullable=False, default="direct", index=True)
+    partner_commission_rate: Any = Column(Float, default=0.0)
+    partner_commission_cop: Any = Column(BigInteger, default=0)
+    partner_settled_at: Any = Column(DateTime, nullable=True)
+    partner_settlement_status: Any = Column(String(32), default="pending", index=True)
+
     # Campaign & Geography
     campaign_id: Any = Column(String(128), nullable=False, index=True)
     country: Any = Column(String(4), default="CO")
@@ -186,6 +194,13 @@ class OrderModel(Base):
                 "delivered_at": self.delivery_delivered_at.isoformat() if self.delivery_delivered_at else None,
             },
             "metrics": self.metrics or {},
+            "partner": {
+                "referral_partner": self.referral_partner or "direct",
+                "commission_rate": self.partner_commission_rate or 0.0,
+                "commission_cop": self.partner_commission_cop or 0,
+                "settlement_status": self.partner_settlement_status or "pending",
+                "settled_at": self.partner_settled_at.isoformat() if self.partner_settled_at else None,
+            },
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

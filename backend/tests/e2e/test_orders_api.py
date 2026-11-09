@@ -94,6 +94,64 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(updated["payment"]["status"], "approved")
         self.assertEqual(updated["payment"]["transaction_id"], "tx_wompi_real_999")
 
+    def test_partner_endpoints_and_order_attribution(self):
+        # 1. Query partner profile
+        res_partner = self.client.get("/api/v1/partners/tinkko")
+        self.assertEqual(res_partner.status_code, 200)
+        p_data = res_partner.json()
+        self.assertEqual(p_data["status"], "success")
+        self.assertEqual(p_data["partner"]["partner_id"], "tinkko")
+        self.assertEqual(p_data["partner"]["commission_rate"], 0.25)
+        self.assertEqual(p_data["partner"]["discount_rate"], 0.10)
+        self.assertIn("Tinkko", p_data["partner"]["name"])
+
+        # 2. Query unknown partner (fallback to direct)
+        res_unknown = self.client.get("/api/v1/partners/unknown_abc")
+        self.assertEqual(res_unknown.status_code, 200)
+        u_data = res_unknown.json()
+        self.assertEqual(u_data["partner"]["partner_id"], "direct")
+
+        # 3. Create order with referral_partner
+        payload = {
+            "client": {
+                "name": "Tinkko Affiliate Buyer",
+                "email": "buyer_affiliate@tinkko-startup.com",
+                "phone": "+573009991122",
+                "channel": "web_portal",
+                "referral_partner": "tinkko"
+            },
+            "request": {
+                "campaign_id": "tinkko_enterprise_offices",
+                "country": "CO",
+                "city": "Medellín",
+                "limit": 10
+            }
+        }
+        res_order = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res_order.status_code, 201)
+        o_data = res_order.json()
+        order_id = o_data["order_id"]
+
+        # 4. Check order details has partner block
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        order_dict = res_get.json()
+        self.assertEqual(order_dict["partner"]["referral_partner"], "tinkko")
+        self.assertEqual(order_dict["partner"]["commission_rate"], 0.25)
+        self.assertEqual(order_dict["partner"]["settlement_status"], "pending")
+
+        # 5. Pay order and check partner statement
+        res_pay = self.client.post(f"/api/v1/orders/{order_id}/pay")
+        self.assertEqual(res_pay.status_code, 200)
+
+        res_stmt = self.client.get("/api/v1/partners/tinkko/statement")
+        self.assertEqual(res_stmt.status_code, 200)
+        stmt_data = res_stmt.json()
+        self.assertEqual(stmt_data["status"], "success")
+        self.assertGreaterEqual(stmt_data["statement"]["total_orders"], 1)
+        self.assertGreaterEqual(stmt_data["statement"]["total_gross_revenue_cop"], 100000)
+        self.assertGreaterEqual(stmt_data["statement"]["total_commission_owed_cop"], 25000)
+
 
 
 if __name__ == "__main__":

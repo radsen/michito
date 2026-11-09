@@ -1,0 +1,72 @@
+id: "eventos_ferias_b2b"
+name: "Ferias Comerciales & Misiones de Compradores Internacionales"
+description: "Identificación de expositores comerciales y delegaciones de compradores calificados (Hosted Buyers) para congresos y pabellones feriales (Plaza Mayor Medellín / Corferias Bogotá)."
+
+target:
+  city: "Medellín"
+  cities:
+    - "Medellín"
+    - "Bogotá"
+    - "Cali"
+    - "Barranquilla"
+    - "Miami"
+    - "Ciudad de México"
+    - "Madrid"
+    - "São Paulo"
+  segment: "all"
+  min_revenue_cop: "$3.000M COP"
+  sectors:
+    - "manufacturing"
+    - "agroindustry"
+    - "tech_services"
+    - "logistics"
+    - "construction"
+    - "medical_devices"
+  roles:
+    - "Director de Comercio Exterior"
+    - "Gerente de Exportaciones"
+    - "Gerente de Mercadeo y Ventas"
+    - "Director Comercial"
+    - "Gerente General"
+    - "VP Business Development"
+
+angles:
+  recommended: "Convocatoria a Rueda de Negocios y Stands Comerciales de Alto Impacto"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, vi que lideras la estrategia comercial y de expansión en {clean_name}.
+    Estamos organizando la delegación y pabellón comercial de líderes de la industria en {city}.
+    ¿Abierto a conectar para evaluar su participación como expositor o comprador ancla?
+
+  touch2_email_subject: "Invitación oficial: Pabellón comercial y Rueda de Negocios B2B en {city}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque en {clean_name} cuentan con una oferta de alto valor y encajan directamente con el perfil de expositores y compradores calificados que estamos convocando para el próximo encuentro ferial en Plaza Mayor.
+
+    Reuniremos a más de 300 tomadores de decisión corporativos, distribuidores y compradores internacionales con intenciones concretas de cierre comercial.
+
+    ¿Tendrías 10 minutos esta semana para revisar las ubicaciones preferenciales y beneficios de agenda 1-a-1?
+
+  touch3_email_subject: "Re: {clean_name} — Rueda de negocios y agenda de compradores confirmados"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando seguimiento a mi mensaje anterior, ya hemos confirmado la participación de importantes compradores de Colombia, Estados Unidos y México para las mesas de negociación.
+
+    Nos encantaría asegurar un espacio representativo para {clean_name} antes de cerrar la asignación prioritaria de stands.
+
+    ¿Te parece si coordinamos una llamada breve de 10 minutos este jueves?
+
+  touch4_email_subject: "Últimos cupos para delegaciones comerciales en {city}"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Estamos en la fase final de confirmación del catálogo oficial de expositores y compradores VIP. Queremos evitar que {clean_name} quede fuera de las ruedas de relacionamiento estratégico.
+
+    ¿Cuadramos 10 minutos hoy o mañana para enviarte el dossier técnico y opciones de participación?
+
+  touch5_phone_script: |
+    "Buenos días, con {decision_maker_name} de {clean_name}. Le saluda el equipo de Relaciones Comerciales de la Feria B2B. Le escribimos un correo sobre su invitación al pabellón comercial en {city} y las ruedas de negocios con compradores confirmados. ¿Recibió la propuesta o prefiere que se la reenviemos directamente a su WhatsApp corporativo?"
+

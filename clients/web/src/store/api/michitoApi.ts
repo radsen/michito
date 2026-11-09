@@ -55,14 +55,34 @@ export interface OrderStatusResponse {
   dossier_download_url?: string;
 }
 
+export interface PartnerProfile {
+  partner_id: string;
+  name: string;
+  commission_rate: number;
+  discount_rate: number;
+  badge_text: string;
+  default_campaign_id?: string;
+  description?: string;
+  active: boolean;
+}
+
+export interface PartnerResponse {
+  status: string;
+  partner: PartnerProfile;
+}
+
 export const michitoApi = createApi({
   reducerPath: "michitoApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
-  tagTypes: ["Campaigns", "Order"],
+  tagTypes: ["Campaigns", "Order", "Partner"],
   endpoints: (builder) => ({
     getCampaigns: builder.query<{ status: string; count: number; campaigns: any[] }, void>({
       query: () => "/campaigns",
       providesTags: ["Campaigns"],
+    }),
+    getPartner: builder.query<PartnerResponse, string>({
+      query: (partnerId) => `/partners/${partnerId}`,
+      providesTags: (_result, _error, partnerId) => [{ type: "Partner", id: partnerId }],
     }),
     createOrder: builder.mutation<CreateOrderResponse, CreateOrderPayload>({
       query: (body) => ({
@@ -88,6 +108,8 @@ export const michitoApi = createApi({
 
 export const {
   useGetCampaignsQuery,
+  useGetPartnerQuery,
+  useLazyGetPartnerQuery,
   useCreateOrderMutation,
   useGetOrderQuery,
   usePayOrderMutation,

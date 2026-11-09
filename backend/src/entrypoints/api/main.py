@@ -20,6 +20,7 @@ from src.domain.entities.lead_order import LeadOrder
 from src.domain.entities.company import Company
 from src.domain.value_objects.tax_id import TaxId
 from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+from src.adapters.partners.partner_registry import PartnerRegistry
 from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
 from src.application.use_cases.deliver_order_use_case import DeliverOrderUseCase
 from campaign_loader import list_available_campaigns, load_campaign
@@ -169,6 +170,28 @@ def get_campaigns():
             "segment": tgt.get("segment", "all")
         })
     return {"status": "success", "total": len(results), "campaigns": results}
+
+@app.get("/api/v1/partners/{partner_id}")
+def get_partner_profile(partner_id: str):
+    """
+    Returns public partner branding, discount rates, and default campaign.
+    """
+    partner = PartnerRegistry.get(partner_id)
+    return {
+        "status": "success",
+        "partner": partner.to_dict()
+    }
+
+@app.get("/api/v1/partners/{partner_id}/statement")
+def get_partner_settlement_statement(partner_id: str):
+    """
+    Returns consolidated partner commission statement for monthly payouts.
+    """
+    statement = sql_adapter.get_partner_statement(partner_id)
+    return {
+        "status": "success",
+        "statement": statement
+    }
 
 @app.post("/api/v1/orders", status_code=201)
 def create_prospecting_order(payload: CreateOrderRequest):

@@ -106,6 +106,75 @@ class TestSqlOrderAdapter(unittest.TestCase):
         self.assertEqual(updated["payment"]["status"], "approved")
         self.assertEqual(updated["payment"]["transaction_id"], "tx_wompi_abc123")
 
+    def test_partner_attribution_and_commission_calculation(self):
+        # 1. Tinkko partner (25% commission)
+        order = self.adapter.create_order(
+            client_name="Tinkko Resident",
+            client_email="resident@tinkkocompany.com",
+            campaign_id="tinkko_enterprise_offices",
+            limit=10,
+            referral_partner="tinkko",
+        )
+        self.assertEqual(order["partner"]["referral_partner"], "tinkko")
+        self.assertEqual(order["partner"]["commission_rate"], 0.25)
+        self.assertEqual(order["partner"]["commission_cop"], 0)
+        self.assertEqual(order["partner"]["settlement_status"], "pending")
+
+        order_id = order["order_id"]
+        # Mark paid with $200,000 COP (20,000,000 cents)
+        self.adapter.mark_order_paid(order_id, transaction_id="tx_tinkko_01", amount_in_cents=20000000)
+
+        paid_order = self.adapter.get_order(order_id)
+        self.assertEqual(paid_order["payment"]["status"], "approved")
+        # 25% of 200,000 COP = 50,000 COP
+        self.assertEqual(paid_order["partner"]["commission_cop"], 50000)
+        self.assertEqual(paid_order["partner"]["settlement_status"], "pending")
+
+    def test_get_partner_statement(self):
+        # Create and pay 2 orders for eventos_medellin (20% commission)
+        o1 = self.adapter.create_order(
+            client_name="Fair Exhibitor 1",
+            client_email="exh1@plaza.co",
+            campaign_id="chiketto",
+            referral_partner="eventos_medellin",
+        )
+        o2 = self.adapter.create_order(
+            client_name="Fair Exhibitor 2",
+            client_email="exh2@plaza.co",
+            campaign_id="eventos_medellin",
+            referral_partner="eventos_medellin",
+        )
+        self.adapter.mark_order_paid(o1["order_id"], transaction_id="tx_fair_1", amount_in_cents=10000000)  # 100k COP
+        self.adapter.mark_order_paid(o2["order_id"], transaction_id="tx_fair_2", amount_in_cents=20000000)  # 200k COP
+
+        statement = self.adapter.get_partner_statement("eventos_medellin")
+        self.assertEqual(statement["partner_id"], "eventos_medellin")
+        self.assertEqual(statement["partner_name"], "Plaza Mayor & Eventos B2B")
+        self.assertEqual(statement["commission_rate"], 0.20)
+        self.assertEqual(statement["total_orders"], 2)
+        self.assertEqual(statement["total_gross_revenue_cop"], 300000)
+        # 20% of 300,000 = 60,000 COP
+        self.assertEqual(statement["total_commission_owed_cop"], 60000)
+        self.assertEqual(statement["pending_commission_cop"], 60000)
+        self.assertEqual(len(statement["orders"]), 2)
+
+    def test_fallback_to_direct_partner(self):
+        order = self.adapter.create_order(
+            client_name="Organic User",
+            client_email="organic@michito.co",
+            campaign_id="chiketto",
+            referral_partner="non_existent_affiliate_123",
+        )
+        self.assertEqual(order["partner"]["referral_partner"], "direct")
+        self.assertEqual(order["partner"]["commission_rate"], 0.0)
+        self.assertEqual(order["partner"]["commission_cop"], 0)
+        self.assertEqual(order["partner"]["settlement_status"], "not_applicable")
+
+        self.adapter.mark_order_paid(order["order_id"], transaction_id="tx_dir_1", amount_in_cents=20000000)
+        paid_order = self.adapter.get_order(order["order_id"])
+        self.assertEqual(paid_order["partner"]["commission_cop"], 0)
+        self.assertEqual(paid_order["partner"]["settlement_status"], "not_applicable")
+
 
 if __name__ == "__main__":
     unittest.main()

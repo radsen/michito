@@ -418,6 +418,12 @@ Colombia represents the initial market moat where Michito provides 100% verified
 * **Secretary of State (SOS) Registries**: Corporate entity status across Delaware, Florida, Wyoming, Texas, California.
 * **OFAC / SDN (Specially Designated Nationals)**: Sanctions and anti-money laundering (AML) blacklist screening.
 
+### 3.7 Specialized Vertical Expansion: Trade Show, Fair & Event Intelligence (International Exhibitors & Hosted Buyers)
+Major trade show organizers, convention bureaus, and event logistics operators (e.g. Plaza Mayor in Medellín, Corferias in Bogotá) operate two-sided high-ticket commercial marketplaces requiring high-precision matchmaking:
+* **International Exhibitors (Expositores Internacionales)**: Sourcing overseas companies (US, Mexico, Spain, Brazil, Chile, Germany) with expansion intent in Colombia and the Andean region, targeting CMOs, VPs of Sales, and Expansion Directors.
+* **Hosted VIP Buyers (Compradores Internacionales & Delegaciones)**: Discovering foreign and regional procurement heads and retail buyers for specialized B2B matchmaking roundtables (*Ruedas de Negocios*).
+* **Solvency & Sponsorship Budget Screening**: Ensuring prospective exhibitors have audited operating budgets and positive cashflow before sales teams pitch booth space (\$10M–\$50M+ COP).
+
 ---
 
 ## 4. Advanced Corporate Intelligence: Financial Health (EBITDA) & Legal Litigation Risk
@@ -808,6 +814,7 @@ MICHITO ENGINEERING ROADMAP
 - [ ] Deploy containerized API on Google Cloud Run with VPC connector for Port 25 SMTP outbound.
 - [ ] Build the Tinkko Co-Branded Lead Portal (`michito.co/tinkko`) where Tinkko tenants can buy verified leads with Tinkko's 25%–30% commission automatically tracked.
 - [ ] Regional expansion to Mexico (SAT RFC), Chile (SII RUT), and Peru (SUNAT RUC).
+- [ ] Event & Trade Show Matchmaking Engine (Plaza Mayor / Corferias): Sourcing international exhibitors & hosted buyers across US, Mexico, Spain, Brazil, and Chile.
 
 ---
 

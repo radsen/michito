@@ -17,6 +17,7 @@ export const OrderGenerator: React.FC = () => {
     (state: RootState) => state.pricing
   );
   const { activeOrderId } = useSelector((state: RootState) => state.order);
+  const partner = useSelector((state: RootState) => state.partner);
   const g = dict.generator;
 
   // Campaigns catalog matching index.html
@@ -24,6 +25,13 @@ export const OrderGenerator: React.FC = () => {
     {
       id: "tinkko_enterprise_offices",
       name: "🇨🇴 Espacios & Sedes Corporativas (Medellín / Bogotá)",
+      country: "CO",
+      currency: "COP",
+      defaultCity: "Medellín",
+    },
+    {
+      id: "eventos_ferias_b2b",
+      name: "🎪 Ferias Comerciales & Misiones de Compradores Internacionales",
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
@@ -130,7 +138,7 @@ export const OrderGenerator: React.FC = () => {
           email: buyerEmail,
           phone: buyerPhone || "+573000000000",
           channel: "web_portal",
-          referral_partner: "direct",
+          referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
         request: {
           campaign_id: selectedCampaignId,
@@ -175,6 +183,16 @@ export const OrderGenerator: React.FC = () => {
             <div className="card-header-box">
               <h3 className="generator-card-title">{g.step1Heading}</h3>
               <p className="generator-card-sub">{g.step1Sub}</p>
+              {partner.isAffiliate && (
+                <div className="partner-attribution-notice" data-testid="partner-order-notice">
+                  <span className="partner-notice-text">🤝 Alianza Oficial: <strong>{partner.name}</strong></span>
+                  {partner.discountRate > 0 && (
+                    <span className="partner-notice-discount">
+                      • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmitOrder} className="generator-form">

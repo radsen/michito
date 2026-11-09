@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, select, update, and_, not_
 from sqlalchemy.orm import sessionmaker, Session
 
 from src.adapters.db.models import Base, ClientModel, LeadModel, OrderModel, OrderLeadModel
+from src.adapters.partners.partner_registry import PartnerRegistry
 
 
 class SqlOrderAdapter:
@@ -45,6 +46,7 @@ class SqlOrderAdapter:
                 )
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
             Base.metadata.create_all(bind=self.engine)
+            self._ensure_schema()
             self.database_url = target_url
         except Exception:
             # If PostgreSQL is not reachable, fall back cleanly to SQLite for offline dev/test execution
@@ -57,8 +59,36 @@ class SqlOrderAdapter:
                 )
                 self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
                 Base.metadata.create_all(bind=self.engine)
+                self._ensure_schema()
             else:
                 raise
+
+    def _ensure_schema(self) -> None:
+        """Lightweight schema compatibility checker for SQLite / PostgreSQL."""
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(self.engine)
+            table_names = inspector.get_table_names()
+            if "prospecting_orders" in table_names:
+                columns = [c["name"] for c in inspector.get_columns("prospecting_orders")]
+                with self.engine.begin() as conn:
+                    if "referral_partner" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN referral_partner VARCHAR(64) DEFAULT 'direct'"))
+                    if "partner_commission_rate" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_commission_rate FLOAT DEFAULT 0.0"))
+                    if "partner_commission_cop" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_commission_cop BIGINT DEFAULT 0"))
+                    if "partner_settled_at" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settled_at TIMESTAMP NULL"))
+                    if "partner_settlement_status" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settlement_status VARCHAR(32) DEFAULT 'pending'"))
+            if "clients" in table_names:
+                client_columns = [c["name"] for c in inspector.get_columns("clients")]
+                if "referral_partner" not in client_columns:
+                    with self.engine.begin() as conn:
+                        conn.execute(text("ALTER TABLE clients ADD COLUMN referral_partner VARCHAR(64) DEFAULT 'direct'"))
+        except Exception:
+            pass
 
     def _get_session(self) -> Session:
         return self.SessionLocal()
@@ -117,13 +147,18 @@ class SqlOrderAdapter:
         random_suffix = uuid.uuid4().hex[:6]
         order_id = f"ord_{date_str}_{random_suffix}"
 
+        # Resolve partner configuration
+        partner = PartnerRegistry.get(referral_partner)
+        resolved_partner_id = partner.partner_id
+        partner_comm_rate = partner.commission_rate
+
         # Resolve or create Client
         client = self.get_or_create_client(
             name=client_name,
             email=client_email,
             phone=client_phone,
             channel=client_channel,
-            referral_partner=referral_partner
+            referral_partner=resolved_partner_id
         )
 
         order_obj = OrderModel(
@@ -133,6 +168,10 @@ class SqlOrderAdapter:
             client_email=client_email,
             client_phone=client_phone,
             client_channel=client_channel,
+            referral_partner=resolved_partner_id,
+            partner_commission_rate=partner_comm_rate,
+            partner_commission_cop=0,
+            partner_settlement_status="pending" if partner_comm_rate > 0 else "not_applicable",
             campaign_id=campaign_id,
             country=country.upper(),
             city=city,
@@ -403,8 +442,59 @@ class SqlOrderAdapter:
             order_obj.delivery_delivered_at = now
             order_obj.updated_at = now
 
+            # Calculate partner commission if applicable
+            if order_obj.partner_commission_rate and order_obj.partner_commission_rate > 0:
+                paid_cop = amount_in_cents / 100.0
+                order_obj.partner_commission_cop = int(round(paid_cop * order_obj.partner_commission_rate))
+                order_obj.partner_settlement_status = "pending"
+            else:
+                order_obj.partner_commission_cop = 0
+                order_obj.partner_settlement_status = "not_applicable"
+
             session.commit()
             return True
+
+    def get_partner_statement(self, partner_id: str) -> Dict[str, Any]:
+        """
+        Generates a consolidated affiliate settlement statement for a commercial partner.
+        Returns total approved orders, gross revenue, and total commission owed.
+        """
+        partner = PartnerRegistry.get(partner_id)
+        with self._get_session() as session:
+            stmt = select(OrderModel).where(
+                and_(
+                    OrderModel.referral_partner == partner.partner_id,
+                    OrderModel.payment_status == "approved"
+                )
+            )
+            orders = session.scalars(stmt).all()
+
+            total_orders = len(orders)
+            total_gross_cop = sum(int(o.payment_amount_in_cents or 0) // 100 for o in orders)
+            total_comm_cop = sum(int(o.partner_commission_cop or 0) for o in orders)
+            pending_comm_cop = sum(int(o.partner_commission_cop or 0) for o in orders if o.partner_settlement_status == "pending")
+
+            return {
+                "partner_id": partner.partner_id,
+                "partner_name": partner.name,
+                "commission_rate": partner.commission_rate,
+                "total_orders": total_orders,
+                "total_gross_revenue_cop": total_gross_cop,
+                "total_commission_owed_cop": total_comm_cop,
+                "pending_commission_cop": pending_comm_cop,
+                "orders": [
+                    {
+                        "order_id": o.order_id,
+                        "client_name": o.client_name,
+                        "client_email": o.client_email,
+                        "paid_at": o.payment_paid_at.isoformat() if o.payment_paid_at else None,
+                        "gross_amount_cop": int(o.payment_amount_in_cents or 0) // 100,
+                        "commission_cop": int(o.partner_commission_cop or 0),
+                        "settlement_status": o.partner_settlement_status or "pending",
+                    }
+                    for o in orders
+                ]
+            }
 
     def get_order_manifest(self, order_id: str) -> List[Dict[str, Any]]:
         """Returns the full product manifest of leads assigned to an order."""

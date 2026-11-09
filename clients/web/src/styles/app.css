@@ -95,6 +95,65 @@ main {
   color: var(--text-muted);
 }
 
+/* Partner Co-Branding Banner (v1.2 Multi-Partner) */
+.partner-banner {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(168, 85, 247, 0.16) 100%);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  z-index: 55;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.partner-banner-badge {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--accent-blue);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.partner-banner-text {
+  color: var(--text-main);
+}
+
+.partner-banner-discount {
+  color: var(--accent-emerald);
+  font-weight: 700;
+}
+
+.partner-attribution-notice {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.partner-notice-text {
+  color: var(--accent-blue);
+}
+
+.partner-notice-discount {
+  color: var(--accent-emerald);
+  font-weight: 600;
+}
+
 /* Navbar */
 .navbar-container {
   position: sticky;
