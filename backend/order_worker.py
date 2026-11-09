@@ -38,13 +38,14 @@ def process_single_order(adapter: FirestoreOrderAdapter, order: Dict[str, Any]) 
 
 
 def run_worker_loop(poll_interval_sec: int = 5, run_once: bool = False):
-    from src.adapters.queue.pubsub_queue_adapter import PubSubQueueAdapter
     queue_adapter = None
-    try:
-        queue_adapter = PubSubQueueAdapter()
-    except Exception as e:
-        print(f"Failed to initialize PubSub adapter: {e}")
-        
+    if os.environ.get("ENABLE_PUBSUB_QUEUE", "false").lower() == "true":
+        try:
+            from src.adapters.queue.pubsub_queue_adapter import PubSubQueueAdapter
+            queue_adapter = PubSubQueueAdapter()
+        except Exception as e:
+            print(f"Failed to initialize PubSub adapter: {e}")
+
     daemon = OrderWorkerDaemon(
         order_queue=queue_adapter,
         use_case=DynamicProspectingUseCaseAdapter()
@@ -56,6 +57,7 @@ def main():
     parser = argparse.ArgumentParser(description="Michito Asynchronous Order Processing Worker")
     parser.add_argument("--interval", type=int, default=5, help="Polling interval in seconds (default: 5)")
     parser.add_argument("--once", action="store_true", help="Process currently queued orders and exit")
+    parser.add_argument("--daemon", action="store_true", help="Run continuously in background daemon loop")
     args = parser.parse_args()
 
     run_worker_loop(poll_interval_sec=args.interval, run_once=args.once)
