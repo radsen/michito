@@ -208,7 +208,7 @@ class OrderWorkerDaemon:
                     time.sleep(poll_interval_sec)
                     continue
 
-                # 2. Fallback to direct repository query
+                # 2. Fallback to direct repository query (DB polling)
                 queued_orders = self.order_repository.fetch_queued_orders(limit=5)
                 if queued_orders:
                     print(f"[WorkerDaemon] Found {len(queued_orders)} queued order(s) waiting for processing.")
