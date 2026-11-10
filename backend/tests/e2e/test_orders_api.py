@@ -193,6 +193,35 @@ class TestOrdersApi(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
+    def test_intent_profile_endpoint(self):
+        # 1. Natural language query for software in Bogotá
+        payload = {
+            "query": "Vendo software ERP contable y busco empresas en Bogotá con facturación electrónica",
+            "country": "CO"
+        }
+        res = self.client.post("/api/v1/intent/profile", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["campaign_id"], "chiketto")
+        self.assertEqual(data["city"], "Bogotá")
+        self.assertEqual(data["recommended_limit"], 25)
+        self.assertGreater(data["estimated_matches"], 30)
+        self.assertIn("sample_preview", data)
+        self.assertIn("pricing", data)
+        self.assertEqual(data["pricing"]["total_cop"], 750000)
+
+        # 2. Natural language query for Dominican Republic
+        payload_dr = {
+            "query": "Busco oficinas corporativas en Santo Domingo para empresa fintech",
+            "country": "CO"
+        }
+        res_dr = self.client.post("/api/v1/intent/profile", json=payload_dr)
+        self.assertEqual(res_dr.status_code, 200)
+        data_dr = res_dr.json()
+        self.assertEqual(data_dr["campaign_id"], "tinkko_dr_offices")
+        self.assertEqual(data_dr["country"], "DO")
+        self.assertEqual(data_dr["city"], "Santo Domingo")
 
 
 if __name__ == "__main__":

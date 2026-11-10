@@ -82,6 +82,10 @@ class CreateOrderRequest(BaseModel):
     client: ClientDto
     request: RequestDto
 
+class IntentProfileRequest(BaseModel):
+    query: str
+    country: Optional[str] = "CO"
+
 # Legacy Request Models
 class SearchRequest(BaseModel):
     country_code: str
@@ -192,6 +196,20 @@ def get_partner_settlement_statement(partner_id: str):
         "status": "success",
         "statement": statement
     }
+
+@app.post("/api/v1/intent/profile")
+def profile_b2b_intent(payload: IntentProfileRequest):
+    """
+    Stage 1 Conversational & Search Intent Profiler (Zero Compute Cost).
+    Analyzes natural language sales brief, extracts target geography and vertical,
+    estimates match volume, and generates a verified preview card without incurring heavy scraping costs.
+    """
+    if not payload.query or not payload.query.strip():
+        raise HTTPException(status_code=400, detail="Query must not be empty.")
+
+    use_case = app_container.profile_b2b_intent_use_case
+    result = use_case.execute(query=payload.query, country=payload.country or "CO")
+    return result
 
 @app.post("/api/v1/orders", status_code=201)
 def create_prospecting_order(payload: CreateOrderRequest):

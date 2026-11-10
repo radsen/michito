@@ -72,6 +72,40 @@ export interface PartnerResponse {
   partner: PartnerProfile;
 }
 
+export interface IntentProfileResponse {
+  status: string;
+  query: string;
+  campaign_id: string;
+  campaign_name: string;
+  country: string;
+  city: string;
+  recommended_tier: number;
+  recommended_limit: number;
+  estimated_matches: number;
+  matched_keywords: string[];
+  sample_preview: {
+    company_name: string;
+    masked_nit: string;
+    masked_decision_maker: string;
+    title: string;
+    masked_phone: string;
+    masked_email: string;
+    annual_revenue_range?: string;
+    signals?: string;
+    city?: string;
+  };
+  pricing: {
+    tier: number;
+    tier_name: string;
+    unit_price_cop: number;
+    volume: number;
+    total_cop: number;
+    currency: string;
+    guarantee: string;
+  };
+  summary_message: string;
+}
+
 export const michitoApi = createApi({
   reducerPath: "michitoApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
@@ -84,6 +118,13 @@ export const michitoApi = createApi({
     getPartner: builder.query<PartnerResponse, string>({
       query: (partnerId) => `/partners/${partnerId}`,
       providesTags: (_result, _error, partnerId) => [{ type: "Partner", id: partnerId }],
+    }),
+    profileIntent: builder.mutation<IntentProfileResponse, { query: string; country?: string }>({
+      query: (body) => ({
+        url: "/intent/profile",
+        method: "POST",
+        body,
+      }),
     }),
     createOrder: builder.mutation<CreateOrderResponse, CreateOrderPayload>({
       query: (body) => ({
@@ -111,6 +152,7 @@ export const {
   useGetCampaignsQuery,
   useGetPartnerQuery,
   useLazyGetPartnerQuery,
+  useProfileIntentMutation,
   useCreateOrderMutation,
   useGetOrderQuery,
   usePayOrderMutation,

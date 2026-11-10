@@ -20,6 +20,7 @@ from src.application.use_cases.verify_mailbox import VerifyContactMailboxUseCase
 from src.application.use_cases.create_lead_order import CreateLeadOrderUseCase
 from src.application.use_cases.fulfill_wompi_webhook import FulfillPaymentWebhookUseCase
 from src.application.use_cases.screen_litigation_risk import ScreenLitigationRiskUseCase
+from src.application.use_cases.profile_b2b_intent_use_case import ProfileB2BIntentUseCase
 
 class AggregateLitigationScreeningAdapter(LitigationScreeningPort):
     def __init__(self, adapters: List[LitigationScreeningPort]):
@@ -106,5 +107,6 @@ class Container:
         self.screen_litigation_use_case = ScreenLitigationRiskUseCase(
             adapters=[self.contraloria_bdme, self.rama_judicial]
         )
+        self.profile_b2b_intent_use_case = ProfileB2BIntentUseCase()
 
 container = Container()

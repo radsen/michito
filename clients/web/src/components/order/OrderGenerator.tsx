@@ -4,10 +4,27 @@ import { RootState } from "../../store";
 import { selectCampaign, selectCity } from "../../store/slices/campaignSlice";
 import { setTier, setVolume } from "../../store/slices/pricingSlice";
 import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed, restoreOrder, resetOrder } from "../../store/slices/orderSlice";
-import { useGetCampaignsQuery, useCreateOrderMutation } from "../../store/api/michitoApi";
+import { useGetCampaignsQuery, useCreateOrderMutation, useProfileIntentMutation } from "../../store/api/michitoApi";
 import { LiveStatusTracker } from "../tracker/LiveStatusTracker";
 import { WompiCheckoutModal } from "../payment/WompiCheckoutModal";
-import { Zap, Loader2, Sparkles, ShieldCheck, MapPin, Hash, Building2, User, Mail, Phone, Search, X } from "lucide-react";
+import {
+  Zap,
+  Loader2,
+  Sparkles,
+  ShieldCheck,
+  MapPin,
+  Hash,
+  Building2,
+  User,
+  Mail,
+  Phone,
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
 
 export const OrderGenerator: React.FC = () => {
   const dispatch = useDispatch();
@@ -90,6 +107,33 @@ export const OrderGenerator: React.FC = () => {
   const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Stage 1 AI Intent Discovery States
+  const [aiQuery, setAiQuery] = useState("");
+  const [discoveryResult, setDiscoveryResult] = useState<any>(null);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
+
+  const handleProfileIntent = async (overrideQuery?: string) => {
+    const q = (overrideQuery || aiQuery).trim();
+    if (!q) return;
+    setFormError(null);
+    try {
+      const res = await profileIntentMutation({ query: q }).unwrap();
+      if (res && res.status === "success") {
+        setDiscoveryResult(res);
+        dispatch(selectCampaign(res.campaign_id));
+        setTargetCity(res.city);
+        dispatch(selectCity(res.city));
+        const safeTier = (res.recommended_tier === 1 || res.recommended_tier === 3 ? res.recommended_tier : 2) as (1 | 2 | 3);
+        dispatch(setTier(safeTier));
+        dispatch(setVolume(res.recommended_limit));
+        setIsAdvancedOpen(false);
+      }
+    } catch (err: any) {
+      console.warn("AI Intent discovery error:", err);
+    }
+  };
 
   useEffect(() => {
     const camp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId);
@@ -280,136 +324,280 @@ export const OrderGenerator: React.FC = () => {
               )}
             </div>
 
-            <form onSubmit={handleSubmitOrder} className="generator-form">
-              {/* Campaign Picker */}
-              <div className="form-group">
-                <label className="form-label flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-sky-400" />
-                  {g.campaignLabel}
-                </label>
-                <select
-                  value={selectedCampaignId}
-                  onChange={(e) => handleCampaignChange(e.target.value)}
-                  className="form-select"
+            {/* AI Natural Language Intent Hero */}
+            <div className="ai-intent-hero">
+              <div className="ai-intent-header">
+                <span className="ai-intent-badge">
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                  Michito Intent Engine™
+                </span>
+                <h3 className="ai-intent-title">¿A qué empresas le quieres vender hoy?</h3>
+                <p className="ai-intent-subtitle">
+                  Describe tu oferta o tu cliente ideal en una frase. Nuestra IA configurará el lote óptimo en tiempo real.
+                </p>
+              </div>
+
+              <div className="ai-intent-input-wrap">
+                <input
+                  type="text"
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleProfileIntent();
+                    }
+                  }}
+                  placeholder="Ej: Vendo software y busco firmas de abogados en Bogotá con más de 10 empleados..."
+                  className="ai-intent-input"
+                  disabled={isProfiling}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleProfileIntent()}
+                  disabled={isProfiling || !aiQuery.trim()}
+                  className="ai-intent-submit-btn"
                 >
-                  {CAMPAIGN_OPTIONS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                  {isProfiling ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Analizando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Descubrir con IA</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Suggestion Pills */}
+              <div className="ai-pills-container">
+                <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
+                <div className="ai-pills-grid">
+                  {[
+                    { label: "🏢 Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
+                    { label: "🚚 Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
+                    { label: "🎪 Expositores Ferias B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
+                    { label: "🏥 Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
+                    { label: "🏭 Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
+                  ].map((pill, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setAiQuery(pill.query);
+                        handleProfileIntent(pill.query);
+                      }}
+                      className="ai-quick-pill"
+                    >
+                      <span>{pill.label}</span>
+                    </button>
                   ))}
-                </select>
-              </div>
-
-              {/* Enrichment Tier Selector */}
-              <div className="form-group">
-                <label className="form-label">{g.tierLabel}</label>
-                <div className="tier-pills-selector">
-                  <button
-                    type="button"
-                    onClick={() => dispatch(setTier(1))}
-                    className={`tier-pill ${tier === 1 ? "active" : ""}`}
-                  >
-                    Tier 1: Directorio Base ($5.000 COP)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => dispatch(setTier(2))}
-                    className={`tier-pill ${tier === 2 ? "active" : ""}`}
-                  >
-                    Tier 2: Decisor C-Level ($30.000 COP) ⭐
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => dispatch(setTier(3))}
-                    className={`tier-pill ${tier === 3 ? "active" : ""}`}
-                  >
-                    Tier 3: Auditoría Financiera ($65.000 COP) 🛡️
-                  </button>
                 </div>
               </div>
 
-              {/* Target City & Account Volume Row */}
-              <div className="form-row-2">
-                <div className="form-group">
-                  <label className="form-label flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-emerald-400" />
-                    {g.cityLabel}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={targetCity}
-                    onChange={(e) => handleCityChange(e.target.value)}
-                    placeholder={g.cityPlaceholder}
-                    className="form-input"
-                  />
-                  <span className="text-xs text-slate-400 mt-1">
-                    Ingresa cualquier ciudad o territorio de cobertura comercial.
+              {/* Discovery Match Card */}
+              {discoveryResult && (
+                <div className="discovery-card">
+                  <div className="discovery-match-header">
+                    <div>
+                      <span className="discovery-match-badge">
+                        <CheckCircle2 className="w-4 h-4" />
+                        ✨ {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
+                      </span>
+                      <p className="text-xs text-slate-300 mt-1 font-medium">
+                        {discoveryResult.summary_message}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-slate-400 block">Lote Sugerido:</span>
+                      <strong className="text-sm font-bold text-emerald-400">
+                        {discoveryResult.recommended_limit} Decisores C-Level ({formatCop(discoveryResult.pricing.total_cop)} COP)
+                      </strong>
+                    </div>
+                  </div>
+
+                  {discoveryResult.sample_preview && (
+                    <div className="discovery-sample-preview">
+                      <div className="discovery-sample-title">Ejemplo de cuenta calificada en este lote:</div>
+                      <div className="discovery-sample-company">{discoveryResult.sample_preview.company_name}</div>
+                      <div className="discovery-sample-person">
+                        {discoveryResult.sample_preview.masked_decision_maker}
+                      </div>
+                      <div className="discovery-sample-badges">
+                        <span className="discovery-sample-badge">✓ NIT Vigente en Cámara de Comercio</span>
+                        <span className="discovery-sample-badge">✓ Mailbox MX Corporativo Verificado</span>
+                        <span className="discovery-sample-badge">✓ Huella HTTP y Dominio Activo</span>
+                        <span className="discovery-sample-badge">✓ Solvencia Financiera Aprobada</span>
+                      </div>
+                      {discoveryResult.sample_preview.signals && (
+                        <div className="discovery-sample-signals">
+                          <strong>Señal de Compra:</strong> {discoveryResult.sample_preview.signals}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleSubmitOrder} className="generator-form">
+              {/* Advanced Configuration Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                className="advanced-toggle-btn"
+              >
+                <span className="flex items-center gap-2">
+                  <span>⚙️</span>
+                  <span>
+                    {isAdvancedOpen
+                      ? "Ocultar configuración manual"
+                      : "Ajustar filtros manualmente (Campaña, Tier, Cantidad, Territorio)"}
                   </span>
-                </div>
+                </span>
+                {isAdvancedOpen ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
 
-                <div className="form-group">
-                  <label className="form-label flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-purple-400" />
-                    {g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong>
-                  </label>
-                  <div className="volume-presets-grid">
-                    <button
-                      type="button"
-                      onClick={() => dispatch(setVolume(10))}
-                      className={`preset-btn ${volume === 10 ? "active" : ""}`}
+              {isAdvancedOpen && (
+                <div className="advanced-section-wrapper">
+                  {/* Campaign Picker */}
+                  <div className="form-group">
+                    <label className="form-label flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-sky-400" />
+                      {g.campaignLabel}
+                    </label>
+                    <select
+                      value={selectedCampaignId}
+                      onChange={(e) => handleCampaignChange(e.target.value)}
+                      className="form-select"
                     >
-                      10
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => dispatch(setVolume(25))}
-                      className={`preset-btn ${volume === 25 ? "active" : ""}`}
-                    >
-                      25 <span className="discount-tag">-6%</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => dispatch(setVolume(50))}
-                      className={`preset-btn ${volume === 50 ? "active" : ""}`}
-                    >
-                      50 <span className="discount-tag">-12%</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => dispatch(setVolume(100))}
-                      className={`preset-btn ${volume === 100 ? "active" : ""}`}
-                    >
-                      100 <span className="discount-tag">-20%</span>
-                    </button>
+                      {CAMPAIGN_OPTIONS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Enrichment Tier Selector */}
+                  <div className="form-group">
+                    <label className="form-label">{g.tierLabel}</label>
+                    <div className="tier-pills-selector">
+                      <button
+                        type="button"
+                        onClick={() => dispatch(setTier(1))}
+                        className={`tier-pill ${tier === 1 ? "active" : ""}`}
+                      >
+                        Tier 1: Directorio Base ($5.000 COP)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dispatch(setTier(2))}
+                        className={`tier-pill ${tier === 2 ? "active" : ""}`}
+                      >
+                        Tier 2: Decisor C-Level ($30.000 COP) ⭐
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dispatch(setTier(3))}
+                        className={`tier-pill ${tier === 3 ? "active" : ""}`}
+                      >
+                        Tier 3: Auditoría Financiera ($65.000 COP) 🛡️
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Target City & Account Volume Row */}
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label className="form-label flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-emerald-400" />
+                        {g.cityLabel}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={targetCity}
+                        onChange={(e) => handleCityChange(e.target.value)}
+                        placeholder={g.cityPlaceholder}
+                        className="form-input"
+                      />
+                      <span className="text-xs text-slate-400 mt-1">
+                        Ingresa cualquier ciudad o territorio de cobertura comercial.
+                      </span>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-purple-400" />
+                        {g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong>
+                      </label>
+                      <div className="volume-presets-grid">
+                        <button
+                          type="button"
+                          onClick={() => dispatch(setVolume(10))}
+                          className={`preset-btn ${volume === 10 ? "active" : ""}`}
+                        >
+                          10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(setVolume(25))}
+                          className={`preset-btn ${volume === 25 ? "active" : ""}`}
+                        >
+                          25 <span className="discount-tag">-6%</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(setVolume(50))}
+                          className={`preset-btn ${volume === 50 ? "active" : ""}`}
+                        >
+                          50 <span className="discount-tag">-12%</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(setVolume(100))}
+                          className={`preset-btn ${volume === 100 ? "active" : ""}`}
+                        >
+                          100 <span className="discount-tag">-20%</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Volume Slider for Custom Quantities */}
+                  <div className="form-group slider-group">
+                    <div className="slider-header">
+                      <span className="text-xs text-slate-400">Ajuste fino de volumen:</span>
+                      <span className="slider-value-badge">{volume} cuentas</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="500"
+                      step="5"
+                      value={volume}
+                      onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
+                      className="volume-slider"
+                    />
+                    <div className="slider-ticks">
+                      <span>10 (Rápido)</span>
+                      <span>25 (Rec.)</span>
+                      <span>50</span>
+                      <span>100</span>
+                      <span>250</span>
+                      <span>500+</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Volume Slider for Custom Quantities */}
-              <div className="form-group slider-group">
-                <div className="slider-header">
-                  <span className="text-xs text-slate-400">Ajuste fino de volumen:</span>
-                  <span className="slider-value-badge">{volume} cuentas</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="500"
-                  step="5"
-                  value={volume}
-                  onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
-                  className="volume-slider"
-                />
-                <div className="slider-ticks">
-                  <span>10 (Rápido)</span>
-                  <span>25 (Rec.)</span>
-                  <span>50</span>
-                  <span>100</span>
-                  <span>250</span>
-                  <span>500+</span>
-                </div>
-              </div>
+              )}
 
               {/* Price Calculation Box */}
               <div className="calc-summary-box">
