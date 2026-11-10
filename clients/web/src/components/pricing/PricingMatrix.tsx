@@ -128,7 +128,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn btn-highlighted ${selectedTier === 2 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 2 ? "Decisor Seleccionado" : "Elegir Contacto Decisor"}
+              {selectedTier === 2 ? "Contactos Directos Seleccionado" : "Elegir Contactos Directos"}
             </button>
           </div>
 

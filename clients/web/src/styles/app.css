@@ -651,24 +651,63 @@ main {
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  padding: 20px;
+  padding: 28px 20px;
   border-radius: 12px;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+  transform: translateY(-2px);
+}
+
+.stat-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
 }
 
 .stat-value {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #fff;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  text-align: center;
 }
 
 .stat-desc {
   font-size: 0.85rem;
   color: var(--text-muted);
+  line-height: 1.45;
+  text-align: center;
 }
+
+/* Color accents for icon badges & stats */
+.text-emerald-400 { color: #34d399; }
+.bg-emerald-500\/10, .bg-emerald-500-10 { background: rgba(52, 211, 153, 0.12); }
+.text-blue-400 { color: #38bdf8; }
+.bg-blue-500\/10, .bg-blue-500-10 { background: rgba(56, 189, 248, 0.12); }
+.text-amber-400 { color: #fbbf24; }
+.bg-amber-500\/10, .bg-amber-500-10 { background: rgba(251, 191, 36, 0.12); }
+.text-purple-400 { color: #c084fc; }
+.bg-purple-500\/10, .bg-purple-500-10 { background: rgba(192, 132, 252, 0.12); }
 
 /* Comparison Section */
 .comparison-section {

@@ -14,8 +14,8 @@ test.describe("Multi-Scenario & Industry Sweep", () => {
     const cityInput = page.locator(".form-group:has-text('Ciudad') input.form-input");
     await expect(cityInput).toHaveValue("Bogotá");
 
-    // Select Tier 2 (Decision-Maker inboxes)
-    const tier2Pill = page.locator("button:has-text('Tier 2: Decisor C-Level')");
+    // Select Contactos Directos
+    const tier2Pill = page.locator("button:has-text('Contactos Directos')");
     await tier2Pill.click();
 
     // Select 50 accounts batch
@@ -38,12 +38,12 @@ test.describe("Multi-Scenario & Industry Sweep", () => {
     await cityInput.fill("Rionegro");
     await expect(cityInput).toHaveValue("Rionegro");
 
-    // Select Tier 3 (Underwritten & Judicial Audit for fleet operators)
-    const tier3Pill = page.locator("button:has-text('Tier 3: Auditoría Financiera')");
+    // Select Auditoría Completa
+    const tier3Pill = page.locator("button:has-text('Auditoría Completa')");
     await tier3Pill.click();
 
     const calcBox = page.locator(".calc-summary-box");
-    await expect(calcBox).toContainText("Precio unitario (Tier 3):");
+    await expect(calcBox).toContainText("Auditoría Completa");
     await expect(calcBox).toContainText("65.000 COP");
   });
 
@@ -85,12 +85,12 @@ test.describe("Multi-Scenario & Industry Sweep", () => {
     const cityInput = page.locator(".form-group:has-text('Ciudad') input.form-input");
     await expect(cityInput).toHaveValue("Medellín");
 
-    // Select Tier 1 Base Directory
-    const tier1Pill = page.locator("button:has-text('Tier 1: Directorio Base')");
+    // Select Directorio Base
+    const tier1Pill = page.locator("button:has-text('Directorio Base')");
     await tier1Pill.click();
 
     const calcBox = page.locator(".calc-summary-box");
-    await expect(calcBox).toContainText("Precio unitario (Tier 1):");
+    await expect(calcBox).toContainText("Directorio Base");
     await expect(calcBox).toContainText("5.000 COP");
   });
 

@@ -43,7 +43,7 @@ export const Hero: React.FC = () => {
         {/* 4 Metric Cards Strip matching index.html */}
         <div className="hero-stats-grid four-col">
           <div className="stat-card">
-            <div className="stat-icon-wrapper text-emerald-400">
+            <div className="stat-icon-wrapper text-emerald-400 bg-emerald-500/10">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div className="stat-info">
@@ -53,7 +53,7 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon-wrapper text-blue-400">
+            <div className="stat-icon-wrapper text-blue-400 bg-blue-500/10">
               <Building className="w-6 h-6" />
             </div>
             <div className="stat-info">
@@ -63,7 +63,7 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon-wrapper text-amber-400">
+            <div className="stat-icon-wrapper text-amber-400 bg-amber-500/10">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div className="stat-info">
@@ -73,7 +73,7 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon-wrapper text-purple-400">
+            <div className="stat-icon-wrapper text-purple-400 bg-purple-500/10">
               <PenTool className="w-6 h-6" />
             </div>
             <div className="stat-info">

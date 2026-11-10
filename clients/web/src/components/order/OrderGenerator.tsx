@@ -363,7 +363,7 @@ export const OrderGenerator: React.FC = () => {
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block">Lote Sugerido:</span>
                       <strong className="text-sm font-bold text-emerald-400">
-                        {discoveryResult.recommended_limit} Decisores C-Level ({formatCop(discoveryResult.pricing.total_cop)} COP)
+                        {discoveryResult.recommended_limit} Contactos Directos ({formatCop(discoveryResult.pricing.total_cop)} COP)
                       </strong>
                     </div>
                   </div>
@@ -448,7 +448,7 @@ export const OrderGenerator: React.FC = () => {
                         onClick={() => dispatch(setTier(2))}
                         className={`tier-pill ${tier === 2 ? "active" : ""}`}
                       >
-                        Contacto Decisor ($30.000 COP) ⭐
+                        Contactos Directos ($30.000 COP) ⭐
                       </button>
                       <button
                         type="button"
@@ -553,7 +553,7 @@ export const OrderGenerator: React.FC = () => {
                     {tier === 1
                       ? "Directorio Base"
                       : tier === 2
-                      ? "Contacto Decisor"
+                      ? "Contactos Directos"
                       : "Auditoría Completa"}
                     ):
                   </span>
@@ -582,8 +582,9 @@ export const OrderGenerator: React.FC = () => {
               </div>
 
               {/* Buyer Contact Fields */}
-              <div className="form-divider">
-                <span>{g.buyerSection}</span>
+              <div className="card-header-box" style={{ marginTop: "36px", marginBottom: "20px" }}>
+                <h3 className="generator-card-title">2. {g.buyerSection}</h3>
+                <p className="generator-card-sub">{g.buyerSectionSub}</p>
               </div>
 
               <div className="buyer-fields-grid">
