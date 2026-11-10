@@ -103,3 +103,4 @@ class WebhookAlertAdapter:
         except Exception as e:
             logger.warning(f"[WatchdogAlert] Failed to dispatch webhook alert to {self.webhook_url}: {e}")
             return False
+
