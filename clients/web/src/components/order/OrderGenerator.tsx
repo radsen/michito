@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { selectCampaign, selectCity } from "../../store/slices/campaignSlice";
-import { setTier, setVolume } from "../../store/slices/pricingSlice";
+import { setTier, setVolume, setCurrency } from "../../store/slices/pricingSlice";
 import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed, restoreOrder, resetOrder } from "../../store/slices/orderSlice";
 import { useGetCampaignsQuery, useCreateOrderMutation, useProfileIntentMutation } from "../../store/api/michitoApi";
 import { LiveStatusTracker } from "../tracker/LiveStatusTracker";
 import { WompiCheckoutModal } from "../payment/WompiCheckoutModal";
+import { SUPPORTED_CURRENCIES, formatCurrencyAmount, formatUnitCurrency, SupportedCurrency } from "../../config/currencies";
 import {
   Zap,
   Loader2,
@@ -30,12 +31,23 @@ export const OrderGenerator: React.FC = () => {
   const dispatch = useDispatch();
   const { dict } = useSelector((state: RootState) => state.language);
   const { selectedCampaignId } = useSelector((state: RootState) => state.campaign);
-  const { tier, volume, unitPriceCop, discountPercent, subtotalCop, totalCop } = useSelector(
-    (state: RootState) => state.pricing
-  );
+  const {
+    tier,
+    volume,
+    currency,
+    unitPrice,
+    unitPriceCop,
+    discountPercent,
+    subtotal,
+    subtotalCop,
+    total,
+    totalCop,
+  } = useSelector((state: RootState) => state.pricing);
   const { activeOrderId } = useSelector((state: RootState) => state.order);
   const partner = useSelector((state: RootState) => state.partner);
   const g = dict.generator;
+
+  const curConfig = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
 
   // Campaigns catalog matching index.html
   const CAMPAIGN_OPTIONS = [
@@ -147,6 +159,9 @@ export const OrderGenerator: React.FC = () => {
     if (camp) {
       setTargetCity(camp.defaultCity);
       dispatch(selectCity(camp.defaultCity));
+      if (camp.currency && camp.currency !== currency) {
+        dispatch(setCurrency(camp.currency as SupportedCurrency));
+      }
     }
   };
 
@@ -441,21 +456,21 @@ export const OrderGenerator: React.FC = () => {
                         onClick={() => dispatch(setTier(1))}
                         className={`tier-pill ${tier === 1 ? "active" : ""}`}
                       >
-                        Directorio Base ($5.000 COP)
+                        Directorio Base ({formatUnitCurrency(curConfig.tierPrices[1], currency)})
                       </button>
                       <button
                         type="button"
                         onClick={() => dispatch(setTier(2))}
                         className={`tier-pill ${tier === 2 ? "active" : ""}`}
                       >
-                        Contactos Directos ($30.000 COP) ⭐
+                        Contactos Directos ({formatUnitCurrency(curConfig.tierPrices[2], currency)}) ⭐
                       </button>
                       <button
                         type="button"
                         onClick={() => dispatch(setTier(3))}
                         className={`tier-pill ${tier === 3 ? "active" : ""}`}
                       >
-                        Auditoría Completa ($65.000 COP)
+                        Auditoría Completa ({formatUnitCurrency(curConfig.tierPrices[3], currency)})
                       </button>
                     </div>
                   </div>
@@ -557,24 +572,29 @@ export const OrderGenerator: React.FC = () => {
                       : "Auditoría Completa"}
                     ):
                   </span>
-                  <span>{formatCop(unitPriceCop)} COP</span>
+                  <span>{formatCurrencyAmount(unitPrice, currency)}</span>
                 </div>
                 <div className="calc-row">
                   <span>Subtotal ({volume} cuentas):</span>
-                  <span>{formatCop(subtotalCop)} COP</span>
+                  <span>{formatCurrencyAmount(subtotal, currency)}</span>
                 </div>
                 {discountPercent > 0 && (
                   <div className="calc-row text-emerald-400">
                     <span className="flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5" /> Descuento por volumen (-{discountPercent}%):
                     </span>
-                    <span>-{formatCop(subtotalCop - totalCop)} COP</span>
+                    <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
                   </div>
                 )}
                 <div className="calc-row-total">
                   <span>{g.summaryTotal}</span>
-                  <span className="total-cop">{formatCop(totalCop)} COP</span>
+                  <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
                 </div>
+                {currency !== "COP" && (
+                  <div className="text-xs text-slate-400 mt-1 text-right">
+                    Equivalente en liquidación segura Wompi: {formatCop(totalCop)} COP
+                  </div>
+                )}
                 <div className="fair-billing-pill">
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>{g.fairBillingNote}</span>

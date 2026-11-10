@@ -38,7 +38,7 @@
     "michito1": "Real-time extraction from today's active business registries.",
     "michito2": "High deliverability (>95%): every corporate email is technical-handshake verified on MX servers.",
     "michito3": "Direct decision makers: real names, executive titles, and cell phones/WhatsApp.",
-    "michito4": "No monthly fees: pay strictly per batch, starting at $5.000 COP.",
+    "michito4": "No monthly fees: pay strictly per batch, without forced subscriptions.",
     "michito5": "Fair billing: if an email fails our live technical check, you are never charged."
   },
   "triggers": {
@@ -131,9 +131,10 @@
     "kicker": "Pricing by Package & Volume",
     "title": "Transparent Pay-Per-Lead (No Subscription)",
     "subtitle": "Choose what data you need for each company. Built-in volume discounts.",
+    "currencySelectorLabel": "Display pricing in:",
     "tier1Name": "BASE DIRECTORY",
     "tier1Price": "$5,000 COP",
-    "tier1Unit": "per qualified lead (~$1.25 USD / RD$ 100 DOP)",
+    "tier1Unit": "per verified account",
     "tier1Desc": "Institutional directory for high-volume outreach and top-of-funnel list enrichment.",
     "tier1Feature1": "Official Corporate Tax ID (NIT/RNC)",
     "tier1Feature2": "Registered Legal Name & City",
@@ -145,7 +146,7 @@
     "tier2Name": "DIRECT CONTACTS",
     "tier2Badge": "MOST POPULAR",
     "tier2Price": "$30,000 COP",
-    "tier2Unit": "per intent lead (~$7.50 USD / RD$ 350 DOP)",
+    "tier2Unit": "per direct contact with intent signal",
     "tier2Desc": "The outbound standard: direct executive contact, live MX-verified email & direct WhatsApp.",
     "tier2Feature1": "Everything in Base Directory",
     "tier2Feature2": "Verified Decision Maker Name & Role",
@@ -156,7 +157,7 @@
 
     "tier3Name": "FULL AUDIT",
     "tier3Price": "$65,000 COP",
-    "tier3Unit": "per underwritten lead (~$16 USD / RD$ 750 DOP)",
+    "tier3Unit": "per underwritten enterprise",
     "tier3Desc": "Full commercial diligence: direct contact + NIIF financials and litigation screening.",
     "tier3Feature1": "Everything in Direct Contacts",
     "tier3Feature2": "Audited NIIF Financials (Revenue, EBIT, EBITDA)",

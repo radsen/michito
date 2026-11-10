@@ -2,13 +2,20 @@ import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { setTier } from "../../store/slices/pricingSlice";
+import { CurrencySwitcher } from "../common/CurrencySwitcher";
+import { SUPPORTED_CURRENCIES, formatCurrencyAmount } from "../../config/currencies";
 import { Check, Star, ShieldAlert, Sparkles, ShieldCheck } from "lucide-react";
 
 export const PricingMatrix: React.FC = () => {
   const dispatch = useDispatch();
   const { dict } = useSelector((state: RootState) => state.language);
-  const { tier: selectedTier } = useSelector((state: RootState) => state.pricing);
+  const { tier: selectedTier, currency } = useSelector((state: RootState) => state.pricing);
   const p = dict.pricing;
+
+  const curConfig = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
+  const tier1PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[1], currency);
+  const tier2PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[2], currency);
+  const tier3PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[3], currency);
 
   const handleChooseTier = (t: 1 | 2 | 3) => {
     dispatch(setTier(t));
@@ -25,6 +32,11 @@ export const PricingMatrix: React.FC = () => {
           <span className="section-kicker">{p.kicker}</span>
           <h2 className="section-title">{p.title}</h2>
           <p className="section-subtitle">{p.subtitle}</p>
+
+          <div className="pricing-currency-bar">
+            <span className="pricing-currency-label">{p.currencySelectorLabel || "Ver precios en:"}</span>
+            <CurrencySwitcher variant="segmented" />
+          </div>
         </div>
 
         <div className="pricing-cards-grid">
@@ -38,7 +50,7 @@ export const PricingMatrix: React.FC = () => {
               <p className="tier-desc">{p.tier1Desc}</p>
             </div>
             <div className="tier-price-box">
-              <span className="tier-price">{p.tier1Price}</span>
+              <span className="tier-price">{tier1PriceFormatted}</span>
               <span className="tier-unit">{p.tier1Unit}</span>
             </div>
             <ul className="tier-features">
@@ -92,7 +104,7 @@ export const PricingMatrix: React.FC = () => {
               <p className="tier-desc">{p.tier2Desc}</p>
             </div>
             <div className="tier-price-box">
-              <span className="tier-price">{p.tier2Price}</span>
+              <span className="tier-price">{tier2PriceFormatted}</span>
               <span className="tier-unit">{p.tier2Unit}</span>
             </div>
             <ul className="tier-features">
@@ -142,7 +154,7 @@ export const PricingMatrix: React.FC = () => {
               <p className="tier-desc">{p.tier3Desc}</p>
             </div>
             <div className="tier-price-box">
-              <span className="tier-price">{p.tier3Price}</span>
+              <span className="tier-price">{tier3PriceFormatted}</span>
               <span className="tier-unit">{p.tier3Unit}</span>
             </div>
             <ul className="tier-features">

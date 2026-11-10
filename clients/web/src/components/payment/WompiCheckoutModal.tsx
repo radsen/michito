@@ -4,6 +4,7 @@ import { RootState } from "../../store";
 import { setWompiModalOpen } from "../../store/slices/uiSlice";
 import { updateOrderStatus } from "../../store/slices/orderSlice";
 import { usePayOrderMutation } from "../../store/api/michitoApi";
+import { formatCurrencyAmount } from "../../config/currencies";
 import { X, CreditCard, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 
 declare global {
@@ -23,7 +24,7 @@ export const WompiCheckoutModal: React.FC = () => {
   const dispatch = useDispatch();
   const { isWompiModalOpen } = useSelector((state: RootState) => state.ui);
   const { activeOrderId, totalAmountInCents } = useSelector((state: RootState) => state.order);
-  const { totalCop } = useSelector((state: RootState) => state.pricing);
+  const { totalCop, total, currency } = useSelector((state: RootState) => state.pricing);
   const [payOrder, { isLoading: isPaying }] = usePayOrderMutation();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -132,7 +133,11 @@ export const WompiCheckoutModal: React.FC = () => {
           </div>
           <div className="summary-row">
             <span>Monto Total:</span>
-            <span className="text-xl font-bold text-emerald-400">{formatCop(amountInCents / 100)} COP</span>
+            <span className="text-xl font-bold text-emerald-400">
+              {currency !== "COP"
+                ? `${formatCurrencyAmount(total, currency)} (${formatCop(amountInCents / 100)} COP)`
+                : `${formatCop(amountInCents / 100)} COP`}
+            </span>
           </div>
           <div className="summary-row text-xs text-slate-400">
             <span>Ambiente:</span>

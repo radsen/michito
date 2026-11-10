@@ -2,7 +2,9 @@ import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { toggleLanguage } from "../../store/slices/languageSlice";
+import { setCurrency } from "../../store/slices/pricingSlice";
 import { setMobileNavOpen } from "../../store/slices/uiSlice";
+import { CurrencySwitcher } from "../common/CurrencySwitcher";
 import {
   Menu,
   X,
@@ -19,7 +21,18 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" }) => {
   const dispatch = useDispatch();
   const { currentLanguage, dict } = useSelector((state: RootState) => state.language);
+  const { currency } = useSelector((state: RootState) => state.pricing);
   const { isMobileNavOpen } = useSelector((state: RootState) => state.ui);
+
+  const handleToggleLang = () => {
+    const nextLang = currentLanguage === "es_CO" ? "en_US" : "es_CO";
+    dispatch(toggleLanguage());
+    if (nextLang === "en_US" && currency === "COP") {
+      dispatch(setCurrency("USD"));
+    } else if (nextLang === "es_CO" && currency === "USD") {
+      dispatch(setCurrency("COP"));
+    }
+  };
 
   const handleNavClick = (sectionId: string) => {
     dispatch(setMobileNavOpen(false));
@@ -87,9 +100,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
 
           {/* Action Buttons - Standardized 36px Height */}
           <div className="navbar-actions">
+            <CurrencySwitcher variant="dropdown" />
+
             <button
               type="button"
-              onClick={() => dispatch(toggleLanguage())}
+              onClick={handleToggleLang}
               className="lang-switcher-btn"
               title="Switch Language / Cambiar Idioma"
             >

@@ -38,7 +38,7 @@
     "michito1": "Extracción en vivo desde registros mercantiles actualizados hoy.",
     "michito2": "Alta entregabilidad (>95%): cada correo corporativo es probado directamente en el servidor MX.",
     "michito3": "Contactos directos: nombres, cargos (Gerentes y directivos) y números celulares.",
-    "michito4": "Sin suscripciones: pagas únicamente por las cuentas que pides, desde $5.000 COP.",
+    "michito4": "Sin suscripciones: pagas únicamente por las cuentas que pides, sin mensualidades forzadas.",
     "michito5": "Cobro justo: si un correo no pasa la prueba técnica, no se te cobra."
   },
   "triggers": {
@@ -131,9 +131,10 @@
     "kicker": "Precios por Paquete & Volumen",
     "title": "Precios Transparentes (Sin Suscripción)",
     "subtitle": "Elige qué datos necesitas de cada empresa. Descuentos automáticos por volumen.",
+    "currencySelectorLabel": "Ver precios en:",
     "tier1Name": "DIRECTORIO BASE",
     "tier1Price": "$5.000 COP",
-    "tier1Unit": "por lead calificado (RD$ 100 DOP)",
+    "tier1Unit": "por cuenta institucional verificada",
     "tier1Desc": "Directorio institucional para prospección masiva y enriquecimiento de base fría.",
     "tier1Feature1": "NIT / RNC Corporativo Oficial",
     "tier1Feature2": "Razón Social & Ciudad",
@@ -145,7 +146,7 @@
     "tier2Name": "CONTACTOS DIRECTOS",
     "tier2Badge": "MÁS PEDIDO",
     "tier2Price": "$30.000 COP",
-    "tier2Unit": "por lead con señal (RD$ 350 DOP)",
+    "tier2Unit": "por contacto directo con señal",
     "tier2Desc": "El estándar de prospección: nombre del directivo, correo corporativo validado en MX y WhatsApp directo.",
     "tier2Feature1": "Todo lo del Directorio Base",
     "tier2Feature2": "Nombre y Cargo del Tomador de Decisión",
@@ -156,7 +157,7 @@
 
     "tier3Name": "AUDITORÍA COMPLETA",
     "tier3Price": "$65.000 COP",
-    "tier3Unit": "por lead evaluado (RD$ 750 DOP)",
+    "tier3Unit": "por cuenta con auditoría NIIF",
     "tier3Desc": "Diligencia comercial total: contacto directo + balance financiero NIIF y antecedentes legales.",
     "tier3Feature1": "Todo lo de Contactos Directos",
     "tier3Feature2": "Cálculo de EBITDA y Margen Operativo NIIF",

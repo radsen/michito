@@ -10,32 +10,32 @@ test.describe("Pricing Matrix & Volume Discount Curves", () => {
     await expect(pricingSection).toBeVisible();
 
     // Verify Tier 1
-    await expect(page.locator(".tier-name", { hasText: "TIER 1" })).toBeVisible();
+    await expect(page.locator(".tier-name", { hasText: "DIRECTORIO BASE" })).toBeVisible();
     await expect(page.locator(".tier-price", { hasText: "$5.000 COP" })).toBeVisible();
 
     // Verify Tier 2 (Featured)
-    await expect(page.locator(".tier-name", { hasText: "TIER 2" })).toBeVisible();
+    await expect(page.locator(".tier-name", { hasText: "CONTACTOS DIRECTOS" })).toBeVisible();
     await expect(page.locator(".tier-price", { hasText: "$30.000 COP" })).toBeVisible();
 
     // Verify Tier 3
-    await expect(page.locator(".tier-name", { hasText: "TIER 3" })).toBeVisible();
+    await expect(page.locator(".tier-name", { hasText: "AUDITORÍA COMPLETA" })).toBeVisible();
     await expect(page.locator(".tier-price", { hasText: "$65.000 COP" })).toBeVisible();
   });
 
   test("should update generator calculation when switching tiers in pricing matrix", async ({ page }) => {
     // Choose Tier 1 in pricing matrix
-    const chooseTier1Btn = page.locator("button:has-text('Elegir Tier 1')");
+    const chooseTier1Btn = page.locator("button:has-text('Elegir Directorio')");
     await chooseTier1Btn.click();
 
     // Verify that the generator updates to Tier 1 pricing
     const calcBox = page.locator(".calc-summary-box");
-    await expect(calcBox).toContainText("Precio unitario (Tier 1):");
+    await expect(calcBox).toContainText("Directorio Base");
     await expect(calcBox).toContainText("5.000 COP");
 
     // Choose Tier 3 in generator pills
-    const tier3Pill = page.locator("button:has-text('Tier 3: Auditoría Financiera')");
+    const tier3Pill = page.locator("button:has-text('Auditoría Completa')");
     await tier3Pill.click();
-    await expect(calcBox).toContainText("Precio unitario (Tier 3):");
+    await expect(calcBox).toContainText("Auditoría Completa");
     await expect(calcBox).toContainText("65.000 COP");
   });
 
