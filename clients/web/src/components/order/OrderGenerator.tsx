@@ -269,12 +269,13 @@ export const OrderGenerator: React.FC = () => {
                 {!activeOrderId && !showLookup && (
                   <button
                     type="button"
+                    id="open-order-lookup-btn"
                     onClick={() => setShowLookup(true)}
-                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 mt-1"
-                    title="Restaurar una orden anterior"
+                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 transition-colors mt-1"
+                    title="Rastrear una orden existente por ID"
                   >
                     <Search className="w-3.5 h-3.5" />
-                    <span>Consultar orden</span>
+                    <span>Rastrear orden existente</span>
                   </button>
                 )}
               </div>

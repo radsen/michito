@@ -34,10 +34,9 @@ function getInitialActiveOrderId(): string | null {
     if (fromUrl && fromUrl.startsWith("ord_")) {
       return fromUrl;
     }
-    const fromStorage = localStorage.getItem("michito_active_order_id");
-    if (fromStorage && fromStorage.startsWith("ord_")) {
-      return fromStorage;
-    }
+    // Note: Do NOT auto-load past orders from localStorage on cold page visits.
+    // Customers must always land on a clean purchase generator first (like DHL/FedEx).
+    // They can look up an existing order anytime via the tracking search bar or direct link.
   } catch (e) {
     // Graceful fallback if localStorage is disabled
   }
@@ -66,9 +65,10 @@ function syncUrlWithOrderId(orderId: string | null) {
     const url = new URL(window.location.href);
     if (orderId) {
       url.searchParams.set("order_id", orderId);
-      localStorage.setItem("michito_active_order_id", orderId);
+      sessionStorage.setItem("michito_session_order_id", orderId);
     } else {
       url.searchParams.delete("order_id");
+      sessionStorage.removeItem("michito_session_order_id");
       localStorage.removeItem("michito_active_order_id");
     }
     window.history.replaceState({}, "", url.toString());

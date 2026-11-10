@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { toggleLanguage } from "../../store/slices/languageSlice";
 import { setMobileNavOpen } from "../../store/slices/uiSlice";
-import { Globe, Menu, X, Zap } from "lucide-react";
+import { Globe, Menu, X, Zap, Search } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const dispatch = useDispatch();
@@ -48,6 +48,20 @@ export const Navbar: React.FC = () => {
           </button>
           <button onClick={() => scrollTo("generador")} className="nav-link">
             {dict.nav.generator}
+          </button>
+          <button
+            onClick={() => {
+              scrollTo("generador");
+              setTimeout(() => {
+                const btn = document.getElementById("open-order-lookup-btn");
+                if (btn) btn.click();
+              }, 300);
+            }}
+            className="nav-link text-sky-400 font-semibold flex items-center gap-1"
+            title="Consultar estado de una orden por referencia"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>Rastrear Orden</span>
           </button>
         </nav>
 
@@ -98,6 +112,19 @@ export const Navbar: React.FC = () => {
           </button>
           <button onClick={() => scrollTo("generador")} className="mobile-nav-link">
             {dict.nav.generator}
+          </button>
+          <button
+            onClick={() => {
+              scrollTo("generador");
+              setTimeout(() => {
+                const btn = document.getElementById("open-order-lookup-btn");
+                if (btn) btn.click();
+              }, 300);
+            }}
+            className="mobile-nav-link text-sky-400 font-semibold flex items-center gap-1.5"
+          >
+            <Search className="w-4 h-4" />
+            <span>Rastrear Orden</span>
           </button>
           <button onClick={() => scrollTo("generador")} className="mobile-drawer-cta">
             {dict.nav.cta}

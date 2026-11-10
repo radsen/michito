@@ -257,3 +257,4 @@ class ProfileB2BIntentUseCase:
             },
             "summary_message": summary_msg,
         }
+
