@@ -6,7 +6,6 @@ import { setMobileNavOpen } from "../../store/slices/uiSlice";
 import {
   Menu,
   X,
-  Search,
   Workflow,
   ShieldCheck,
   Tag,
@@ -31,15 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
       if (el) {
         el.scrollIntoView({ behavior: "smooth" });
       }
-    }
-  };
-
-  const handleTrackClick = () => {
-    dispatch(setMobileNavOpen(false));
-    if (onNavigate) {
-      onNavigate("/rastrear");
-    } else {
-      window.location.href = "/rastrear";
     }
   };
 
@@ -68,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
 
         {/* Navigation & Controls - Aligned Right */}
         <div className="navbar-right">
-          {/* Desktop Navigation in Logical Top-to-Bottom Order */}
+          {/* Desktop Navigation */}
           <nav className="desktop-nav">
             <button
               type="button"
@@ -92,16 +82,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
               className="nav-item-btn"
             >
               <span>{dict.nav.pricing}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleTrackClick}
-              className={`nav-item-btn nav-track-btn ${currentPath === "/rastrear" ? "active" : ""}`}
-              title="Consultar estado de una orden por ID"
-            >
-              <Search className="w-3.5 h-3.5" />
-              <span>{dict.nav.trackOrder}</span>
             </button>
           </nav>
 
@@ -151,10 +131,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
           <button onClick={() => handleNavClick("precios")} className="mobile-nav-link">
             <Tag className="w-4 h-4 text-sky-400" />
             <span>{dict.nav.pricing}</span>
-          </button>
-          <button onClick={handleTrackClick} className="mobile-nav-link text-sky-400 font-semibold">
-            <Search className="w-4 h-4" />
-            <span>{dict.nav.trackOrder}</span>
           </button>
 
           <button onClick={() => handleNavClick("generador")} className="mobile-drawer-cta">
