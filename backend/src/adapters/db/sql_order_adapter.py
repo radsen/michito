@@ -82,6 +82,12 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settled_at TIMESTAMP NULL"))
                     if "partner_settlement_status" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settlement_status VARCHAR(32) DEFAULT 'pending'"))
+                    if "retry_count" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN retry_count INTEGER DEFAULT 0"))
+                    if "max_retries" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN max_retries INTEGER DEFAULT 3"))
+                    if "last_retried_at" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN last_retried_at TIMESTAMP NULL"))
             if "clients" in table_names:
                 client_columns = [c["name"] for c in inspector.get_columns("clients")]
                 if "referral_partner" not in client_columns:
@@ -218,11 +224,101 @@ class SqlOrderAdapter:
             return None
 
     def fetch_queued_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fetches orders currently waiting to be processed."""
+        """Fetches orders currently waiting to be processed, with concurrency lock if supported."""
         with self._get_session() as session:
-            stmt = select(OrderModel).where(OrderModel.status == "queued").limit(limit)
+            stmt = select(OrderModel).where(OrderModel.status == "queued").order_by(OrderModel.created_at.asc()).limit(limit)
+            if not self.database_url.startswith("sqlite"):
+                # PostgreSQL / Cloud SQL: lock rows and skip any locked by other concurrent workers
+                stmt = stmt.with_for_update(skip_locked=True)
             results = session.scalars(stmt).all()
             return [ord.to_dict() for ord in results]
+
+    def recover_stuck_processing_orders(self, max_processing_minutes: int = 5) -> List[Dict[str, Any]]:
+        """
+        Zombie Order Reaper / Self-Healing Sweeper:
+        Identifies orders stuck in 'processing' longer than max_processing_minutes
+        (typically due to worker crash, container restart, OOM kill, or network partition).
+
+        Actions:
+        - If retry_count < max_retries: Re-queues the order with incremented retry_count.
+        - If retry_count >= max_retries: Moves order to 'failed' (Dead-Letter Queue).
+        
+        Returns list of dead-lettered/exhausted orders for alerting.
+        """
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(minutes=max_processing_minutes)
+        dead_lettered_orders = []
+
+        with self._get_session() as session:
+            stmt = select(OrderModel).where(
+                and_(
+                    OrderModel.status == "processing",
+                    OrderModel.started_processing_at.is_not(None),
+                    OrderModel.started_processing_at < cutoff_time
+                )
+            )
+            if not self.database_url.startswith("sqlite"):
+                stmt = stmt.with_for_update(skip_locked=True)
+
+            stuck_orders = session.scalars(stmt).all()
+            for ord_obj in stuck_orders:
+                curr_retries = ord_obj.retry_count or 0
+                max_retries = ord_obj.max_retries or 3
+
+                if curr_retries < max_retries:
+                    ord_obj.retry_count = curr_retries + 1
+                    ord_obj.last_retried_at = now
+                    ord_obj.status = "queued"
+                    ord_obj.error_message = (
+                        f"Auto-recovered from stuck processing after {max_processing_minutes}m timeout. "
+                        f"Retry attempt {ord_obj.retry_count}/{max_retries}."
+                    )
+                    ord_obj.updated_at = now
+                else:
+                    ord_obj.status = "failed"
+                    ord_obj.error_message = (
+                        f"Exceeded maximum execution retries ({max_retries}). "
+                        f"Order dead-lettered by self-healing recovery sweeper."
+                    )
+                    ord_obj.updated_at = now
+                    dead_lettered_orders.append(ord_obj.to_dict())
+
+            if stuck_orders:
+                session.commit()
+
+        return dead_lettered_orders
+
+    def record_order_failure(self, order_id: str, error_message: str) -> Dict[str, Any]:
+        """
+        Handles worker execution failure with progressive retry & DLQ dead-lettering.
+        - If retry_count + 1 < max_retries: Re-queues order for retry.
+        - If retry_count + 1 >= max_retries: Marks order as 'failed' (Dead-Letter Queue).
+        Returns dict with status ('re-queued' or 'dead-lettered') and updated order dict.
+        """
+        now = datetime.now(timezone.utc)
+        with self._get_session() as session:
+            ord_obj = session.get(OrderModel, order_id)
+            if not ord_obj:
+                return {"status": "not_found", "order": None}
+
+            curr_retries = ord_obj.retry_count or 0
+            max_retries = ord_obj.max_retries or 3
+
+            if curr_retries + 1 < max_retries:
+                ord_obj.retry_count = curr_retries + 1
+                ord_obj.last_retried_at = now
+                ord_obj.status = "queued"
+                ord_obj.error_message = f"Temporary failure: {error_message}. Re-queued ({ord_obj.retry_count}/{max_retries})."
+                ord_obj.updated_at = now
+                session.commit()
+                return {"status": "re-queued", "order": ord_obj.to_dict()}
+            else:
+                ord_obj.retry_count = curr_retries + 1
+                ord_obj.status = "failed"
+                ord_obj.error_message = f"Exceeded max retries ({max_retries}). Failure: {error_message}"
+                ord_obj.updated_at = now
+                session.commit()
+                return {"status": "dead-lettered", "order": ord_obj.to_dict()}
 
     def mark_processing(self, order_id: str) -> bool:
         """Transitions order from 'queued' to 'processing' atomically."""

@@ -64,6 +64,7 @@ class OrderWorkerDaemon:
         order_queue: Optional[OrderQueuePort] = None,
         use_case: Optional[Any] = None,
         storage_adapter: Optional[StoragePort] = None,
+        alert_dispatcher: Optional[Any] = None,
     ):
         if order_repository:
             self.order_repository = order_repository
@@ -84,6 +85,12 @@ class OrderWorkerDaemon:
         else:
             from src.adapters.storage.local_storage_adapter import LocalStorageAdapter
             self.storage_adapter = LocalStorageAdapter()
+
+        if alert_dispatcher:
+            self.alert_dispatcher = alert_dispatcher
+        else:
+            from src.adapters.alerts.webhook_alert_adapter import WebhookAlertAdapter
+            self.alert_dispatcher = WebhookAlertAdapter()
 
     def process_order(self, order: Dict[str, Any]) -> bool:
         order_id = order.get("order_id")
@@ -177,7 +184,10 @@ class OrderWorkerDaemon:
 
         except Exception as e:
             print(f"[WorkerDaemon] ❌ Error processing Order `{order_id}`: {e}")
-            if hasattr(self.order_repository, "mark_failed"):
+            failure_info = None
+            if hasattr(self.order_repository, "record_order_failure"):
+                failure_info = self.order_repository.record_order_failure(order_id, str(e))
+            elif hasattr(self.order_repository, "mark_failed"):
                 self.order_repository.mark_failed(order_id, str(e))
             elif getattr(self.order_repository, "db", None):
                 self.order_repository.db.collection("orders").document(order_id).update({
@@ -185,6 +195,20 @@ class OrderWorkerDaemon:
                     "error_message": str(e),
                     "failed_at": time.time(),
                 })
+
+            # If dead-lettered after max retries, dispatch operator alert immediately
+            if not failure_info or failure_info.get("status") == "dead-lettered":
+                self.alert_dispatcher.send_alert(
+                    title="Order Dead-Lettered (Execution Failure)",
+                    message=f"Order `{order_id}` failed unrecoverably: {e}",
+                    level="error",
+                    details={
+                        "order_id": order_id,
+                        "client_email": order.get("client", {}).get("email"),
+                        "retry_count": failure_info.get("order", {}).get("retry_count") if failure_info else "N/A",
+                        "error": str(e),
+                    },
+                )
             return False
 
     def run_loop(self, poll_interval_sec: int = 5, run_once: bool = False):
@@ -203,6 +227,23 @@ class OrderWorkerDaemon:
         try:
             while True:
                 loop_count += 1
+
+                # 0. Zombie Order Reaper & Timeout Sweeper (Self-Healing every ~30s)
+                if loop_count % 6 == 1 and hasattr(self.order_repository, "recover_stuck_processing_orders"):
+                    dead_lettered = self.order_repository.recover_stuck_processing_orders(max_processing_minutes=5)
+                    for dead in dead_lettered:
+                        print(f"[WorkerDaemon] 🚨 Order `{dead['order_id']}` Dead-Lettered by Timeout Reaper!")
+                        self.alert_dispatcher.send_alert(
+                            title="Order Dead-Lettered (Timeout Recovery)",
+                            message=f"Order `{dead['order_id']}` was stuck in 'processing' longer than 5 minutes and exceeded max retries.",
+                            level="critical",
+                            details={
+                                "order_id": dead.get("order_id"),
+                                "client_email": dead.get("client", {}).get("email"),
+                                "retry_count": dead.get("retry_count"),
+                                "error": dead.get("error_message"),
+                            },
+                        )
                 # 1. Check Queue if available (Pub/Sub)
                 queue_processed = False
                 if self.order_queue:

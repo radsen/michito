@@ -146,6 +146,11 @@ class OrderModel(Base):
     metrics: Any = Column(JSON, nullable=True)
     error_message: Any = Column(Text, nullable=True)
 
+    # Reliability & DLQ Retries
+    retry_count: Any = Column(Integer, default=0, nullable=False)
+    max_retries: Any = Column(Integer, default=3, nullable=False)
+    last_retried_at: Any = Column(DateTime, nullable=True)
+
     # Audit Timestamps
     created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -195,6 +200,9 @@ class OrderModel(Base):
             },
             "metrics": self.metrics or {},
             "error_message": self.error_message,
+            "retry_count": self.retry_count or 0,
+            "max_retries": self.max_retries or 3,
+            "last_retried_at": self.last_retried_at.isoformat() if self.last_retried_at else None,
             "partner": {
                 "referral_partner": self.referral_partner or "direct",
                 "commission_rate": self.partner_commission_rate or 0.0,
