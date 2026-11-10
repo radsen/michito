@@ -41,47 +41,45 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
   };
 
   return (
-    <div className="track-page-container min-h-screen py-12 px-6">
-      <div className="section-container max-w-4xl mx-auto">
+    <div className="track-page-container">
+      <div className="track-page-content">
         {/* Back Link */}
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm text-sky-400 hover:text-sky-300 font-semibold mb-8 transition-colors"
+          className="legal-back-btn"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Volver a la plataforma principal</span>
         </button>
 
         {/* Page Header */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mb-4">
+        <div className="track-header text-center" style={{ textAlign: "center", marginBottom: "36px" }}>
+          <div className="legal-card-icon" style={{ margin: "0 auto 16px", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.3)", color: "var(--accent-blue)" }}>
             <PackageCheck className="w-6 h-6" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white">
-            Rastreo de Lotes B2B
+          <h1 className="legal-title" style={{ fontSize: "2rem" }}>
+            Consulta de Lotes B2B
           </h1>
-          <p className="text-slate-400 text-sm mt-2">
-            Ingresa el identificador de tu orden para consultar el avance del pipeline asíncrono, revisar la muestra calificada o descargar tus archivos.
+          <p className="legal-subtitle" style={{ maxWidth: "560px", margin: "8px auto 0" }}>
+            Ingresa tu número de referencia para verificar el avance de tu orden, revisar la muestra calificada o descargar tus entregables.
           </p>
         </div>
 
         {/* Tracking Search Card */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-2xl mx-auto mb-10 shadow-xl">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <input
-                id="track-order-page-input"
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Ej: ord_20261109_4c2836"
-                className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 font-mono text-sm focus:outline-none focus:border-sky-500 transition-colors"
-              />
-            </div>
+        <div className="track-search-card">
+          <form onSubmit={handleSearch} className="track-search-form">
+            <input
+              id="track-order-page-input"
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Ej: ord_20261109_4c2836"
+              className="track-search-input"
+            />
             <button
               type="submit"
-              className="h-12 px-6 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition-all shrink-0 shadow-lg shadow-sky-500/20"
+              className="track-search-btn"
             >
               <Search className="w-4 h-4" />
               <span>Consultar Estado</span>
@@ -89,21 +87,21 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
           </form>
 
           {errorMsg && (
-            <div className="mt-3 text-xs text-rose-400 flex items-center gap-1.5">
+            <div style={{ marginTop: "12px", fontSize: "0.82rem", color: "#f87171", display: "flex", alignItems: "center", gap: "6px" }}>
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {activeOrderId && (
-            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--text-muted)" }}>
               <span>
-                Orden activa: <strong className="text-sky-400 font-mono">{activeOrderId}</strong>
+                Orden activa: <strong style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>{activeOrderId}</strong>
               </span>
               <button
                 type="button"
                 onClick={handleReset}
-                className="text-slate-400 hover:text-white underline"
+                style={{ background: "none", border: "none", color: "var(--accent-blue)", textDecoration: "underline", cursor: "pointer", fontSize: "0.85rem" }}
               >
                 Buscar otra orden
               </button>
@@ -113,28 +111,28 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
 
         {/* Order Display Area */}
         {activeOrderId ? (
-          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 sm:p-8">
+          <div className="generator-tracker-area" style={{ marginTop: "32px" }}>
             <LiveStatusTracker />
           </div>
         ) : (
-          /* Helper Tips Card when no order is loaded */
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 max-w-2xl mx-auto">
-            <h3 className="text-sm font-bold text-white mb-3">
-              ¿Dónde encuentro mi ID de orden?
+          /* Helper Tips Card */
+          <div className="track-search-card" style={{ background: "rgba(17, 24, 39, 0.5)" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff", marginBottom: "14px" }}>
+              ¿Dónde encuentro mi número de orden?
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-400">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800">
-                <Mail className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+            <div className="track-tips-grid">
+              <div className="track-tip-card">
+                <Mail className="w-5 h-5 text-sky-400 shrink-0" style={{ color: "var(--accent-blue)" }} />
                 <div>
-                  <strong className="text-slate-200 block mb-0.5">Correo Corporativo</strong>
-                  Te enviamos la confirmación con el código de seguimiento al email que indicaste al solicitar el lote.
+                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>Correo Corporativo</strong>
+                  Enviamos el enlace y código de seguimiento al email que indicaste al generar tu orden.
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800">
-                <MessageSquare className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="track-tip-card">
+                <MessageSquare className="w-5 h-5 text-emerald-400 shrink-0" style={{ color: "var(--accent-emerald)" }} />
                 <div>
-                  <strong className="text-slate-200 block mb-0.5">Mensaje WhatsApp</strong>
-                  Si registraste tu celular, recibiste un mensaje con el enlace directo para consultar tu orden.
+                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>Notificación WhatsApp</strong>
+                  Si registraste tu número celular, recibiste un mensaje con el enlace directo a tu entrega.
                 </div>
               </div>
             </div>
