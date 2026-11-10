@@ -66,7 +66,7 @@ export const App: React.FC = () => {
     <div className="app-root">
       {partner.isAffiliate && (
         <div className="partner-banner" data-testid="partner-banner">
-          <span className="partner-banner-badge">🤝 ALIANZA OFICIAL</span>
+          <span className="partner-banner-badge">ALIANZA OFICIAL</span>
           <span className="partner-banner-text">{partner.badgeText || partner.name}</span>
           {partner.discountRate > 0 && (
             <span className="partner-banner-discount">

@@ -51,7 +51,7 @@ export const OrderGenerator: React.FC = () => {
     },
     {
       id: "eventos_ferias_b2b",
-      name: "🎪 Ferias Comerciales & Misiones de Compradores Internacionales",
+      name: "🇨🇴 Ferias Comerciales & Misiones de Compradores Internacionales",
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
@@ -315,7 +315,7 @@ export const OrderGenerator: React.FC = () => {
 
               {partner.isAffiliate && (
                 <div className="partner-attribution-notice" data-testid="partner-order-notice">
-                  <span className="partner-notice-text">🤝 Alianza Oficial: <strong>{partner.name}</strong></span>
+                  <span className="partner-notice-text">Alianza Oficial: <strong>{partner.name}</strong></span>
                   {partner.discountRate > 0 && (
                     <span className="partner-notice-discount">
                       • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
@@ -378,11 +378,11 @@ export const OrderGenerator: React.FC = () => {
                 <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
                 <div className="ai-pills-grid">
                   {[
-                    { label: "🏢 Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
-                    { label: "🚚 Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
-                    { label: "🎪 Expositores Ferias B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
-                    { label: "🏥 Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
-                    { label: "🏭 Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
+                    { label: "Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
+                    { label: "Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
+                    { label: "Ferias Comerciales B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
+                    { label: "Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
+                    { label: "Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
                   ].map((pill, idx) => (
                     <button
                       key={idx}
@@ -406,7 +406,7 @@ export const OrderGenerator: React.FC = () => {
                     <div>
                       <span className="discovery-match-badge">
                         <CheckCircle2 className="w-4 h-4" />
-                        ✨ {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
+                        {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
                       </span>
                       <p className="text-xs text-slate-300 mt-1 font-medium">
                         {discoveryResult.summary_message}
@@ -451,13 +451,10 @@ export const OrderGenerator: React.FC = () => {
                 onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
                 className="advanced-toggle-btn"
               >
-                <span className="flex items-center gap-2">
-                  <span>⚙️</span>
-                  <span>
-                    {isAdvancedOpen
-                      ? "Ocultar configuración manual"
-                      : "Ajustar filtros manualmente (Campaña, Tier, Cantidad, Territorio)"}
-                  </span>
+                <span>
+                  {isAdvancedOpen
+                    ? "Ocultar configuración manual"
+                    : "Ajustar filtros manualmente (Campaña, Tier, Cantidad, Territorio)"}
                 </span>
                 {isAdvancedOpen ? (
                   <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -503,14 +500,14 @@ export const OrderGenerator: React.FC = () => {
                         onClick={() => dispatch(setTier(2))}
                         className={`tier-pill ${tier === 2 ? "active" : ""}`}
                       >
-                        Tier 2: Decisor C-Level ($30.000 COP) ⭐
+                        Tier 2: Decisor C-Level ($30.000 COP)
                       </button>
                       <button
                         type="button"
                         onClick={() => dispatch(setTier(3))}
                         className={`tier-pill ${tier === 3 ? "active" : ""}`}
                       >
-                        Tier 3: Auditoría Financiera ($65.000 COP) 🛡️
+                        Tier 3: Auditoría Financiera ($65.000 COP)
                       </button>
                     </div>
                   </div>

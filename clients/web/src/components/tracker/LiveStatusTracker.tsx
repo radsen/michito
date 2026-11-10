@@ -142,7 +142,7 @@ export const LiveStatusTracker: React.FC = () => {
                 : isFailed
                 ? "Calificación no completada"
                 : isAwaitingPayment
-                ? "✨ Calificación Lista: Revisa la Muestra y Desbloquea"
+                ? "Calificación Lista: Revisa la Muestra y Desbloquea"
                 : dict.tracker.processingTitle}
             </h3>
             <div className="tracker-ref-row">

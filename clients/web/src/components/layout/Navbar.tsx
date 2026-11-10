@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { toggleLanguage } from "../../store/slices/languageSlice";
 import { setMobileNavOpen } from "../../store/slices/uiSlice";
-import { Globe, Menu, X, Zap, Search } from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const dispatch = useDispatch();
@@ -18,47 +18,40 @@ export const Navbar: React.FC = () => {
     }
   };
 
+  const handleTrackOrder = () => {
+    scrollTo("generador");
+    setTimeout(() => {
+      const btn = document.getElementById("open-order-lookup-btn");
+      if (btn) btn.click();
+    }, 250);
+  };
+
   return (
     <header className="navbar-container">
       <div className="navbar-content">
+        {/* Brand Logo */}
         <div className="navbar-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-          <span className="brand-logo-badge">導人</span>
+          <div className="brand-logo-badge">
+            <span className="brand-logo-letter">M</span>
+          </div>
           <div className="brand-titles">
             <span className="brand-name">MICHITO</span>
             <span className="brand-sub">B2B Intent Engine</span>
           </div>
         </div>
 
-        {/* Desktop Navigation */}
+        {/* Clean Streamlined Desktop Navigation */}
         <nav className="desktop-nav">
-          <button onClick={() => scrollTo("senales")} className="nav-link">
-            {dict.nav.signals}
-          </button>
           <button onClick={() => scrollTo("como-funciona")} className="nav-link">
             {dict.nav.howItWorks}
-          </button>
-          <button onClick={() => scrollTo("verticales")} className="nav-link">
-            {dict.nav.verticals}
-          </button>
-          <button onClick={() => scrollTo("entregables")} className="nav-link">
-            {dict.nav.deliverables}
           </button>
           <button onClick={() => scrollTo("precios")} className="nav-link">
             {dict.nav.pricing}
           </button>
-          <button onClick={() => scrollTo("generador")} className="nav-link">
-            {dict.nav.generator}
-          </button>
           <button
-            onClick={() => {
-              scrollTo("generador");
-              setTimeout(() => {
-                const btn = document.getElementById("open-order-lookup-btn");
-                if (btn) btn.click();
-              }, 300);
-            }}
-            className="nav-link text-sky-400 font-semibold flex items-center gap-1"
-            title="Consultar estado de una orden por referencia"
+            onClick={handleTrackOrder}
+            className="nav-link nav-track-link"
+            title="Consultar estado de una orden por ID de referencia"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Rastrear Orden</span>
@@ -70,14 +63,12 @@ export const Navbar: React.FC = () => {
           <button
             onClick={() => dispatch(toggleLanguage())}
             className="lang-switcher-btn"
-            title="Switch Language"
+            title="Switch Language / Cambiar Idioma"
           >
-            <Globe className="w-4 h-4" />
             <span>{currentLanguage === "es_CO" ? "🇨🇴 ES" : "🇺🇸 EN"}</span>
           </button>
 
           <button onClick={() => scrollTo("generador")} className="nav-cta-btn">
-            <Zap className="w-4 h-4 fill-current" />
             <span>{dict.nav.cta}</span>
           </button>
 
@@ -95,34 +86,13 @@ export const Navbar: React.FC = () => {
       {/* Mobile Drawer */}
       {isMobileNavOpen && (
         <div className="mobile-drawer">
-          <button onClick={() => scrollTo("senales")} className="mobile-nav-link">
-            {dict.nav.signals}
-          </button>
           <button onClick={() => scrollTo("como-funciona")} className="mobile-nav-link">
             {dict.nav.howItWorks}
-          </button>
-          <button onClick={() => scrollTo("verticales")} className="mobile-nav-link">
-            {dict.nav.verticals}
-          </button>
-          <button onClick={() => scrollTo("entregables")} className="mobile-nav-link">
-            {dict.nav.deliverables}
           </button>
           <button onClick={() => scrollTo("precios")} className="mobile-nav-link">
             {dict.nav.pricing}
           </button>
-          <button onClick={() => scrollTo("generador")} className="mobile-nav-link">
-            {dict.nav.generator}
-          </button>
-          <button
-            onClick={() => {
-              scrollTo("generador");
-              setTimeout(() => {
-                const btn = document.getElementById("open-order-lookup-btn");
-                if (btn) btn.click();
-              }, 300);
-            }}
-            className="mobile-nav-link text-sky-400 font-semibold flex items-center gap-1.5"
-          >
+          <button onClick={handleTrackOrder} className="mobile-nav-link text-sky-400 font-semibold flex items-center gap-1.5">
             <Search className="w-4 h-4" />
             <span>Rastrear Orden</span>
           </button>
@@ -135,3 +105,4 @@ export const Navbar: React.FC = () => {
   );
 };
 
+export default Navbar;

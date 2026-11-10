@@ -34,8 +34,8 @@ export const MobileStickyCta: React.FC = () => {
   return (
     <div className="mobile-sticky-cta-bar">
       <button onClick={scrollToGenerator} className="mobile-sticky-btn">
-        <Zap className="w-4 h-4 fill-current text-amber-400" />
-        <span>Pedir Lote de Leads ⚡</span>
+        <Zap className="w-4 h-4 fill-current text-sky-400" />
+        <span>Pedir Lote de Leads</span>
       </button>
     </div>
   );
