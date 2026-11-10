@@ -7,7 +7,7 @@ export const ComparisonTable: React.FC = () => {
   const { dict } = useSelector((state: RootState) => state.language);
 
   return (
-    <section className="comparison-section">
+    <section id="comparativa" className="comparison-section">
       <div className="section-container">
         <div className="section-header">
           <h2 className="section-title">{dict.comparison.title}</h2>
