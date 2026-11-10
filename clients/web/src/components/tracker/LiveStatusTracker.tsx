@@ -245,7 +245,7 @@ export const LiveStatusTracker: React.FC = () => {
               </h4>
               <p className="text-xs text-slate-300 mt-1">
                 {orderData?.error_message ||
-                  "No se encontraron entidades que cumplieran con el 100% de los criterios de solvencia, sitio web verificado y buzón corporativo activo."}
+                  "No se encontraron cuentas que superaran todos los filtros de validación técnica, presencia web y buzón activo."}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <button
