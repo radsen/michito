@@ -119,17 +119,20 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
         # Failure 1: retry_count goes from 0 -> 1, status reset to queued
         res1 = self.adapter.record_order_failure(order_id, "Temporary socket reset")
         self.assertEqual(res1["status"], "re-queued")
+        assert res1["order"] is not None
         self.assertEqual(res1["order"]["retry_count"], 1)
         self.assertEqual(res1["order"]["status"], "queued")
 
         # Failure 2: retry_count goes from 1 -> 2, status reset to queued
         res2 = self.adapter.record_order_failure(order_id, "DNS failure")
         self.assertEqual(res2["status"], "re-queued")
+        assert res2["order"] is not None
         self.assertEqual(res2["order"]["retry_count"], 2)
 
         # Failure 3: max_retries reached (3), dead-lettered to failed
         res3 = self.adapter.record_order_failure(order_id, "Persistent timeout")
         self.assertEqual(res3["status"], "dead-lettered")
+        assert res3["order"] is not None
         self.assertEqual(res3["order"]["status"], "failed")
         self.assertEqual(res3["order"]["retry_count"], 3)
         self.assertIn("Exceeded max retries", res3["order"]["error_message"])
@@ -147,6 +150,7 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
         with self.adapter._get_session() as session:
             # Order 1: stuck 10 mins ago, retry_count=0 -> should be re-queued
             o1 = session.get(OrderModel, order1["order_id"])
+            assert o1 is not None
             o1.status = "processing"
             o1.started_processing_at = ten_minutes_ago
             o1.retry_count = 0
@@ -154,6 +158,7 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
 
             # Order 2: stuck 10 mins ago, retry_count=3 -> should be dead-lettered to 'failed'
             o2 = session.get(OrderModel, order2["order_id"])
+            assert o2 is not None
             o2.status = "processing"
             o2.started_processing_at = ten_minutes_ago
             o2.retry_count = 3
@@ -161,6 +166,7 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
 
             # Order 3: processing recently (2 mins ago) -> should NOT be reaped
             o3 = session.get(OrderModel, order3["order_id"])
+            assert o3 is not None
             o3.status = "processing"
             o3.started_processing_at = two_minutes_ago
 
@@ -175,15 +181,18 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
 
         # Check order 1 was re-queued with incremented retry count
         recovered_o1 = self.adapter.get_order(order1["order_id"])
+        assert recovered_o1 is not None
         self.assertEqual(recovered_o1["status"], "queued")
         self.assertEqual(recovered_o1["retry_count"], 1)
 
         # Check order 2 was dead-lettered
         dead_o2 = self.adapter.get_order(order2["order_id"])
+        assert dead_o2 is not None
         self.assertEqual(dead_o2["status"], "failed")
 
         # Check order 3 remained untouched in processing
         active_o3 = self.adapter.get_order(order3["order_id"])
+        assert active_o3 is not None
         self.assertEqual(active_o3["status"], "processing")
 
 
