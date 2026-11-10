@@ -68,3 +68,4 @@ test.describe("Multi-Currency Support (COP, DOP, USD)", () => {
     await expect(calcBox).toContainText("DOP");
   });
 });
+

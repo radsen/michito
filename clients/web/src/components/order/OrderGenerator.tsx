@@ -430,9 +430,9 @@ export const OrderGenerator: React.FC = () => {
                 <div className="advanced-section-wrapper">
                   {/* Campaign Picker */}
                   <div className="form-group">
-                    <label className="form-label flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-sky-400" />
-                      {g.campaignLabel}
+                    <label className="form-label">
+                      <Building2 className="form-label-icon text-sky-400" />
+                      <span>{g.campaignLabel}</span>
                     </label>
                     <select
                       value={selectedCampaignId}
@@ -478,9 +478,9 @@ export const OrderGenerator: React.FC = () => {
                   {/* Target City & Account Volume Row */}
                   <div className="form-row-2">
                     <div className="form-group">
-                      <label className="form-label flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-400" />
-                        {g.cityLabel}
+                      <label className="form-label">
+                        <MapPin className="form-label-icon text-emerald-400" />
+                        <span>{g.cityLabel}</span>
                       </label>
                       <input
                         type="text"
@@ -490,15 +490,15 @@ export const OrderGenerator: React.FC = () => {
                         placeholder={g.cityPlaceholder}
                         className="form-input"
                       />
-                      <span className="text-xs text-slate-400 mt-1">
+                      <span className="form-hint">
                         Ingresa cualquier ciudad o territorio de cobertura comercial.
                       </span>
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label flex items-center gap-2">
-                        <Hash className="w-4 h-4 text-purple-400" />
-                        {g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong>
+                      <label className="form-label">
+                        <Hash className="form-label-icon text-purple-400" />
+                        <span>{g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong></span>
                       </label>
                       <div className="volume-presets-grid">
                         <button
@@ -609,23 +609,24 @@ export const OrderGenerator: React.FC = () => {
 
               <div className="buyer-fields-grid">
                 <div className="form-group">
-                  <label className="form-label flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    {g.buyerName}
+                  <label className="form-label">
+                    <User className="form-label-icon" />
+                    <span>{g.buyerName}</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Ej: Juan Carlos Pérez"
+                    placeholder="Ej: Juan Carlos Pérez o Tech Solutions SAS"
                     value={buyerName}
                     onChange={(e) => setLocalName(e.target.value)}
                     className="form-input"
                   />
+                  <span className="form-hint">{g.buyerNameHint}</span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    {g.buyerEmail}
+                  <label className="form-label">
+                    <Mail className="form-label-icon" />
+                    <span>{g.buyerEmail}</span>
                   </label>
                   <input
                     type="email"
@@ -635,11 +636,12 @@ export const OrderGenerator: React.FC = () => {
                     onChange={(e) => setLocalEmail(e.target.value)}
                     className="form-input"
                   />
+                  <span className="form-hint">{g.buyerEmailHint}</span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    {g.buyerPhone}
+                  <label className="form-label">
+                    <Phone className="form-label-icon" />
+                    <span>{g.buyerPhone}</span>
                   </label>
                   <input
                     type="tel"
@@ -649,6 +651,7 @@ export const OrderGenerator: React.FC = () => {
                     onChange={(e) => setLocalPhone(e.target.value)}
                     className="form-input"
                   />
+                  <span className="form-hint">{g.buyerPhoneHint}</span>
                 </div>
               </div>
 

@@ -85,3 +85,4 @@ export function formatUnitCurrency(amount: number, currency: SupportedCurrency):
   const formatted = Math.round(amount).toLocaleString("es-CO");
   return `${config.prefix}${formatted}`;
 }
+

@@ -61,7 +61,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <a
                   href="/rastrear"
                   onClick={(e) => handleNavigate("/rastrear", e)}
-                  className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 transition-colors"
+                  className="footer-link footer-link-highlight"
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span>Rastrear Orden Existente</span>
@@ -71,7 +71,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <a
                   href="/terminos"
                   onClick={(e) => handleNavigate("/terminos", e)}
-                  className="hover:text-white transition-colors"
+                  className="footer-link"
                 >
                   Garantía & Reposición
                 </a>
@@ -80,7 +80,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <a
                   href="/terminos"
                   onClick={(e) => handleNavigate("/terminos", e)}
-                  className="hover:text-white transition-colors"
+                  className="footer-link"
                 >
                   Cumplimiento Habeas Data
                 </a>
@@ -98,7 +98,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <a
             href="/terminos"
             onClick={(e) => handleNavigate("/terminos", e)}
-            className="hover:text-white transition-colors"
+            className="footer-legal-link"
           >
             {f.privacy}
           </a>
@@ -106,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <a
             href="/terminos"
             onClick={(e) => handleNavigate("/terminos", e)}
-            className="hover:text-white transition-colors"
+            className="footer-legal-link"
           >
             {f.terms}
           </a>
