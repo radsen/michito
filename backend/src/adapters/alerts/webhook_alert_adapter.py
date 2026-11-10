@@ -1,7 +1,9 @@
 """
 Michito Watchdog & Operator Alert Dispatcher.
 Dispatches critical operational alerts (Dead-Lettered Orders, SECOP API outages,
-Payment reconciliation failures) to Discord, Slack, or generic HTTP Webhooks.
+Payment reconciliation failures) to #michito-alerts, and business activity
+(new orders, lead delivery, approved payments) to #michito-orders-feed.
+Supports Discord, Slack, and generic HTTP Webhooks.
 """
 
 import os
@@ -20,8 +22,13 @@ class WebhookAlertAdapter:
     Fails safely without raising exceptions to protect pipeline continuity.
     """
 
-    def __init__(self, webhook_url: Optional[str] = None):
+    def __init__(
+        self,
+        webhook_url: Optional[str] = None,
+        feed_webhook_url: Optional[str] = None,
+    ):
         self.webhook_url = webhook_url or os.environ.get("ALERT_WEBHOOK_URL", "")
+        self.feed_webhook_url = feed_webhook_url or os.environ.get("ORDERS_FEED_WEBHOOK_URL", "")
 
     def send_alert(
         self,
@@ -29,11 +36,13 @@ class WebhookAlertAdapter:
         message: str,
         level: str = "error",
         details: Optional[Dict[str, Any]] = None,
+        target_url: Optional[str] = None,
     ) -> bool:
         """
-        Dispatches an alert to the configured webhook URL.
+        Dispatches a high-priority operational alert (defaults to ALERT_WEBHOOK_URL / #michito-alerts).
         Logs to system logger and stdout in all cases.
         """
+        dest_url = target_url or self.webhook_url
         now = datetime.now(timezone.utc)
         payload_details = details or {}
         order_id = payload_details.get("order_id", "N/A")
@@ -47,12 +56,12 @@ class WebhookAlertAdapter:
         else:
             logger.warning(log_line)
 
-        if not self.webhook_url:
+        if not dest_url:
             return False
 
         # 2. Format payload for destination provider
         try:
-            if "discord.com" in self.webhook_url:
+            if "discord.com" in dest_url:
                 color_code = 15158332 if level.lower() in ("critical", "error") else 16753920
                 payload = {
                     "username": "Michito Watchdog",
@@ -72,7 +81,7 @@ class WebhookAlertAdapter:
                         }
                     ],
                 }
-            elif "slack.com" in self.webhook_url:
+            elif "slack.com" in dest_url:
                 payload = {
                     "text": (
                         f"🚨 *[{level.upper()}] {title}*\n"
@@ -94,13 +103,68 @@ class WebhookAlertAdapter:
 
             # 3. Fire HTTP POST with short timeout
             res = requests.post(
-                self.webhook_url,
+                dest_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=3.5,
             )
             return res.status_code in (200, 201, 204)
         except Exception as e:
-            logger.warning(f"[WatchdogAlert] Failed to dispatch webhook alert to {self.webhook_url}: {e}")
+            logger.warning(f"[WatchdogAlert] Failed to dispatch webhook alert to {dest_url}: {e}")
             return False
 
+    def send_feed_event(
+        self,
+        title: str,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """
+        Dispatches commercial order milestone events (New Order, Leads Delivered, Payment Approved)
+        to the #michito-orders-feed channel (or fallback to ALERT_WEBHOOK_URL).
+        """
+        dest_url = self.feed_webhook_url or self.webhook_url
+        now = datetime.now(timezone.utc)
+        payload_details = details or {}
+        order_id = payload_details.get("order_id", "N/A")
+
+        log_line = f"📦 [OrdersFeed] {title} | Order: {order_id} | Message: {message}"
+        logger.info(log_line)
+
+        if not dest_url:
+            return False
+
+        try:
+            if "slack.com" in dest_url:
+                # Clean, rich Slack formatting for business events
+                fields_str = ""
+                if payload_details:
+                    for k, v in payload_details.items():
+                        if k not in ("error", "raw") and v is not None:
+                            k_clean = k.replace("_", " ").title()
+                            fields_str += f"• *{k_clean}*: {v}\n"
+
+                body_text = f"📦 *{title}*\n{message}"
+                if fields_str:
+                    body_text += f"\n{fields_str.strip()}"
+
+                payload = {"text": body_text}
+            else:
+                payload = {
+                    "event": "michito.orders.feed",
+                    "timestamp": now.isoformat(),
+                    "title": title,
+                    "message": message,
+                    "details": payload_details,
+                }
+
+            res = requests.post(
+                dest_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=3.5,
+            )
+            return res.status_code in (200, 201, 204)
+        except Exception as e:
+            logger.warning(f"[OrdersFeed] Failed to dispatch feed event to {dest_url}: {e}")
+            return False

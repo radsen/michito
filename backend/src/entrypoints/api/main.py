@@ -228,6 +228,23 @@ def create_prospecting_order(payload: CreateOrderRequest):
         except Exception as e:
             logger.error(f"Failed to publish order {order['order_id']} to queue: {e}")
 
+        try:
+            if hasattr(app_container, "alert_dispatcher"):
+                app_container.alert_dispatcher.send_feed_event(
+                    title="New Order Placed 🚀",
+                    message=f"Order `{order['order_id']}` placed by *{payload.client.name}* ({payload.client.email}).",
+                    details={
+                        "order_id": order["order_id"],
+                        "client": payload.client.name,
+                        "campaign": payload.request.campaign_id,
+                        "city": payload.request.city or "Medellín",
+                        "requested_leads": payload.request.limit or 10,
+                        "tier": f"Tier {payload.request.tier or 2}",
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Could not dispatch order feed event: {e}")
+
         return {
             "status": "success",
             "order_id": order["order_id"],
@@ -269,6 +286,22 @@ def pay_prospecting_order(order_id: str):
         deliver_order_use_case.execute(order_id)
     except Exception as e:
         logger.error(f"Error during delivery dispatch for order {order_id}: {e}")
+
+    try:
+        if hasattr(app_container, "alert_dispatcher"):
+            client_info = order.get("client", {})
+            app_container.alert_dispatcher.send_feed_event(
+                title="Payment Approved! 💳",
+                message=f"Payment received for Order `{order_id}`! Deliverables unlocked for *{client_info.get('name', 'Client')}*.",
+                details={
+                    "order_id": order_id,
+                    "amount": f"${amount // 100:,.0f} COP",
+                    "transaction_id": tx_id,
+                    "client": client_info.get("name"),
+                }
+            )
+    except Exception as e:
+        logger.warning(f"Could not dispatch payment feed event: {e}")
 
     updated_order = sql_adapter.get_order(order_id)
     return {
@@ -421,6 +454,22 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                         logger.info(f"[WompiWebhook] ✅ Order `{reference}` dispatched via omnichannel delivery.")
                     except Exception as e:
                         logger.error(f"[WompiWebhook] Error during delivery dispatch for order {reference}: {e}")
+
+                    try:
+                        if hasattr(app_container, "alert_dispatcher"):
+                            client_info = order.get("client", {})
+                            app_container.alert_dispatcher.send_feed_event(
+                                title="Wompi Payment Confirmed! 💳",
+                                message=f"Webhook received! Order `{reference}` paid. Deliverables unlocked for *{client_info.get('name', 'Buyer')}*.",
+                                details={
+                                    "order_id": reference,
+                                    "amount": f"${int(amount_in_cents) // 100:,.0f} COP",
+                                    "transaction_id": str(tx_id),
+                                    "provider": "Wompi Gateway",
+                                }
+                            )
+                    except Exception as e:
+                        logger.warning(f"Could not dispatch webhook payment feed event: {e}")
             except Exception as e:
                 logger.error(f"[WompiWebhook] Error updating order in database: {e}")
 

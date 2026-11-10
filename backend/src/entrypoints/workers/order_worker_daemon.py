@@ -176,6 +176,21 @@ class OrderWorkerDaemon:
                 job_result=job_result,
                 amount_in_cents=total_price_cents
             )
+
+            if hasattr(self.alert_dispatcher, "send_feed_event"):
+                self.alert_dispatcher.send_feed_event(
+                    title="Leads Ready & Awaiting Payment 🎯",
+                    message=f"Order `{order_id}` finished processing in {elapsed:.1f}s. {job_result.get('total_qualified', 0)} qualified leads generated.",
+                    details={
+                        "order_id": order_id,
+                        "client": client_name,
+                        "campaign": campaign_id,
+                        "city": city,
+                        "qualified_leads": job_result.get("total_qualified", 0),
+                        "total_quote": f"${total_price_cents // 100:,.0f} COP",
+                    }
+                )
+
             print(f"[WorkerDaemon] ✅ Order `{order_id}` completed successfully in {elapsed:.2f}s!")
             print(f"               Qualified Leads: {job_result.get('total_qualified', 0)}")
             print(f"               Status: awaiting_payment (Quote: ${total_price_cents // 100:,.0f} COP)")

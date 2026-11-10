@@ -8,6 +8,7 @@ from src.adapters.litigation.contraloria_bdme_adapter import ContraloriaBdmeAdap
 from src.adapters.litigation.rama_judicial_adapter import RamaJudicialAdapter
 from src.adapters.verifiers.socket_smtp_verifier_adapter import SocketSmtpVerifierAdapter
 from src.adapters.repositories.memory_repository_adapter import MemoryRepositoryAdapter
+from src.adapters.alerts.webhook_alert_adapter import WebhookAlertAdapter
 
 from src.application.ports.litigation_port import LitigationScreeningPort
 from src.application.ports.corporate_registry_port import CorporateRegistryPort, CountryRegistryProvider
@@ -72,6 +73,8 @@ class Container:
                 self.queue_adapter = MemoryQueueAdapter()
         else:
             self.queue_adapter = MemoryQueueAdapter()
+
+        self.alert_dispatcher = WebhookAlertAdapter()
 
 
         # Use Cases
