@@ -74,7 +74,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn ${selectedTier === 1 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 1 ? "Tier 1 Seleccionado" : "Elegir Tier 1"}
+              {selectedTier === 1 ? "Directorio Seleccionado" : "Elegir Directorio"}
             </button>
           </div>
 
@@ -128,7 +128,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn btn-highlighted ${selectedTier === 2 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 2 ? "Tier 2 Seleccionado" : "Elegir Tier 2 (Recomendado)"}
+              {selectedTier === 2 ? "Decisor Seleccionado" : "Elegir Contacto Decisor"}
             </button>
           </div>
 
@@ -178,7 +178,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn ${selectedTier === 3 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 3 ? "Tier 3 Seleccionado" : "Elegir Tier 3"}
+              {selectedTier === 3 ? "Auditoría Seleccionada" : "Elegir Auditoría Completa"}
             </button>
           </div>
         </div>

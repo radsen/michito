@@ -441,21 +441,21 @@ export const OrderGenerator: React.FC = () => {
                         onClick={() => dispatch(setTier(1))}
                         className={`tier-pill ${tier === 1 ? "active" : ""}`}
                       >
-                        Tier 1: Directorio Base ($5.000 COP)
+                        Directorio Base ($5.000 COP)
                       </button>
                       <button
                         type="button"
                         onClick={() => dispatch(setTier(2))}
                         className={`tier-pill ${tier === 2 ? "active" : ""}`}
                       >
-                        Tier 2: Decisor C-Level ($30.000 COP)
+                        Contacto Decisor ($30.000 COP) ⭐
                       </button>
                       <button
                         type="button"
                         onClick={() => dispatch(setTier(3))}
                         className={`tier-pill ${tier === 3 ? "active" : ""}`}
                       >
-                        Tier 3: Auditoría Financiera ($65.000 COP)
+                        Auditoría Completa ($65.000 COP)
                       </button>
                     </div>
                   </div>
@@ -548,7 +548,15 @@ export const OrderGenerator: React.FC = () => {
               {/* Price Calculation Box */}
               <div className="calc-summary-box">
                 <div className="calc-row">
-                  <span>Precio unitario (Tier {tier}):</span>
+                  <span>
+                    Precio por cuenta (
+                    {tier === 1
+                      ? "Directorio Base"
+                      : tier === 2
+                      ? "Contacto Decisor"
+                      : "Auditoría Completa"}
+                    ):
+                  </span>
                   <span>{formatCop(unitPriceCop)} COP</span>
                 </div>
                 <div className="calc-row">
