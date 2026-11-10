@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./store";
 import { setPartner } from "./store/slices/partnerSlice";
@@ -8,12 +8,12 @@ import { useLazyGetPartnerQuery } from "./store/api/michitoApi";
 import { Navbar } from "./components/layout/Navbar";
 import { Hero } from "./components/landing/Hero";
 import { ComparisonTable } from "./components/landing/ComparisonTable";
-import { IntentTriggers } from "./components/landing/IntentTriggers";
 import { HowItWorks } from "./components/landing/HowItWorks";
-import { VerticalProfiles } from "./components/landing/VerticalProfiles";
 import { DeliverablesStandards } from "./components/landing/DeliverablesStandards";
 import { PricingMatrix } from "./components/pricing/PricingMatrix";
 import { OrderGenerator } from "./components/order/OrderGenerator";
+import { TrackOrderPage } from "./components/tracker/TrackOrderPage";
+import { TermsPage } from "./components/legal/TermsPage";
 import { Footer } from "./components/layout/Footer";
 import { MobileStickyCta } from "./components/layout/MobileStickyCta";
 
@@ -21,6 +21,47 @@ export const App: React.FC = () => {
   const dispatch = useDispatch();
   const partner = useSelector((state: RootState) => state.partner);
   const [triggerGetPartner] = useLazyGetPartnerQuery();
+
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    try {
+      const p = window.location.pathname;
+      if (p === "/rastrear" || p === "/terminos") return p;
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("order_id")) return "/rastrear";
+    } catch {
+      // fallback
+    }
+    return "/";
+  });
+
+  useEffect(() => {
+    const onPopState = () => {
+      setCurrentPath(window.location.pathname || "/");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    if (path.startsWith("/#")) {
+      const hash = path.substring(2);
+      if (window.location.pathname !== "/") {
+        window.history.pushState({}, "", "/");
+        setCurrentPath("/");
+      }
+      setTimeout(() => {
+        const el = document.getElementById(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 60);
+      return;
+    }
+
+    window.history.pushState({}, "", path);
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     try {
@@ -75,19 +116,31 @@ export const App: React.FC = () => {
           )}
         </div>
       )}
-      <Navbar />
+
+      <Navbar onNavigate={navigate} currentPath={currentPath} />
+
       <main>
-        <Hero />
-        <HowItWorks />
-        <VerticalProfiles />
-        <ComparisonTable />
-        <IntentTriggers />
-        <DeliverablesStandards />
-        <PricingMatrix />
-        <OrderGenerator />
+        {currentPath === "/rastrear" ? (
+          <TrackOrderPage
+            onBack={() => navigate("/")}
+            initialOrderId={new URLSearchParams(window.location.search).get("order_id") || undefined}
+          />
+        ) : currentPath === "/terminos" ? (
+          <TermsPage onBack={() => navigate("/")} />
+        ) : (
+          <>
+            <Hero />
+            <HowItWorks />
+            <ComparisonTable />
+            <DeliverablesStandards onNavigateTerms={() => navigate("/terminos")} />
+            <PricingMatrix />
+            <OrderGenerator />
+          </>
+        )}
       </main>
-      <Footer />
-      <MobileStickyCta />
+
+      <Footer onNavigate={navigate} />
+      {currentPath === "/" && <MobileStickyCta />}
     </div>
   );
 };

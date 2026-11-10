@@ -8,22 +8,22 @@ test.describe("Landing Page & Value Proposition", () => {
   test("should display the brand hero and core value proposition", async ({ page }) => {
     // Check main branding in navbar
     await expect(page.locator(".navbar-container .brand-name")).toContainText("MICHITO");
-    await expect(page.locator(".navbar-container .brand-logo-badge")).toContainText("導人");
+    await expect(page.locator(".navbar-container .brand-logo-badge")).toContainText("M");
 
     // Check Hero title and kicker
     const heroTitle = page.locator(".hero-title");
     await expect(heroTitle).toBeVisible();
-    await expect(heroTitle).toContainText("Inteligencia Comercial B2B");
+    await expect(heroTitle).toContainText("Prospectos B2B Verificados");
 
     // Check statistical highlights
     await expect(page.locator(".hero-stats-grid")).toBeVisible();
-    await expect(page.locator("text=Alta Entregabilidad")).toBeVisible();
-    await expect(page.locator("text=Contacto Institucional")).toBeVisible();
+    await expect(page.locator("text=>95% Entregabilidad")).toBeVisible();
+    await expect(page.locator("text=Decisores Verificados")).toBeVisible();
   });
 
   test("should toggle language between Spanish (es_CO) and English (en_US)", async ({ page }) => {
     // Verify default Spanish copy
-    await expect(page.locator(".hero-title")).toContainText("Inteligencia Comercial B2B");
+    await expect(page.locator(".hero-title")).toContainText("Prospectos B2B Verificados");
 
     // Click language switcher button to toggle to English
     const langBtn = page.locator(".lang-switcher-btn");
@@ -32,12 +32,12 @@ test.describe("Landing Page & Value Proposition", () => {
 
     // Verify copy translated to English and button shows 🇺🇸 EN
     await expect(langBtn).toContainText("🇺🇸 EN");
-    await expect(page.locator(".hero-title")).toContainText("B2B Sales Intelligence");
+    await expect(page.locator(".hero-title")).toContainText("Verified B2B Leads");
 
     // Toggle back to Spanish
     await langBtn.click();
     await expect(langBtn).toContainText("🇨🇴 ES");
-    await expect(page.locator(".hero-title")).toContainText("Inteligencia Comercial B2B");
+    await expect(page.locator(".hero-title")).toContainText("Prospectos B2B Verificados");
   });
 
   test("should display comparative table against legacy databases (Apollo / ZoomInfo)", async ({ page }) => {
@@ -46,13 +46,13 @@ test.describe("Landing Page & Value Proposition", () => {
 
     // Verify key comparative columns
     await expect(page.locator("text=Bases Tradicionales")).toBeVisible();
-    await expect(page.locator("text=Inteligencia Fresca On-Demand")).toBeVisible();
+    await expect(page.locator("text=Lotes en Vivo Michito")).toBeVisible();
   });
 
   test("should scroll smoothly to target sections via navbar", async ({ page }) => {
-    const verticalsBtn = page.locator("nav.desktop-nav button:has-text('Verticales')");
-    await verticalsBtn.click();
-    await expect(page.locator("#verticales")).toBeInViewport();
+    const howItWorksBtn = page.locator("nav.desktop-nav button:has-text('Cómo Funciona')");
+    await howItWorksBtn.click();
+    await expect(page.locator("#como-funciona")).toBeInViewport();
 
     const pricingBtn = page.locator("nav.desktop-nav button:has-text('Precios')");
     await pricingBtn.click();

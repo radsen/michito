@@ -1,18 +1,36 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store";
-import { ShieldCheck, Scale, Lock } from "lucide-react";
+import { ShieldCheck, Scale, Search } from "lucide-react";
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const { dict } = useSelector((state: RootState) => state.language);
   const f = dict.footer;
+
+  const handleNavigate = (path: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      window.location.href = path;
+    }
+  };
 
   return (
     <footer className="footer-container">
       <div className="footer-content">
         <div className="footer-brand">
-          <div className="footer-logo">
-            <span className="brand-logo-badge">導人</span>
+          <div
+            className="footer-logo cursor-pointer"
+            onClick={(e) => handleNavigate("/", e)}
+          >
+            <div className="brand-logo-badge">
+              <span className="brand-logo-letter">M</span>
+            </div>
             <span className="brand-name">MICHITO</span>
           </div>
           <p className="footer-tagline">{f.tagline}</p>
@@ -37,12 +55,36 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
           <div className="footer-column">
-            <h4>Ecosistema Chiketto</h4>
+            <h4>Acceso & Servicio</h4>
             <ul>
-              <li>Espacios Corporativos & Sedes</li>
-              <li>Mantenimiento & Flotas Corporativas</li>
-              <li>Soluciones de Bienestar & Salud B2B</li>
-              <li>Inteligencia Comercial On-Demand</li>
+              <li>
+                <a
+                  href="/rastrear"
+                  onClick={(e) => handleNavigate("/rastrear", e)}
+                  className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 transition-colors"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Rastrear Orden Existente</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/terminos"
+                  onClick={(e) => handleNavigate("/terminos", e)}
+                  className="hover:text-white transition-colors"
+                >
+                  Garantía & Reposición
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/terminos"
+                  onClick={(e) => handleNavigate("/terminos", e)}
+                  className="hover:text-white transition-colors"
+                >
+                  Cumplimiento Habeas Data
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -53,11 +95,25 @@ export const Footer: React.FC = () => {
         <div className="footer-legal">
           <span className="text-xs text-slate-500">{f.regulatoryNote}</span>
           <span>•</span>
-          <a href="#entregables">{f.privacy}</a>
+          <a
+            href="/terminos"
+            onClick={(e) => handleNavigate("/terminos", e)}
+            className="hover:text-white transition-colors"
+          >
+            {f.privacy}
+          </a>
           <span>•</span>
-          <a href="#entregables">{f.terms}</a>
+          <a
+            href="/terminos"
+            onClick={(e) => handleNavigate("/terminos", e)}
+            className="hover:text-white transition-colors"
+          >
+            {f.terms}
+          </a>
         </div>
       </div>
     </footer>
   );
 };
+
+export default Footer;

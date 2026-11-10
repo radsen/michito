@@ -8,40 +8,55 @@ import {
   X,
   Search,
   Workflow,
-  Building2,
   ShieldCheck,
   Tag,
 } from "lucide-react";
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onNavigate?: (path: string) => void;
+  currentPath?: string;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" }) => {
   const dispatch = useDispatch();
   const { currentLanguage, dict } = useSelector((state: RootState) => state.language);
   const { isMobileNavOpen } = useSelector((state: RootState) => state.ui);
 
-  const scrollTo = (id: string) => {
+  const handleNavClick = (sectionId: string) => {
     dispatch(setMobileNavOpen(false));
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
+    if (onNavigate && currentPath !== "/") {
+      onNavigate(`/#${sectionId}`);
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
     }
   };
 
-  const handleTrackOrder = () => {
+  const handleTrackClick = () => {
     dispatch(setMobileNavOpen(false));
-    scrollTo("generador");
-    setTimeout(() => {
-      const btn = document.getElementById("open-order-lookup-btn");
-      if (btn) btn.click();
-      const input = document.getElementById("order-lookup-input");
-      if (input) input.focus();
-    }, 250);
+    if (onNavigate) {
+      onNavigate("/rastrear");
+    } else {
+      window.location.href = "/rastrear";
+    }
+  };
+
+  const handleLogoClick = () => {
+    dispatch(setMobileNavOpen(false));
+    if (onNavigate && currentPath !== "/") {
+      onNavigate("/");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   return (
     <header className="navbar-container">
       <div className="navbar-content">
         {/* Brand Logo - Aligned Left */}
-        <div className="navbar-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+        <div className="navbar-brand" onClick={handleLogoClick}>
           <div className="brand-logo-badge">
             <span className="brand-logo-letter">M</span>
           </div>
@@ -57,7 +72,7 @@ export const Navbar: React.FC = () => {
           <nav className="desktop-nav">
             <button
               type="button"
-              onClick={() => scrollTo("como-funciona")}
+              onClick={() => handleNavClick("como-funciona")}
               className="nav-item-btn"
             >
               <span>{dict.nav.howItWorks}</span>
@@ -65,15 +80,7 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => scrollTo("verticales")}
-              className="nav-item-btn"
-            >
-              <span>{dict.nav.verticals}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => scrollTo("entregables")}
+              onClick={() => handleNavClick("entregables")}
               className="nav-item-btn"
             >
               <span>{dict.nav.guarantee}</span>
@@ -81,7 +88,7 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => scrollTo("precios")}
+              onClick={() => handleNavClick("precios")}
               className="nav-item-btn"
             >
               <span>{dict.nav.pricing}</span>
@@ -89,8 +96,8 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={handleTrackOrder}
-              className="nav-item-btn nav-track-btn"
+              onClick={handleTrackClick}
+              className={`nav-item-btn nav-track-btn ${currentPath === "/rastrear" ? "active" : ""}`}
               title="Consultar estado de una orden por ID"
             >
               <Search className="w-3.5 h-3.5" />
@@ -111,7 +118,7 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => scrollTo("generador")}
+              onClick={() => handleNavClick("generador")}
               className="nav-cta-btn"
             >
               <span>{dict.nav.cta}</span>
@@ -133,28 +140,24 @@ export const Navbar: React.FC = () => {
       {/* Mobile Drawer */}
       {isMobileNavOpen && (
         <div className="mobile-drawer">
-          <button onClick={() => scrollTo("como-funciona")} className="mobile-nav-link">
+          <button onClick={() => handleNavClick("como-funciona")} className="mobile-nav-link">
             <Workflow className="w-4 h-4 text-sky-400" />
             <span>{dict.nav.howItWorks}</span>
           </button>
-          <button onClick={() => scrollTo("verticales")} className="mobile-nav-link">
-            <Building2 className="w-4 h-4 text-sky-400" />
-            <span>{dict.nav.verticals}</span>
-          </button>
-          <button onClick={() => scrollTo("entregables")} className="mobile-nav-link">
+          <button onClick={() => handleNavClick("entregables")} className="mobile-nav-link">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>{dict.nav.guarantee}</span>
           </button>
-          <button onClick={() => scrollTo("precios")} className="mobile-nav-link">
+          <button onClick={() => handleNavClick("precios")} className="mobile-nav-link">
             <Tag className="w-4 h-4 text-sky-400" />
             <span>{dict.nav.pricing}</span>
           </button>
-          <button onClick={handleTrackOrder} className="mobile-nav-link text-sky-400 font-semibold">
+          <button onClick={handleTrackClick} className="mobile-nav-link text-sky-400 font-semibold">
             <Search className="w-4 h-4" />
             <span>{dict.nav.trackOrder}</span>
           </button>
 
-          <button onClick={() => scrollTo("generador")} className="mobile-drawer-cta">
+          <button onClick={() => handleNavClick("generador")} className="mobile-drawer-cta">
             {dict.nav.cta}
           </button>
         </div>

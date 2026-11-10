@@ -37,9 +37,6 @@ export const OrderGenerator: React.FC = () => {
   const partner = useSelector((state: RootState) => state.partner);
   const g = dict.generator;
 
-  const [lookupId, setLookupId] = useState("");
-  const [showLookup, setShowLookup] = useState(false);
-
   // Campaigns catalog matching index.html
   const CAMPAIGN_OPTIONS = [
     {
@@ -261,58 +258,8 @@ export const OrderGenerator: React.FC = () => {
             )}
 
             <div className="card-header-box">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="generator-card-title">{g.step1Heading}</h3>
-                  <p className="generator-card-sub">{g.step1Sub}</p>
-                </div>
-                {!activeOrderId && !showLookup && (
-                  <button
-                    type="button"
-                    id="open-order-lookup-btn"
-                    onClick={() => setShowLookup(true)}
-                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 transition-colors mt-1"
-                    title="Rastrear una orden existente por ID"
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Rastrear orden existente</span>
-                  </button>
-                )}
-              </div>
-
-              {showLookup && !activeOrderId && (
-                <div className="lookup-box">
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (lookupId.trim()) {
-                        dispatch(restoreOrder(lookupId.trim()));
-                        setShowLookup(false);
-                      }
-                    }}
-                    className="flex items-center gap-2 mt-2"
-                  >
-                    <input
-                      id="order-lookup-input"
-                      type="text"
-                      placeholder="Ej: ord_20261109_abc123"
-                      value={lookupId}
-                      onChange={(e) => setLookupId(e.target.value)}
-                      className="form-input text-xs py-1.5 font-mono"
-                    />
-                    <button type="submit" className="lookup-submit-btn text-xs">
-                      Cargar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowLookup(false)}
-                      className="text-slate-400 hover:text-white p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </form>
-                </div>
-              )}
+              <h3 className="generator-card-title">{g.step1Heading}</h3>
+              <p className="generator-card-sub">{g.step1Sub}</p>
 
               {partner.isAffiliate && (
                 <div className="partner-attribution-notice" data-testid="partner-order-notice">

@@ -2385,78 +2385,42 @@ main {
   line-height: 1.5;
 }
 
-/* Scope & Liability Disclaimer Box */
-.scope-disclaimer-box {
-  background: rgba(17, 24, 39, 0.7);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 14px;
-  padding: 32px 28px;
-  margin-bottom: 32px;
-}
-
-.disclaimer-badge {
-  display: inline-block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--accent-amber);
-  background: rgba(245, 158, 11, 0.1);
-  padding: 4px 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
-}
-
-.disclaimer-title {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 16px;
-}
-
-.disclaimer-body {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-.guarantee-pill {
+/* Sleek Trust Bar & Link to Dedicated Legal Page */
+.deliverable-trust-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 20px;
-  padding: 12px 18px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.9rem;
-}
-
-/* Habeas Data Banner */
-.habeas-data-banner {
-  background: rgba(56, 189, 248, 0.05);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 12px;
-  padding: 24px;
-  display: flex;
-  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
 }
 
-.habeas-icon {
-  margin-top: 2px;
-}
-
-.habeas-text h4 {
-  font-size: 1rem;
+.deliverable-terms-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: #fff;
-  margin-bottom: 6px;
+  color: #38bdf8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
-.habeas-text p {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.5;
+.deliverable-terms-link:hover {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .deliverable-trust-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* Enhanced Generator Controls */

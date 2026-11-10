@@ -1,9 +1,13 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store";
-import { CheckCircle2, Globe, MailCheck, FileText, Scale, ShieldCheck } from "lucide-react";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 
-export const DeliverablesStandards: React.FC = () => {
+interface DeliverablesStandardsProps {
+  onNavigateTerms?: () => void;
+}
+
+export const DeliverablesStandards: React.FC<DeliverablesStandardsProps> = ({ onNavigateTerms }) => {
   const { dict } = useSelector((state: RootState) => state.language);
   const d = dict.deliverables;
 
@@ -47,34 +51,28 @@ export const DeliverablesStandards: React.FC = () => {
           </div>
         </div>
 
-        {/* Scope & Liability Disclaimer Box */}
-        <div className="scope-disclaimer-box">
-          <div className="disclaimer-header">
-            <span className="disclaimer-badge">{d.disclaimerBadge}</span>
-            <h3 className="disclaimer-title">{d.disclaimerTitle}</h3>
+        {/* Sleek Trust Guarantee Bar & Link to Dedicated Legal Page */}
+        <div className="deliverable-trust-bar">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="text-xs sm:text-sm text-slate-300">
+              <strong>Garantía de Reposición:</strong> Si algún buzón presenta rebote comprobable en los primeros 7 días, se repone 2 por 1 sin costo adicional.
+            </span>
           </div>
-          <div className="disclaimer-body">
-            <p>{d.disclaimerP1}</p>
-            <p className="mt-3">{d.disclaimerP2}</p>
-            <div className="guarantee-pill">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>{d.replacementGuarantee}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Regulatory & Habeas Data Banner */}
-        <div className="habeas-data-banner">
-          <div className="habeas-icon">
-            <Scale className="w-6 h-6 text-sky-400" />
-          </div>
-          <div className="habeas-text">
-            <h4>{d.habeasDataTitle}</h4>
-            <p>{d.habeasDataDesc}</p>
-          </div>
+          {onNavigateTerms && (
+            <button
+              type="button"
+              onClick={onNavigateTerms}
+              className="deliverable-terms-link"
+            >
+              <span>Términos y Habeas Data</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </section>
   );
 };
 
+export default DeliverablesStandards;
