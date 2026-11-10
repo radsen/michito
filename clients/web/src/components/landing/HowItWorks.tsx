@@ -41,7 +41,7 @@ export const HowItWorks: React.FC = () => {
     <section id="como-funciona" className="process-section">
       <div className="section-container">
         <div className="section-header">
-          <span className="section-kicker">Metodología 0% Fricción</span>
+          <span className="section-kicker">{dict.process.kicker}</span>
           <h2 className="section-title">{dict.process.title}</h2>
           <p className="section-subtitle">{dict.process.subtitle}</p>
         </div>

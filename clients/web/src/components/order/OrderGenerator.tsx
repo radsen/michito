@@ -293,6 +293,7 @@ export const OrderGenerator: React.FC = () => {
                     className="flex items-center gap-2 mt-2"
                   >
                     <input
+                      id="order-lookup-input"
                       type="text"
                       placeholder="Ej: ord_20261109_abc123"
                       value={lookupId}

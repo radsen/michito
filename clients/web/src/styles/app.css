@@ -220,10 +220,17 @@ main {
   letter-spacing: 0.06em;
 }
 
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
 .desktop-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Nav Item Base - Standardized 36px Height */
@@ -598,6 +605,10 @@ main {
 }
 
 .hero-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-color);
   color: var(--text-main);
@@ -607,6 +618,7 @@ main {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  vertical-align: middle;
 }
 
 .hero-secondary-btn:hover {

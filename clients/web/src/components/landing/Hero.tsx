@@ -1,7 +1,7 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store";
-import { ShieldCheck, Building, TrendingUp, PenTool, ArrowRight, Search } from "lucide-react";
+import { ShieldCheck, Building, TrendingUp, PenTool, ArrowRight, ArrowDown } from "lucide-react";
 
 export const Hero: React.FC = () => {
   const { dict } = useSelector((state: RootState) => state.language);
@@ -35,7 +35,7 @@ export const Hero: React.FC = () => {
             <ArrowRight className="w-5 h-5" />
           </button>
           <button onClick={() => scrollTo("como-funciona")} className="hero-secondary-btn">
-            <Search className="w-4 h-4" />
+            <ArrowDown className="w-4 h-4 text-sky-400" />
             <span>{h.secondaryCta}</span>
           </button>
         </div>

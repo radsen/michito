@@ -78,10 +78,10 @@ export const App: React.FC = () => {
       <Navbar />
       <main>
         <Hero />
-        <ComparisonTable />
-        <IntentTriggers />
         <HowItWorks />
         <VerticalProfiles />
+        <ComparisonTable />
+        <IntentTriggers />
         <DeliverablesStandards />
         <PricingMatrix />
         <OrderGenerator />
