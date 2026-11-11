@@ -35,7 +35,12 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
             return 0, response
 
     def _check_email(self, mx_host: str, email: str) -> tuple[bool, int]:
-        """Returns (is_valid, smtp_code)"""
+        """Returns (is_valid, smtp_code).
+        
+        TODO(contingency-03): Handle Greylisting / tarpitting by enterprise mail servers (Microsoft 365, Proofpoint).
+        If the socket times out or drops without explicit 550 rejection, apply tier-adaptive fallback:
+        accept confirmed MX host existence + RFC 5322 valid corporate domain format as deliverable.
+        """
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
         try:

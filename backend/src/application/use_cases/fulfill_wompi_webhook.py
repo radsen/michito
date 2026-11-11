@@ -2,6 +2,12 @@ from src.application.ports.payment_gateway_port import PaymentGatewayPort
 from src.application.ports.lead_order_repository_port import LeadOrderRepositoryPort
 
 class FulfillPaymentWebhookUseCase:
+    """Handles incoming Wompi payment webhook events.
+    
+    TODO(contingency-02): Implement an idempotent Payment Reconciliation Job (scheduled every 10m)
+    that queries Wompi's GET /v1/transactions/{id} for orders stuck in awaiting_payment > 15m to
+    guarantee order fulfillment even if Cloud Run experiences a cold-start timeout during webhook delivery.
+    """
     def __init__(self, payment_gateway: PaymentGatewayPort, repository: LeadOrderRepositoryPort):
         self.payment_gateway = payment_gateway
         self.repository = repository

@@ -1365,6 +1365,37 @@ main {
   margin-top: 2px;
 }
 
+.city-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.city-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.city-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.city-pill.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
 .form-select, .form-input {
   background: var(--bg-dark);
   border: 1px solid var(--border-color);
@@ -2866,6 +2897,16 @@ main {
 }
 
 @media (max-width: 640px) {
+  .navbar-actions {
+    gap: 6px;
+  }
+  .navbar-actions .nav-cta-btn {
+    display: none; /* Hide top CTA on narrow mobile; sticky footer CTA handles mobile conversion */
+  }
+  .currency-switcher-btn, .lang-switcher-btn {
+    padding: 0 8px;
+    font-size: 0.75rem;
+  }
   .hero-title {
     font-size: 2.1rem;
   }

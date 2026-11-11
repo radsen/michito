@@ -109,7 +109,13 @@ export const OrderGenerator: React.FC = () => {
     },
   ];
 
+  const SUGGESTED_CITIES_BY_COUNTRY: Record<string, string[]> = {
+    CO: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga"],
+    DO: ["Santo Domingo", "Santiago", "Punta Cana", "La Romana"],
+  };
+
   const currentCamp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId) || CAMPAIGN_OPTIONS[0];
+  const suggestedCities = SUGGESTED_CITIES_BY_COUNTRY[currentCamp.country] || SUGGESTED_CITIES_BY_COUNTRY.CO;
 
   const [targetCity, setTargetCity] = useState(currentCamp.defaultCity);
   const [buyerName, setLocalName] = useState("Demo Lead Buyer");
@@ -490,6 +496,18 @@ export const OrderGenerator: React.FC = () => {
                         placeholder={g.cityPlaceholder}
                         className="form-input"
                       />
+                      <div className="city-quick-pills">
+                        {suggestedCities.map((city) => (
+                          <button
+                            key={city}
+                            type="button"
+                            onClick={() => handleCityChange(city)}
+                            className={`city-pill ${targetCity.toLowerCase() === city.toLowerCase() ? "active" : ""}`}
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
                       <span className="form-hint">
                         Ingresa cualquier ciudad o territorio de cobertura comercial.
                       </span>

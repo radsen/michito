@@ -13,6 +13,8 @@ from src.domain.value_objects.tax_id import TaxId
 from src.application.dto.search_request_dto import CompanyFilterDto
 
 # Fallback dataset
+# TODO(contingency-01): Register free SECOP_APP_TOKEN (raises SODA API limit from 1,000 to 50,000 req/hr)
+# and configure exponential backoff with random jitter to prevent Cloud Run egress IP throttling under load.
 CURATED_COLOMBIAN_REGISTRY = [
     {
         "nit": "830.076.432-1",
