@@ -131,6 +131,7 @@ class GenerateProspectsUseCase:
         dry_run: bool = False,
         output_format: str = "both",
         tier: int = 2,
+        exclusions: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         print("=" * 80)
         print("🚀 UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
@@ -152,10 +153,23 @@ class GenerateProspectsUseCase:
             "recommended", "Eficiencia Operativa y Soluciones B2B Llave en Mano"
         )
 
-        # Determine cities to prospect
+        REGIONAL_EXPANSIONS: Dict[str, List[str]] = {
+            "costa caribe": ["Barranquilla", "Cartagena", "Santa Marta"],
+            "eje cafetero": ["Pereira", "Manizales", "Armenia"],
+        }
+
+        # Determine cities / departments / territories to prospect
         target_cities: List[str] = []
-        if city and city.lower() != "all":
-            target_cities = [c.strip() for c in city.split(",") if c.strip()]
+        if city:
+            raw_tokens = [c.strip() for c in city.split(",") if c.strip()]
+            for token in raw_tokens:
+                norm_token = re.sub(r"[^\w\s]", "", token.lower()).strip()
+                if norm_token in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país"):
+                    target_cities.append("all")
+                elif norm_token in REGIONAL_EXPANSIONS:
+                    target_cities.extend(REGIONAL_EXPANSIONS[norm_token])
+                else:
+                    target_cities.append(token)
         else:
             cfg_cities = target_cfg.get("cities")
             if cfg_cities:
@@ -165,13 +179,51 @@ class GenerateProspectsUseCase:
             else:
                 target_cities = ["Santo Domingo"] if target_country == "DO" else ["Medellín", "Bogotá"]
 
+        # Deduplicate while preserving order
+        dedup_cities: List[str] = []
+        for c in target_cities:
+            if c not in dedup_cities:
+                dedup_cities.append(c)
+        target_cities = dedup_cities
+
         per_city_limit = max(1, limit // len(target_cities))
+
+        # Build normalized customer/competitor exclusion sets
+        clean_excl_nits: Set[str] = set()
+        clean_excl_domains: Set[str] = set()
+        clean_excl_keywords: Set[str] = set()
+
+        raw_exclusions = list(exclusions or [])
+        if target_cfg.get("keywords_exclude"):
+            raw_exclusions.extend(target_cfg.get("keywords_exclude"))
+
+        for exc in raw_exclusions:
+            if not exc:
+                continue
+            item = str(exc).strip().lower()
+            if not item:
+                continue
+            clean_dom = re.sub(r"^https?://(www\.)?", "", item).split("/")[0].strip()
+            if "." in clean_dom and not re.match(r"^[\d.-]+$", clean_dom):
+                clean_excl_domains.add(clean_dom)
+                dom_parts = clean_dom.split(".")
+                if len(dom_parts) >= 2 and len(dom_parts[0]) >= 3:
+                    clean_excl_keywords.add(dom_parts[0])
+            else:
+                digits = re.sub(r"\D", "", item)
+                if len(digits) >= 6:
+                    clean_excl_nits.add(digits)
+                    clean_excl_nits.add(item.replace(".", "").replace(" ", ""))
+                if len(item) >= 3:
+                    clean_excl_keywords.add(item)
 
         print(f"📋 Campaign Profile:  {campaign_name} (`{campaign_id}`)")
         print(f"🌍 Country Target:     {target_country}")
         print(f"📍 Target Cities:      {', '.join(target_cities)} (Limit per city: ~{per_city_limit})")
         print(f"🔢 Total Batch Target: {limit} qualified accounts")
         print(f"🎯 Recommended Angle:  {recommended_angle}")
+        if raw_exclusions:
+            print(f"🛡️ Exclusions Active:  {len(raw_exclusions)} entries ({len(clean_excl_nits)} NITs, {len(clean_excl_domains)} domains, {len(clean_excl_keywords)} keywords)")
         print("-" * 80)
 
         # 2. Initialize Deduplication Ledger
@@ -235,6 +287,24 @@ class GenerateProspectsUseCase:
 
                 # Deduplication Check (Against Ledger & Active Batch)
                 if ledger.is_seen(nit, company_name) or any(s["nit"] == nit for s in all_selected):
+                    continue
+
+                # Customer & Competitor Exclusion Filter
+                nit_clean = re.sub(r"\D", "", nit or "")
+                nit_stripped = (nit or "").strip().replace(".", "").replace(" ", "")
+                cand_email = (item.get("email") or "").strip().lower()
+                cand_website = (item.get("website") or "").strip().lower()
+                cand_email_domain = cand_email.split("@")[1].strip().lower() if "@" in cand_email else ""
+                cand_url_domain = re.sub(r"^https?://(www\.)?", "", cand_website).split("/")[0].strip()
+
+                if (
+                    nit_clean in clean_excl_nits
+                    or nit_stripped in clean_excl_nits
+                    or (cand_email_domain and any(d in cand_email_domain for d in clean_excl_domains))
+                    or (cand_url_domain and any(d in cand_url_domain for d in clean_excl_domains))
+                    or any(kw in company_name.lower() for kw in clean_excl_keywords)
+                ):
+                    print(f"   [Exclusion Gate] Skipping excluded account: {company_name} (NIT: {nit})")
                     continue
 
                 email = item["email"]
@@ -333,7 +403,8 @@ class GenerateProspectsUseCase:
                     "clean_name": clean_name,
                     "first_name": first_name,
                     "nit": nit,
-                    "city": target_city,
+                    "city": item.get("city") or target_city,
+                    "department": item.get("department") or "",
                     "address": item.get("address", ""),
                     "ciiu": ciiu_obj,
                     "segment_name": seg_name,
@@ -462,6 +533,7 @@ class GenerateProspectsUseCase:
                 "Company Name": lead["company_name"],
                 tax_id_header: lead["nit"],
                 "City": lead["city"],
+                "Department": lead.get("department", ""),
                 code_header: ciiu.code,
                 "Sector Macro": ciiu.sector_macro,
                 activity_header: ciiu.description,

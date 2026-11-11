@@ -105,10 +105,13 @@ class OrderWorkerDaemon:
         limit = req.get("limit", 10)
         segment = req.get("segment")
         tier = req.get("tier", 2)
+        exclusions = req.get("exclusions") or req.get("keywords_exclude")
 
         print(f"\n[WorkerDaemon] ⚡ Locking and starting processing for Order `{order_id}`...")
         print(f"               Client:   {client_name}")
         print(f"               Campaign: {campaign_id} | City: {city} | Limit: {limit} | Tier: {tier}")
+        if exclusions:
+            print(f"               Exclusions: {len(exclusions)} accounts or domains blacklisted.")
         print(f"[WorkerDaemon] ⏳ [1/4] Ingestion & Chamber of Commerce Harvester running...")
 
         # 1. Lock the order in the repository to prevent double processing
@@ -121,15 +124,19 @@ class OrderWorkerDaemon:
             print(f"[WorkerDaemon] 🔍 [2/4] Verifying domains, HTTP footprint & Socket MX servers...")
             print(f"[WorkerDaemon] 🛡️ [3/4] Underwriting solvency risk & composing 5 tailored multichannel touches...")
             t0 = time.time()
-            job_result = self.use_case.execute(
-                campaign=campaign_id,
-                city=city,
-                limit=limit,
-                segment=segment,
-                tier=tier,
-                dry_run=False,
-                output_format="both",
-            )
+            exec_kwargs: Dict[str, Any] = {
+                "campaign": campaign_id,
+                "city": city,
+                "limit": limit,
+                "segment": segment,
+                "tier": tier,
+                "dry_run": False,
+                "output_format": "both",
+            }
+            if exclusions:
+                exec_kwargs["exclusions"] = exclusions
+
+            job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0
 
             # Fair Pay-Per-Lead Tiered Pricing (Strategy Financial Model)

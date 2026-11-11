@@ -181,6 +181,7 @@ class OrderModel(Base):
                 "sector": self.sector,
                 "keywords_include": self.keywords_include,
                 "keywords_exclude": self.keywords_exclude,
+                "exclusions": self.keywords_exclude,
             },
             "status": self.status,
             "payment": {

@@ -8,7 +8,7 @@ import os
 import sys
 import argparse
 import json
-from typing import Optional
+from typing import Optional, List
 
 # Ensure backend directory and monorepo root are on sys.path
 backend_dir = os.path.abspath(os.path.dirname(__file__))
@@ -46,6 +46,8 @@ def run_prospector(
     sector: Optional[str] = None,
     dry_run: bool = False,
     output_format: str = "both",
+    tier: int = 2,
+    exclusions: Optional[List[str]] = None,
 ):
     """
     Executes the GenerateProspectsUseCase using active adapters and configuration.
@@ -66,6 +68,8 @@ def run_prospector(
         sector=sector,
         dry_run=dry_run,
         output_format=output_format,
+        tier=tier,
+        exclusions=exclusions,
     )
 
 
@@ -116,6 +120,12 @@ def main():
         help="Override target industry sector"
     )
     parser.add_argument(
+        "--exclusions",
+        type=str,
+        default=None,
+        help="Comma-separated domains or NITs to exclude (e.g. 'hebisend.com,900123456')"
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Run without modifying the master deduplication ledger"
@@ -149,6 +159,8 @@ def main():
 
     active_campaign = args.product or args.campaign
 
+    exclusions_list = [e.strip() for e in args.exclusions.split(",") if e.strip()] if args.exclusions else None
+
     result = run_prospector(
         campaign=active_campaign,
         city=args.city,
@@ -157,6 +169,7 @@ def main():
         sector=args.sector,
         dry_run=args.dry_run,
         output_format=args.output_format,
+        exclusions=exclusions_list,
     )
 
     if args.json:

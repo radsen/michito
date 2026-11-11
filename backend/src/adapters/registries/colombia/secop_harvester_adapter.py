@@ -33,6 +33,52 @@ class SecopHarvesterAdapter:
         "Sucursal de Sociedad Extranjera",
     ]
 
+    COLOMBIA_DEPARTAMENTOS: Dict[str, str] = {
+        "antioquia": "Antioquia",
+        "cundinamarca": "Cundinamarca",
+        "valle del cauca": "Valle del Cauca",
+        "valle": "Valle del Cauca",
+        "santander": "Santander",
+        "norte de santander": "Norte de Santander",
+        "atlantico": "Atlántico",
+        "atlántico": "Atlántico",
+        "bolivar": "Bolívar",
+        "bolívar": "Bolívar",
+        "caldas": "Caldas",
+        "risaralda": "Risaralda",
+        "quindio": "Quindío",
+        "quindío": "Quindío",
+        "tolima": "Tolima",
+        "huila": "Huila",
+        "narino": "Nariño",
+        "nariño": "Nariño",
+        "cauca": "Cauca",
+        "magdalena": "Magdalena",
+        "cesar": "Cesar",
+        "cordoba": "Córdoba",
+        "córdoba": "Córdoba",
+        "meta": "Meta",
+        "boyaca": "Boyacá",
+        "boyacá": "Boyacá",
+        "amazonas": "Amazonas",
+        "arauca": "Arauca",
+        "casanare": "Casanare",
+        "caqueta": "Caquetá",
+        "caquetá": "Caquetá",
+        "choco": "Chocó",
+        "chocó": "Chocó",
+        "guainia": "Guainía",
+        "guainía": "Guainía",
+        "guaviare": "Guaviare",
+        "la guajira": "La Guajira",
+        "putumayo": "Putumayo",
+        "san andres": "San Andrés, Providencia y Santa Catalina",
+        "sucre": "Sucre",
+        "vaupes": "Vaupés",
+        "vaupés": "Vaupés",
+        "vichada": "Vichada",
+    }
+
     def __init__(self, app_token: Optional[str] = None, timeout: int = 15):
         self.app_token = app_token
         self.timeout = timeout
@@ -71,8 +117,17 @@ class SecopHarvesterAdapter:
             "$limit": str(max(limit * 3, 100)),
         }
 
-        if city.strip().lower() in ("bogotá", "bogota", "bogota d.c.", "bogotá d.c."):
+        norm_loc = city.strip().lower()
+        clean_loc = re.sub(r"[^\w\s]", "", norm_loc).strip()
+        if norm_loc in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país") or clean_loc in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país"):
+            # Nationwide query across all departments and municipalities
+            pass
+        elif norm_loc in ("bogotá", "bogota", "bogota d.c.", "bogotá d.c.") or clean_loc in ("bogota", "bogota dc", "bogota d c", "distrito capital"):
             params["departamento"] = "Distrito Capital de Bogotá"
+        elif norm_loc in self.COLOMBIA_DEPARTAMENTOS:
+            params["departamento"] = self.COLOMBIA_DEPARTAMENTOS[norm_loc]
+        elif clean_loc in self.COLOMBIA_DEPARTAMENTOS:
+            params["departamento"] = self.COLOMBIA_DEPARTAMENTOS[clean_loc]
         else:
             params["municipio"] = city
 
@@ -165,7 +220,13 @@ class SecopHarvesterAdapter:
         """
         norm_city = city.strip().title() if city else "Medellín"
         is_bogota = "bogot" in norm_city.lower()
-        dept = "Distrito Capital de Bogotá" if is_bogota else "Antioquia"
+        loc_lower = city.strip().lower() if city else "medellín"
+        if loc_lower in self.COLOMBIA_DEPARTAMENTOS:
+            dept = self.COLOMBIA_DEPARTAMENTOS[loc_lower]
+        elif is_bogota:
+            dept = "Distrito Capital de Bogotá"
+        else:
+            dept = "Antioquia"
         return [
             {
                 "nombre": "Tecnología y Facturación Digital S.A.S.",

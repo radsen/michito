@@ -3436,4 +3436,110 @@ main {
   color: #fff;
 }
 
+/* Customer & Competitor Exclusion Drawer */
+.exclusions-section {
+  margin: 18px 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.exclusions-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.exclusions-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.exclusions-toggle-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exclusions-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.exclusions-drawer {
+  padding: 0 16px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.exclusions-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 12px 0 8px 0;
+  line-height: 1.45;
+}
+
+.exclusions-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.exclusions-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary, #38bdf8);
+}
+
+.exclusions-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.exclusion-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-family: monospace;
+}
+
+.exclusion-tag-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+
 

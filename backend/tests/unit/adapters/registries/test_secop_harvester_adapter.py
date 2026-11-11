@@ -67,6 +67,30 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
         self.assertEqual(candidates[0]["phone"], "3001234567")
         self.assertEqual(candidates[0]["company_id"], "CO-900123456")
 
+    @patch("urllib.request.urlopen")
+    def test_fetch_candidates_department_and_nationwide_routing(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"[]"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        # Test Department Routing
+        self.adapter.fetch_candidates(city="Antioquia", limit=5)
+        req_antioquia = mock_urlopen.call_args[0][0]
+        self.assertIn("departamento=Antioquia", req_antioquia.full_url)
+        self.assertNotIn("municipio", req_antioquia.full_url)
+
+        # Test Nationwide Routing (e.g. "🇨🇴 Toda Colombia")
+        self.adapter.fetch_candidates(city="🇨🇴 Toda Colombia", limit=5)
+        req_nationwide = mock_urlopen.call_args[0][0]
+        self.assertNotIn("departamento", req_nationwide.full_url)
+        self.assertNotIn("municipio", req_nationwide.full_url)
+
+    def test_fallback_candidates_department_assignment(self):
+        fallbacks = self.adapter._get_fallback_candidates(city="Valle del Cauca")
+        self.assertGreater(len(fallbacks), 0)
+        self.assertEqual(fallbacks[0]["departamento"], "Valle del Cauca")
+
 if __name__ == "__main__":
     unittest.main()
 

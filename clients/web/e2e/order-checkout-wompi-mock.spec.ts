@@ -141,4 +141,69 @@ test.describe("Order Creation, Wompi Payment & Delivery Tracking", () => {
     await expect(page.locator("a.csv-download")).toBeVisible();
     await expect(page.locator("a.dossier-download")).toBeVisible();
   });
+
+  test("should support department-level regional selection and customer exclusions", async ({ page }) => {
+    let capturedPayload: any = null;
+    await page.route("**/api/v1/orders", async (route) => {
+      if (route.request().method() === "POST") {
+        capturedPayload = JSON.parse(route.request().postData() || "{}");
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            status: "success",
+            order_id: "ord_playwright_excl_101",
+            order_status: "awaiting_payment",
+            amount_in_cents: 30000000,
+            total_price_cop: 300000,
+            message: "Orden creada con exclusiones.",
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto("/#generador");
+
+    // Click on department pill 'Antioquia'
+    const antioquiaPill = page.locator(".city-pill:has-text('Antioquia')");
+    await expect(antioquiaPill).toBeVisible();
+    await antioquiaPill.click();
+
+    // Open Exclusion Drawer
+    const exclusionToggle = page.locator(".exclusions-toggle-btn");
+    await expect(exclusionToggle).toBeVisible();
+    await exclusionToggle.click();
+
+    // Fill in domains and NITs
+    const exclusionTextarea = page.locator(".exclusions-textarea");
+    await expect(exclusionTextarea).toBeVisible();
+    await exclusionTextarea.fill("hebisend.com, 900123456, competitor.co");
+
+    // Verify preview tags rendered
+    await expect(page.locator(".exclusion-tag:has-text('hebisend.com')")).toBeVisible();
+    await expect(page.locator(".exclusion-tag:has-text('900123456')")).toBeVisible();
+    await expect(page.locator(".exclusion-tag:has-text('competitor.co')")).toBeVisible();
+    await expect(page.locator(".exclusions-count-badge")).toContainText("3 exclusiones activas");
+
+    // Advance to Step 2
+    await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
+
+    // Verify Recap Box reflects Department and Exclusions
+    const recapBox = page.locator(".generator-recap-box");
+    await expect(recapBox).toBeVisible();
+    await expect(recapBox).toContainText("Antioquia");
+    await expect(recapBox).toContainText("3 cuentas excluidas");
+
+    // Fill in buyer info and submit
+    await page.locator("input[placeholder='Ej: Juan Carlos Pérez']").fill("Regional Lead Buyer");
+    await page.locator("input[placeholder='director@empresa.com']").fill("buyer@hebisend-test.com");
+    await page.locator(".generator-submit-btn").click();
+
+    // Verify sent payload
+    expect(capturedPayload).not.toBeNull();
+    expect(capturedPayload.request.city).toBe("Antioquia");
+    expect(capturedPayload.request.exclusions).toEqual(["hebisend.com", "900123456", "competitor.co"]);
+  });
 });

@@ -88,6 +88,62 @@ class TestProspectingJobWorker(unittest.TestCase):
         self.assertIn("metrics", res)
         self.assertGreaterEqual(res["metrics"]["candidates_evaluated"], 1)
 
+    @patch("generate_prospects.DgcpDrAdapter")
+    @patch("generate_prospects.WebsiteAuditor")
+    @patch("generate_prospects.verify_mx")
+    def test_run_prospecting_job_with_exclusions(self, mock_verify_mx, mock_auditor_cls, mock_adapter_cls):
+        """Verify candidate exclusions by NIT or domain skip blacklisted accounts"""
+        mock_verify_mx.return_value = (True, "mail.test.com")
+
+        mock_auditor = MagicMock()
+        mock_auditor.audit.return_value = (True, "https://www.test.com", "Active Audited Site")
+        mock_auditor_cls.return_value = mock_auditor
+
+        mock_adapter = MagicMock()
+        mock_adapter.fetch_candidates.return_value = [
+            {
+                "nit": "131999888",
+                "rnc": "131999888",
+                "company_name": "Excluded Tech, SRL",
+                "city": "Santo Domingo",
+                "address": "Calle 1",
+                "email": "director@excludedtech.com",
+                "phone": "+1 (809) 555-1234",
+                "decision_maker_name": "Marcos Gomez",
+                "decision_maker_title": "Director General",
+                "sector": "Tecnología",
+                "website": "https://www.excludedtech.com",
+            },
+            {
+                "nit": "131777666",
+                "rnc": "131777666",
+                "company_name": "Valid Prospect, SRL",
+                "city": "Santo Domingo",
+                "address": "Calle 2",
+                "email": "gerente@validprospect.com",
+                "phone": "+1 (809) 555-5678",
+                "decision_maker_name": "Laura Perez",
+                "decision_maker_title": "Gerente General",
+                "sector": "Tecnología",
+                "website": "https://www.validprospect.com",
+            },
+        ]
+        mock_adapter_cls.return_value = mock_adapter
+
+        res = run_prospecting_job(
+            campaign="tinkko_dr_offices",
+            city="Santo Domingo",
+            limit=2,
+            dry_run=True,
+            output_format="both",
+            exclusions=["excludedtech.com", "131999888"]
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["total_qualified"], 1)
+        self.assertEqual(res["leads"][0]["company_name"], "Valid Prospect, SRL")
+        self.assertEqual(res["leads"][0]["nit"], "131777666")
+
 if __name__ == "__main__":
     unittest.main()
 

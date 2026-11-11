@@ -223,6 +223,36 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(data_dr["country"], "DO")
         self.assertEqual(data_dr["city"], "Santo Domingo")
 
+    def test_create_order_with_exclusions(self):
+        payload = {
+            "client": {
+                "name": "Exclusion Test Client",
+                "email": "excl_client@test.com",
+                "phone": "+573001230000",
+                "channel": "web_portal"
+            },
+            "request": {
+                "campaign_id": "tinkko_enterprise_offices",
+                "country": "CO",
+                "city": "Antioquia",
+                "limit": 10,
+                "exclusions": ["hebisend.com", "900123456", "competitor.co"]
+            }
+        }
+        res = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res.status_code, 201)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        order_id = data["order_id"]
+
+        # Verify persisted exclusions
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        order_data = res_get.json()
+        req_data = order_data["request"]
+        self.assertIn("hebisend.com", req_data.get("exclusions", []))
+        self.assertIn("900123456", req_data.get("exclusions", []))
+        self.assertEqual(req_data.get("city"), "Antioquia")
 
 if __name__ == "__main__":
     unittest.main()

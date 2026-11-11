@@ -110,8 +110,19 @@ export const OrderGenerator: React.FC = () => {
   ];
 
   const SUGGESTED_CITIES_BY_COUNTRY: Record<string, string[]> = {
-    CO: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga"],
-    DO: ["Santo Domingo", "Santiago", "Punta Cana", "La Romana"],
+    CO: [
+      "🇨🇴 Toda Colombia",
+      "Antioquia",
+      "Bogotá D.C.",
+      "Valle del Cauca",
+      "Santander",
+      "Costa Caribe",
+      "Eje Cafetero",
+      "Medellín",
+      "Cali",
+      "Barranquilla",
+    ],
+    DO: ["🇩🇴 Todo el País", "Santo Domingo", "Santiago", "Punta Cana", "La Romana"],
   };
 
   const currentCamp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId) || CAMPAIGN_OPTIONS[0];
@@ -122,6 +133,15 @@ export const OrderGenerator: React.FC = () => {
   const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Exclusions State
+  const [isExclusionsOpen, setIsExclusionsOpen] = useState(false);
+  const [exclusionsText, setExclusionsText] = useState("");
+
+  const parsedExclusions = exclusionsText
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   // 2-Step Guided Stepper States
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -222,6 +242,8 @@ export const OrderGenerator: React.FC = () => {
           city: targetCity,
           limit: volume,
           tier: tier,
+          exclusions: parsedExclusions.length > 0 ? parsedExclusions : undefined,
+          keywords_exclude: parsedExclusions.length > 0 ? parsedExclusions : undefined,
         },
       };
 
@@ -613,6 +635,58 @@ export const OrderGenerator: React.FC = () => {
                   </div>
                 )}
 
+                {/* Collapsible Customer & Domain Exclusion Drawer */}
+                <div className="exclusions-section">
+                  <button
+                    type="button"
+                    onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
+                    className="exclusions-toggle-btn"
+                    aria-expanded={isExclusionsOpen}
+                  >
+                    <div className="exclusions-toggle-title">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Excluir Clientes Actuales o Competidores (Opcional)</span>
+                      {parsedExclusions.length > 0 && (
+                        <span className="exclusions-count-badge">
+                          {parsedExclusions.length} {parsedExclusions.length === 1 ? "exclusión activa" : "exclusiones activas"}
+                        </span>
+                      )}
+                    </div>
+                    {isExclusionsOpen ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+
+                  {isExclusionsOpen && (
+                    <div className="exclusions-drawer">
+                      <p className="exclusions-hint">
+                        Ingresa dominios web o NITs que ya sean tus clientes o desees omitir (ej: hebisend.com, tinkko.com, 900123456). Se excluirán automáticamente del lote con costo cero.
+                      </p>
+                      <textarea
+                        value={exclusionsText}
+                        onChange={(e) => setExclusionsText(e.target.value)}
+                        placeholder="Pega dominios o NITs separados por coma o salto de línea (ej: cliente1.com, 901234567, empresa.co)..."
+                        className="exclusions-textarea"
+                        rows={3}
+                      />
+                      {parsedExclusions.length > 0 && (
+                        <div className="exclusions-preview-tags">
+                          {parsedExclusions.slice(0, 6).map((item, idx) => (
+                            <span key={idx} className="exclusion-tag">
+                              {item}
+                            </span>
+                          ))}
+                          {parsedExclusions.length > 6 && (
+                            <span className="exclusion-tag-more">+{parsedExclusions.length - 6} más</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Price Calculation Box */}
                 <div className="calc-summary-box">
                   <div className="calc-row">
@@ -694,6 +768,14 @@ export const OrderGenerator: React.FC = () => {
                       {volume} cuentas ({tier === 1 ? "Directorio Base" : tier === 2 ? "Contactos Directos" : "Auditoría Completa"})
                     </span>
                   </div>
+                  {parsedExclusions.length > 0 && (
+                    <div className="recap-item">
+                      <span className="recap-label">Exclusiones Activas</span>
+                      <span className="recap-value text-amber-300 font-medium">
+                        {parsedExclusions.length} {parsedExclusions.length === 1 ? "cuenta excluida" : "cuentas excluidas"}
+                      </span>
+                    </div>
+                  )}
                   <div className="recap-item">
                     <span className="recap-label">Inversión Estimada</span>
                     <span className="recap-value text-emerald-400">{formatCurrencyAmount(total, currency)}</span>

@@ -15,6 +15,8 @@ export interface CreateOrderPayload {
     limit: number;
     tier: number;
     segment?: string;
+    exclusions?: string[];
+    keywords_exclude?: string[];
   };
 }
 

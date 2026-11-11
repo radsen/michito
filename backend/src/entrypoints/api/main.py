@@ -77,6 +77,7 @@ class RequestDto(BaseModel):
     sector: Optional[str] = None
     keywords_include: Optional[List[str]] = None
     keywords_exclude: Optional[List[str]] = None
+    exclusions: Optional[List[str]] = None
 
 class CreateOrderRequest(BaseModel):
     client: ClientDto
@@ -219,6 +220,12 @@ def create_prospecting_order(payload: CreateOrderRequest):
     """
     try:
         currency = "DOP" if payload.request.country and payload.request.country.upper() == "DO" else "COP"
+        merged_exclusions = list(payload.request.keywords_exclude or [])
+        if payload.request.exclusions:
+            for item in payload.request.exclusions:
+                if item not in merged_exclusions:
+                    merged_exclusions.append(item)
+
         order = sql_adapter.create_order(
             client_name=payload.client.name,
             client_email=payload.client.email,
@@ -233,7 +240,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             segment=payload.request.segment,
             sector=payload.request.sector,
             keywords_include=payload.request.keywords_include,
-            keywords_exclude=payload.request.keywords_exclude,
+            keywords_exclude=merged_exclusions or None,
             tier=payload.request.tier or 2,
         )
 
