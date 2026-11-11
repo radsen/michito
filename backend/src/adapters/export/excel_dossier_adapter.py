@@ -6,6 +6,7 @@ from src.application.dto.lead_dossier_dto import LeadDossierDto
 
 try:
     import openpyxl
+    from openpyxl.cell.cell import Cell
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
@@ -116,6 +117,8 @@ class ExcelDossierAdapter(DossierExportPort):
         ws.row_dimensions[1].height = 26
         for col_idx, header_name in enumerate(headers, start=1):
             cell = ws.cell(row=1, column=col_idx, value=header_name)
+            if not isinstance(cell, Cell):
+                continue
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = header_align
@@ -129,6 +132,8 @@ class ExcelDossierAdapter(DossierExportPort):
             for col_idx, header_name in enumerate(headers, start=1):
                 val = r_dict.get(header_name, "")
                 cell = ws.cell(row=row_idx, column=col_idx)
+                if not isinstance(cell, Cell):
+                    continue
                 cell.fill = row_fill
                 cell.border = cell_border
                 cell.font = data_font
@@ -153,9 +158,13 @@ class ExcelDossierAdapter(DossierExportPort):
         # 4. Auto-fit column widths with min 12 and max 50 caps
         for col in ws.columns:
             max_len = 0
-            col_letter = get_column_letter(col[0].column)
+            first_cell = col[0]
+            col_raw_idx = first_cell.column
+            if col_raw_idx is None:
+                continue
+            col_letter = get_column_letter(int(col_raw_idx))
             for cell in col:
-                val_str = str(cell.value or "")
+                val_str = str(cell.value or "") if isinstance(cell, Cell) else ""
                 if len(val_str) > max_len:
                     max_len = len(val_str)
             col_width = min(max(max_len + 3, 12), 50)
