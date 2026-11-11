@@ -254,6 +254,7 @@ export const OrderGenerator: React.FC = () => {
             orderId: res.order_id,
             status: res.order_status,
             totalAmountInCents: res.amount_in_cents || totalCop * 100,
+            totalLeadsTarget: volume,
           })
         );
       } else {

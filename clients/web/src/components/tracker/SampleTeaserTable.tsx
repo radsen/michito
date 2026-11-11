@@ -59,24 +59,24 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                 <td>
                   <div>{lead.decision_maker_name || "Directivo Clave"}</div>
                   <div className="text-xs text-sky-400">
-                    {lead.decision_maker_role || "Tomador de Decisión"}
+                    {lead.decision_maker_role || (lead as any).decision_maker_title || "Tomador de Decisión"}
                   </div>
                 </td>
                 <td>
                   <span className="email-masked-badge">
                     <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>{lead.email}</span>
+                    <span>{lead.email || "c***@empresa.com"}</span>
                   </span>
                 </td>
                 <td>
                   <span className="phone-masked-badge">
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{lead.phone || "+57 ••• ••••"}</span>
+                    <span>{lead.phone || "+57 3•• ••• ••••"}</span>
                   </span>
                 </td>
                 <td>
                   <span className="intent-badge">
-                    {lead.intent_trigger || "Adjudicación Contrato Reciente"}
+                    {lead.intent_trigger || (lead as any).intent_level || "Adjudicación Contrato Reciente"}
                   </span>
                 </td>
                 <td>
@@ -100,7 +100,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
         <div className="unlock-info">
           <Lock className="w-5 h-5 text-amber-400" />
           <span>
-            Las {totalLeads - 3} cuentas restantes y los correos completos se desbloquean con el pago.
+            Las {Math.max(1, totalLeads - leads.length)} cuentas restantes y los correos completos se desbloquean con el pago.
           </span>
         </div>
         <button

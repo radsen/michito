@@ -64,6 +64,11 @@ export const LiveStatusTracker: React.FC = () => {
   // Sync API response with Redux
   useEffect(() => {
     if (orderData) {
+      const resolvedTotal =
+        orderData.total_qualified && orderData.total_qualified > 0
+          ? orderData.total_qualified
+          : orderData.limit || (orderData as any).request?.limit || totalLeadsTarget;
+
       dispatch(
         updateOrderStatus({
           status: orderData.status,
@@ -71,10 +76,11 @@ export const LiveStatusTracker: React.FC = () => {
           csvUrl: orderData.csv_download_url,
           dossierUrl: orderData.dossier_download_url,
           totalAmountInCents: orderData.amount_in_cents,
+          totalLeadsTarget: resolvedTotal,
         })
       );
     }
-  }, [orderData, dispatch]);
+  }, [orderData, dispatch, totalLeadsTarget]);
 
   if (!activeOrderId) return null;
 
@@ -92,14 +98,42 @@ export const LiveStatusTracker: React.FC = () => {
     }
   };
 
-  // Dynamic progress percentage
+  const targetTier = (orderData as any)?.request?.tier || (orderData as any)?.tier || 2;
+  const targetVolume = totalLeadsTarget || 25;
+
+  // Realistic execution time estimation based on tier and volume:
+  // Tier 1: ~0.8s/lead. 10 leads = 15s, 25 leads = 20s, 100 leads = 80s
+  // Tier 2: ~1.8s/lead. 10 leads = 20s, 25 leads = 45s, 100 leads = 180s
+  // Tier 3: ~3.5s/lead (Deep Financial & Legal Underwriting). 10 leads = 35s, 25 leads = 90s, 100 leads = ~350s (~6 min)
+  const estimatedTotalSec = Math.max(
+    15,
+    Math.round(
+      targetVolume * (targetTier === 3 ? 3.5 : targetTier === 2 ? 1.8 : 0.8)
+    )
+  );
+
+  const formatTimeDisplay = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+  };
+
+  const formatEstDisplay = (seconds: number) => {
+    if (seconds < 60) return `~${seconds}s`;
+    const mins = Math.ceil(seconds / 60);
+    return `~${mins} min`;
+  };
+
+  // Dynamic progress percentage smoothly paced over estimated time
   const getProgressPercent = () => {
-    if (isPaid) return 100;
-    if (isAwaitingPayment) return 100;
+    if (isPaid || isAwaitingPayment) return 100;
     if (isProcessing) {
-      return Math.min(88, 35 + elapsedSec * 5);
+      const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
+      const paced = 20 + ratio * 74;
+      return Math.min(94, Math.round(paced));
     }
-    if (isQueued) return 20;
+    if (isQueued) return 15;
     return 10;
   };
 
@@ -192,7 +226,9 @@ export const LiveStatusTracker: React.FC = () => {
                 : isAwaitingPayment
                 ? "Muestra Teaser Calificada (100%)"
                 : isProcessing
-                ? "Motor de Inteligencia Michito en Ejecución..."
+                ? targetTier === 3
+                  ? "Auditando Estados Financieros, Rama Judicial y Registros en Tiempo Real..."
+                  : "Calificando Huellas Web HTTP 200 y Servidores MX en Tiempo Real..."
                 : "Orden en Cola • Asignando Worker..."}
             </span>
           </div>
@@ -200,7 +236,7 @@ export const LiveStatusTracker: React.FC = () => {
           {(isQueued || isProcessing) && (
             <div className="tracker-timer-chip">
               <Clock className="w-3 h-3 text-sky-400" />
-              <span>Tiempo: {elapsedSec}s (est. ~15s)</span>
+              <span>Tiempo: {formatTimeDisplay(elapsedSec)} (est. {formatEstDisplay(estimatedTotalSec)})</span>
             </div>
           )}
         </div>
@@ -211,6 +247,15 @@ export const LiveStatusTracker: React.FC = () => {
             style={{ width: `${progressPercent}%` }}
           />
         </div>
+
+        {targetVolume >= 50 && isProcessing && (
+          <div className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>
+              Lote empresarial de {targetVolume} cuentas: realizando debida diligencia profunda en fuentes oficiales. No cierres esta ventana.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Progress Timeline Steps */}

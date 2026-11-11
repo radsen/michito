@@ -172,7 +172,7 @@ function handleStatusUpdate(status, order) {
     document.getElementById("step-mining").classList.add("done");
     document.getElementById("step-teaser").classList.add("active");
 
-    const totalLeads = order?.delivery?.total_qualified || order?.request?.limit || 25;
+    const totalLeads = order?.delivery?.total_qualified || order?.total_qualified || order?.request?.limit || order?.limit || 25;
     teaserTotal.textContent = totalLeads;
 
     const teaserList = order?.delivery?.sample_teaser || [];
@@ -182,9 +182,15 @@ function handleStatusUpdate(status, order) {
           <div class="teaser-company">
             <h4>${item.company_name}</h4>
             <p>${item.city || "Ciudad"} • ${item.sector || "Sector B2B"}</p>
+            <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">
+              ${item.decision_maker_name || "Directivo Clave"} • ${item.decision_maker_role || item.decision_maker_title || "Tomador de Decisión"}
+            </div>
+            <div style="font-size: 0.75rem; color: #34d399; margin-top: 2px;">
+              ✉️ ${item.email || "c***@empresa.com"} • 📞 ${item.phone || "+57 3•• ••• ••••"}
+            </div>
           </div>
           <div class="teaser-intent-tag">
-            ${item.intent_level || "Contacto Institucional Verificado"}
+            ${item.intent_trigger || item.intent_level || "Contacto Institucional Verificado"}
           </div>
         </div>
       `).join("");

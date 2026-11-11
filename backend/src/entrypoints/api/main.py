@@ -274,7 +274,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             "status": "success",
             "order_id": order["order_id"],
             "order_status": order["status"],
-            "estimated_processing_seconds": max(15, (payload.request.limit or 10) * 2),
+            "estimated_processing_seconds": max(15, int((payload.request.limit or 10) * (3.5 if (payload.request.tier or 2) == 3 else 1.8 if (payload.request.tier or 2) == 2 else 0.8))),
             "message": "Order successfully queued for asynchronous intelligence extraction.",
             "order": order
         }

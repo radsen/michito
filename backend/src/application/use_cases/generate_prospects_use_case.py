@@ -94,6 +94,44 @@ def build_hiring_xray_url(company_name: str, city: str, country: str = "CO") -> 
     return f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
 
+def mask_teaser_email(email: str) -> str:
+    if not email or "@" not in email:
+        return "contacto@••••••••.co"
+    user, dom = email.split("@", 1)
+    if len(user) <= 1:
+        masked_user = user + "***"
+    elif len(user) <= 3:
+        masked_user = user[0] + "***"
+    else:
+        masked_user = user[:2] + "***"
+    return f"{masked_user}@{dom}"
+
+
+def mask_teaser_phone(phone: str, country: str = "CO") -> str:
+    digits = re.sub(r"\D", "", phone or "")
+    if country == "DO":
+        last2 = digits[-2:] if len(digits) >= 2 else "••"
+        return f"+1 (809) ••• ••{last2}"
+    if len(digits) >= 10:
+        prefix = digits[:3]
+        last2 = digits[-2:]
+        return f"+57 {prefix} ••• ••{last2}"
+    return "+57 3•• ••• ••••"
+
+
+def mask_teaser_nit(raw_nit: str) -> str:
+    if not raw_nit:
+        return ""
+    clean = raw_nit.strip()
+    if "-" in clean:
+        base, dv = clean.split("-", 1)
+        parts = base.split(".")
+        if len(parts) == 3:
+            return f"{parts[0]}.•••.•••-{dv}"
+        return f"{base[:3]}••••••-{dv}"
+    return clean[:3] + "••••••"
+
+
 class GenerateProspectsUseCase:
     """
     Application Use Case: High-yield B2B Prospect Generation & Intent Discovery
@@ -747,13 +785,27 @@ class GenerateProspectsUseCase:
 
         teaser_list = []
         for lead in all_selected[:3]:
+            raw_email = lead.get("email", "")
+            raw_phone = lead.get("phone", "")
+            raw_nit = lead.get("nit", "")
+            rep_name = lead.get("decision_maker_name", "")
+            rep_role = lead.get("decision_maker_title", "Representante Legal / Gerente General")
+            contracts = lead.get("contracts_data", {})
+            intent_msg = contracts.get("intent_level") or lead.get("expansion_flag") or "Adjudicación Contrato Reciente"
+
             t_item = {
                 "company_name": lead.get("clean_name", lead.get("company_name", "")),
+                "nit": mask_teaser_nit(raw_nit),
                 "city": lead.get("city", target_cities[0] if target_cities else ""),
                 "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
-                "decision_maker_title": lead.get("decision_maker_title", "Representante Legal"),
-                "has_contracts": lead.get("contracts_data", {}).get("has_contracts", False),
-                "intent_level": lead.get("contracts_data", {}).get("intent_level", "Medium"),
+                "decision_maker_name": rep_name,
+                "decision_maker_role": rep_role,
+                "decision_maker_title": rep_role,
+                "email": mask_teaser_email(raw_email),
+                "phone": mask_teaser_phone(raw_phone, country=target_country),
+                "intent_trigger": intent_msg,
+                "intent_level": intent_msg,
+                "has_contracts": contracts.get("has_contracts", False),
             }
             if tier == 3 and "underwriting" in lead:
                 t_item["underwriting_grade"] = lead["underwriting"].get("underwriting_grade")

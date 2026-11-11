@@ -104,11 +104,19 @@ export const orderSlice = createSlice({
     },
     orderCreatedSuccess: (
       state,
-      action: PayloadAction<{ orderId: string; status: string; totalAmountInCents: number }>
+      action: PayloadAction<{
+        orderId: string;
+        status: string;
+        totalAmountInCents: number;
+        totalLeadsTarget?: number;
+      }>
     ) => {
       state.activeOrderId = action.payload.orderId;
       state.orderStatus = (action.payload.status as any) || "queued";
       state.totalAmountInCents = action.payload.totalAmountInCents;
+      if (action.payload.totalLeadsTarget && action.payload.totalLeadsTarget > 0) {
+        state.totalLeadsTarget = action.payload.totalLeadsTarget;
+      }
       syncUrlWithOrderId(action.payload.orderId);
     },
     restoreOrder: (state, action: PayloadAction<string>) => {
@@ -125,6 +133,7 @@ export const orderSlice = createSlice({
         csvUrl?: string;
         dossierUrl?: string;
         totalAmountInCents?: number;
+        totalLeadsTarget?: number;
       }>
     ) => {
       state.orderStatus = action.payload.status as any;
@@ -139,6 +148,9 @@ export const orderSlice = createSlice({
       }
       if (action.payload.totalAmountInCents && action.payload.totalAmountInCents > 0) {
         state.totalAmountInCents = action.payload.totalAmountInCents;
+      }
+      if (action.payload.totalLeadsTarget && action.payload.totalLeadsTarget > 0) {
+        state.totalLeadsTarget = action.payload.totalLeadsTarget;
       }
     },
     orderFailed: (state, action: PayloadAction<string>) => {

@@ -34,6 +34,7 @@ export interface OrderStatusResponse {
   status: string;
   payment_status?: string;
   limit?: number;
+  total_qualified?: number;
   tier?: number;
   total_price_cop?: number;
   amount_in_cents?: number;

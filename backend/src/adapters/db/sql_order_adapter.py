@@ -214,6 +214,10 @@ class SqlOrderAdapter:
                 payment = d.get("payment", {})
                 d["sample_leads"] = delivery.get("sample_teaser") or []
                 d["total_qualified"] = delivery.get("total_qualified") or 0
+                d["limit"] = order_obj.requested_limit
+                d["tier"] = order_obj.tier or 2
+                d["campaign_id"] = order_obj.campaign_id
+                d["city"] = order_obj.city
                 d["payment_status"] = payment.get("status")
                 d["amount_in_cents"] = payment.get("amount_in_cents") or 0
                 d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
