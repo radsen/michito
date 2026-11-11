@@ -14,6 +14,7 @@ import { PricingMatrix } from "./components/pricing/PricingMatrix";
 import { OrderGenerator } from "./components/order/OrderGenerator";
 import { TrackOrderPage } from "./components/tracker/TrackOrderPage";
 import { TermsPage } from "./components/legal/TermsPage";
+import { WompiCheckoutModal } from "./components/payment/WompiCheckoutModal";
 import { Footer } from "./components/layout/Footer";
 import { MobileStickyCta } from "./components/layout/MobileStickyCta";
 
@@ -141,6 +142,7 @@ export const App: React.FC = () => {
 
       <Footer onNavigate={navigate} />
       {currentPath === "/" && <MobileStickyCta />}
+      <WompiCheckoutModal />
     </div>
   );
 };

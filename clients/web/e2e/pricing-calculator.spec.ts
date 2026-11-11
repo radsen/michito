@@ -39,7 +39,7 @@ test.describe("Pricing Matrix & Volume Discount Curves", () => {
     await expect(calcBox).toContainText("65.000 COP");
   });
 
-  test("should apply volume discounts correctly (50 leads = 5%, 100 leads = 10%, 500 leads = 20%)", async ({ page }) => {
+  test("should apply volume discounts correctly (50 leads = 12%, 100 leads = 20%, 1000 leads = 42%)", async ({ page }) => {
     await page.goto("/#generador");
 
     // Default is Tier 2 ($30.000 COP)
@@ -52,22 +52,31 @@ test.describe("Pricing Matrix & Volume Discount Curves", () => {
     await expect(calcBox).toContainText("300.000 COP");
     await expect(calcBox).toContainText("300.000 COP"); // Total
 
-    // Select 50 leads (5% discount in pricingSlice)
+    // Select 50 leads (12% discount)
     const preset50 = page.locator(".preset-btn", { hasText: "50" });
     await preset50.click();
     await expect(calcBox).toContainText("Subtotal (50 cuentas):");
     await expect(calcBox).toContainText("1.500.000 COP");
-    await expect(calcBox).toContainText("Descuento por volumen (-5%):");
-    // 1.500.000 - 75.000 = 1.425.000
-    await expect(calcBox).toContainText("1.425.000 COP");
+    await expect(calcBox).toContainText("Descuento por volumen (-12%):");
+    // 1.500.000 * 0.88 = 1.320.000
+    await expect(calcBox).toContainText("1.320.000 COP");
 
-    // Select 100 leads (10% discount)
+    // Select 100 leads (20% discount)
     const preset100 = page.locator(".preset-btn", { hasText: "100" });
     await preset100.click();
     await expect(calcBox).toContainText("Subtotal (100 cuentas):");
     await expect(calcBox).toContainText("3.000.000 COP");
-    await expect(calcBox).toContainText("Descuento por volumen (-10%):");
-    // 3.000.000 - 300.000 = 2.700.000
-    await expect(calcBox).toContainText("2.700.000 COP");
+    await expect(calcBox).toContainText("Descuento por volumen (-20%):");
+    // 3.000.000 * 0.80 = 2.400.000
+    await expect(calcBox).toContainText("2.400.000 COP");
+
+    // Select 1000 leads (42% discount)
+    const preset1000 = page.locator(".preset-btn", { hasText: "1.000" });
+    await preset1000.click();
+    await expect(calcBox).toContainText("Subtotal (1000 cuentas):");
+    await expect(calcBox).toContainText("30.000.000 COP");
+    await expect(calcBox).toContainText("Descuento por volumen (-42%):");
+    // 30.000.000 * 0.58 = 17.400.000
+    await expect(calcBox).toContainText("17.400.000 COP");
   });
 });

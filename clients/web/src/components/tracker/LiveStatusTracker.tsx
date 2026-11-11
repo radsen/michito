@@ -27,7 +27,7 @@ import {
 
 export const LiveStatusTracker: React.FC = () => {
   const dispatch = useDispatch();
-  const { dict } = useSelector((state: RootState) => state.language);
+  const { currentLanguage, dict } = useSelector((state: RootState) => state.language);
   const {
     activeOrderId,
     orderStatus,
@@ -58,15 +58,60 @@ export const LiveStatusTracker: React.FC = () => {
   const isPaid = orderStatus === "paid";
   const isFailed = orderStatus === "failed" || orderStatus === "error";
 
-  // Elapsed timer ticker while processing
+  // Elapsed timer ticker synchronized with server timestamps and session persistence
   useEffect(() => {
+    const computeCurrentElapsed = () => {
+      // 1. If completed and server reported total execution time
+      if (orderData?.metrics?.total_elapsed_seconds) {
+        return Math.max(0, Math.round(orderData.metrics.total_elapsed_seconds));
+      }
+
+      // 2. Authoritative server start timestamp
+      const serverStart = orderData?.started_processing_at || orderData?.created_at;
+      if (serverStart) {
+        const startMs = new Date(serverStart).getTime();
+        if (!isNaN(startMs)) {
+          const diffSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          if (activeOrderId) {
+            sessionStorage.setItem(`michito_order_start_${activeOrderId}`, String(startMs));
+          }
+          return diffSec;
+        }
+      }
+
+      // 3. Fallback to session storage for instant response across reloads before network response
+      if (activeOrderId) {
+        const cachedStart = sessionStorage.getItem(`michito_order_start_${activeOrderId}`);
+        if (cachedStart) {
+          const startMs = parseInt(cachedStart, 10);
+          if (!isNaN(startMs)) {
+            return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          }
+        } else {
+          sessionStorage.setItem(`michito_order_start_${activeOrderId}`, String(Date.now()));
+        }
+      }
+
+      return 0;
+    };
+
+    // Calculate immediately on mount or data change
+    setElapsedSec(computeCurrentElapsed());
+
     if (isQueued || isProcessing) {
       const interval = setInterval(() => {
-        setElapsedSec((prev) => prev + 1);
+        setElapsedSec(computeCurrentElapsed());
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isQueued, isProcessing]);
+  }, [
+    isQueued,
+    isProcessing,
+    activeOrderId,
+    orderData?.created_at,
+    orderData?.started_processing_at,
+    orderData?.metrics?.total_elapsed_seconds,
+  ]);
 
   // Sync API response with Redux
   useEffect(() => {
@@ -243,12 +288,17 @@ export const LiveStatusTracker: React.FC = () => {
             </span>
           </div>
 
-          {(isQueued || isProcessing) && (
+          {isQueued || isProcessing ? (
             <div className="tracker-timer-chip">
               <Clock className="w-3 h-3 text-sky-400" />
               <span>Tiempo: {formatTimeDisplay(elapsedSec)} (est. {formatEstDisplay(estimatedTotalSec)})</span>
             </div>
-          )}
+          ) : elapsedSec > 0 ? (
+            <div className="tracker-timer-chip">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              <span>Tiempo de calificación: {formatTimeDisplay(elapsedSec)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="tracker-progress-track">
@@ -258,12 +308,21 @@ export const LiveStatusTracker: React.FC = () => {
           />
         </div>
 
-        {targetVolume >= 50 && isProcessing && (
-          <div className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span>
-              Lote empresarial de {targetVolume} cuentas: realizando debida diligencia profunda en fuentes oficiales. No cierres esta ventana.
-            </span>
+        {(isProcessing || isQueued) && (
+          <div className="tracker-async-notice">
+            <div className="flex items-center gap-2 text-xs font-semibold text-sky-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>
+                {currentLanguage === "en_US"
+                  ? "Your batch is being processed"
+                  : "Tu lote se está procesando"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mt-1 mb-0">
+              {currentLanguage === "en_US"
+                ? `You don't need to keep this window open. Feel free to close it or carry on with your tasks; once verification finishes, you can review your qualified prospects right here with your order number (${activeOrderId}).`
+                : `Puedes cerrar esta ventana o continuar con tus actividades habituales. La verificación seguirá ejecutándose normalmente; cuando finalice, podrás revisar tus prospectos calificados aquí mismo con tu número de orden (${activeOrderId}).`}
+            </p>
           </div>
         )}
       </div>
@@ -488,7 +547,7 @@ export const LiveStatusTracker: React.FC = () => {
             <SampleTeaserTable
               leads={teaserLeads}
               totalLeads={totalLeadsTarget}
-              totalAmountCop={(totalAmountInCents || 0) / 100}
+              totalAmountCop={(orderData?.amount_in_cents || totalAmountInCents || 0) / 100}
             />
           )}
 

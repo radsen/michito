@@ -284,12 +284,12 @@ class OrderWorkerDaemon:
 
                 # 0. Zombie Order Reaper & Timeout Sweeper (Self-Healing every ~30s)
                 if loop_count % 6 == 1 and hasattr(self.order_repository, "recover_stuck_processing_orders"):
-                    dead_lettered = self.order_repository.recover_stuck_processing_orders(max_processing_minutes=5)
+                    dead_lettered = self.order_repository.recover_stuck_processing_orders(max_processing_minutes=60)
                     for dead in dead_lettered:
                         print(f"[WorkerDaemon] 🚨 Order `{dead['order_id']}` Dead-Lettered by Timeout Reaper!")
                         self.alert_dispatcher.send_alert(
                             title="Order Dead-Lettered (Timeout Recovery)",
-                            message=f"Order `{dead['order_id']}` was stuck in 'processing' longer than 5 minutes and exceeded max retries.",
+                            message=f"Order `{dead['order_id']}` exceeded maximum execution time and maximum retry attempts.",
                             level="critical",
                             details={
                                 "order_id": dead.get("order_id"),

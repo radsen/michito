@@ -104,8 +104,10 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
           </span>
         </div>
         <button
+          type="button"
           onClick={() => dispatch(setWompiModalOpen(true))}
           className="teaser-pay-btn"
+          data-testid="teaser-pay-btn"
         >
           <CreditCard className="w-5 h-5" />
           <span>Desbloquear Lote Completo ({formatCop(totalAmountCop)})</span>

@@ -60,6 +60,13 @@ export interface OrderStatusResponse {
   pdf_download_url?: string;
   playbook?: any[];
   error_message?: string;
+  created_at?: string;
+  started_processing_at?: string;
+  completed_at?: string;
+  metrics?: {
+    total_elapsed_seconds?: number;
+    [key: string]: any;
+  };
 }
 
 export interface PartnerProfile {

@@ -27,15 +27,21 @@ function calculatePricing(
   const subtotal = unitPrice * volume;
 
   let volumeDiscount = 0;
-  if (volume >= 500) {
-    volumeDiscount = 0.20;
+  if (volume >= 1000) {
+    volumeDiscount = 0.42;
+  } else if (volume >= 500) {
+    volumeDiscount = 0.35;
+  } else if (volume >= 250) {
+    volumeDiscount = 0.28;
   } else if (volume >= 100) {
-    volumeDiscount = 0.10;
+    volumeDiscount = 0.20;
   } else if (volume >= 50) {
-    volumeDiscount = 0.05;
+    volumeDiscount = 0.12;
+  } else if (volume >= 25) {
+    volumeDiscount = 0.06;
   }
 
-  const combinedDiscount = Math.min(0.50, volumeDiscount + partnerDiscountRate);
+  const combinedDiscount = Math.min(0.55, volumeDiscount + partnerDiscountRate);
   const total = currency === "USD"
     ? Math.round(subtotal * (1 - combinedDiscount) * 100) / 100
     : Math.round(subtotal * (1 - combinedDiscount));

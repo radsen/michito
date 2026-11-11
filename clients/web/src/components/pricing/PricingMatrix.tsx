@@ -261,17 +261,31 @@ export const PricingMatrix: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => dispatch(setVolume(250))}
+                  className={`pricing-preset-btn ${volume === 250 ? "active" : ""}`}
+                >
+                  250 (-28%)
+                </button>
+                <button
+                  type="button"
                   onClick={() => dispatch(setVolume(500))}
                   className={`pricing-preset-btn ${volume === 500 ? "active" : ""}`}
                 >
-                  500+ (-42%)
+                  500 (-35%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch(setVolume(1000))}
+                  className={`pricing-preset-btn ${volume >= 1000 ? "active" : ""}`}
+                >
+                  1.000+ (-42%)
                 </button>
               </div>
 
               <input
                 type="range"
                 min="10"
-                max="500"
+                max="1000"
                 step="5"
                 value={volume}
                 onChange={(e) => dispatch(setVolume(Number(e.target.value)))}

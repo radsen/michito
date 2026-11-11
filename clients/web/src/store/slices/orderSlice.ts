@@ -37,11 +37,13 @@ function getInitialActiveOrderId(): string | null {
     if (fromUrl && fromUrl.startsWith("ord_")) {
       return fromUrl;
     }
-    // Note: Do NOT auto-load past orders from localStorage on cold page visits.
-    // Customers must always land on a clean purchase generator first (like DHL/FedEx).
-    // They can look up an existing order anytime via the tracking search bar or direct link.
+    const fromSession = sessionStorage.getItem("michito_session_order_id");
+    if (fromSession && fromSession.startsWith("ord_")) {
+      return fromSession;
+    }
+    // Customers can also resume an existing order anytime via the tracking search bar or direct link.
   } catch (e) {
-    // Graceful fallback if localStorage is disabled
+    // Graceful fallback if storage is disabled
   }
   return null;
 }

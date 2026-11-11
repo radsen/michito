@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { setWompiModalOpen } from "../../store/slices/uiSlice";
 import { updateOrderStatus } from "../../store/slices/orderSlice";
-import { usePayOrderMutation } from "../../store/api/michitoApi";
+import { usePayOrderMutation, useGetOrderQuery } from "../../store/api/michitoApi";
 import { formatCurrencyAmount } from "../../config/currencies";
 import { X, CreditCard, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 
@@ -28,16 +28,32 @@ export const WompiCheckoutModal: React.FC = () => {
   const [payOrder, { isLoading: isPaying }] = usePayOrderMutation();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const { data: orderData } = useGetOrderQuery(activeOrderId || "", {
+    skip: !activeOrderId,
+  });
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isWompiModalOpen) {
+        dispatch(setWompiModalOpen(false));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isWompiModalOpen, dispatch]);
+
   if (!isWompiModalOpen) return null;
 
-  const amountInCents = totalAmountInCents || totalCop * 100;
+  const resolvedAmountInCents =
+    orderData?.amount_in_cents || totalAmountInCents || totalCop * 100;
   const WOMPI_PUBLIC_KEY = "pub_test_IcBzwUvqUDy85sD7i3snlgxvMLj4A1eL";
   const WOMPI_INTEGRITY_SECRET = "test_integrity_r5SIpk6PnYywRaCxQlOXgySj28wNNlmj";
 
   const handleOpenWompiWidget = async () => {
     setErrorMsg(null);
     if (!activeOrderId) {
-      setErrorMsg("No active order found.");
+      setErrorMsg("No se encontró una orden activa.");
       return;
     }
 
@@ -45,26 +61,45 @@ export const WompiCheckoutModal: React.FC = () => {
       if (typeof window.WidgetCheckout === "function") {
         // Compute SHA-256 integrity signature
         // Form: reference + amount_in_cents + currency + integrity_secret
-        const rawString = `${activeOrderId}${amountInCents}COP${WOMPI_INTEGRITY_SECRET}`;
+        const rawString = `${activeOrderId}${resolvedAmountInCents}COP${WOMPI_INTEGRITY_SECRET}`;
         const integritySignature = await sha256(rawString);
 
-        const checkout = new window.WidgetCheckout({
+        const checkoutConfig: any = {
           currency: "COP",
-          amountInCents: amountInCents,
+          amountInCents: resolvedAmountInCents,
           reference: activeOrderId,
           publicKey: WOMPI_PUBLIC_KEY,
           signature: { integrity: integritySignature },
           redirectUrl: window.location.href,
-        });
+        };
+
+        if (orderData?.client?.email) {
+          checkoutConfig.customerData = {
+            email: orderData.client.email,
+            fullName: orderData.client.name,
+            phoneNumber: orderData.client.phone,
+          };
+        }
+
+        const checkout = new window.WidgetCheckout(checkoutConfig);
 
         checkout.open(async (result: any) => {
           console.log("[Wompi] Transaction result:", result);
           if (result && result.transaction && result.transaction.status === "APPROVED") {
-            dispatch(
-              updateOrderStatus({
-                status: "paid",
-              })
-            );
+            try {
+              const res = await payOrder(activeOrderId).unwrap();
+              dispatch(
+                updateOrderStatus({
+                  status: "paid",
+                  csvUrl: res.order.csv_download_url,
+                  xlsxUrl: (res.order as any).xlsx_download_url,
+                  dossierUrl: res.order.dossier_download_url,
+                  pdfUrl: (res.order as any).pdf_download_url,
+                })
+              );
+            } catch {
+              dispatch(updateOrderStatus({ status: "paid" }));
+            }
             dispatch(setWompiModalOpen(false));
           }
         });
@@ -87,7 +122,9 @@ export const WompiCheckoutModal: React.FC = () => {
           updateOrderStatus({
             status: "paid",
             csvUrl: res.order.csv_download_url,
+            xlsxUrl: (res.order as any).xlsx_download_url,
             dossierUrl: res.order.dossier_download_url,
+            pdfUrl: (res.order as any).pdf_download_url,
           })
         );
         dispatch(setWompiModalOpen(false));
@@ -105,13 +142,24 @@ export const WompiCheckoutModal: React.FC = () => {
     }).format(amount);
   };
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      dispatch(setWompiModalOpen(false));
+    }
+  };
+
   return (
-    <div className="modal-backdrop">
+    <div
+      className="modal-backdrop"
+      onClick={handleBackdropClick}
+      data-testid="wompi-checkout-modal"
+    >
       <div className="modal-card">
         <button
           onClick={() => dispatch(setWompiModalOpen(false))}
           className="modal-close-btn"
           aria-label="Cerrar modal"
+          type="button"
         >
           <X className="w-5 h-5" />
         </button>
@@ -135,8 +183,8 @@ export const WompiCheckoutModal: React.FC = () => {
             <span>Monto Total:</span>
             <span className="text-xl font-bold text-emerald-400">
               {currency !== "COP"
-                ? `${formatCurrencyAmount(total, currency)} (${formatCop(amountInCents / 100)} COP)`
-                : `${formatCop(amountInCents / 100)} COP`}
+                ? `${formatCurrencyAmount(total, currency)} (${formatCop(resolvedAmountInCents / 100)} COP)`
+                : `${formatCop(resolvedAmountInCents / 100)} COP`}
             </span>
           </div>
           <div className="summary-row text-xs text-slate-400">
@@ -157,6 +205,7 @@ export const WompiCheckoutModal: React.FC = () => {
             onClick={handleOpenWompiWidget}
             className="modal-primary-btn"
             disabled={isPaying}
+            type="button"
           >
             <CreditCard className="w-5 h-5" />
             <span>Pagar con Pasarela Wompi</span>
@@ -166,6 +215,7 @@ export const WompiCheckoutModal: React.FC = () => {
             onClick={handleSimulatedDirectPayment}
             className="modal-secondary-btn"
             disabled={isPaying}
+            type="button"
           >
             {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
             <span>Aprobar Directo (Modo Sandbox / Dev)</span>

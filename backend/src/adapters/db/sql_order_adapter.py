@@ -250,7 +250,7 @@ class SqlOrderAdapter:
             results = session.scalars(stmt).all()
             return [ord.to_dict() for ord in results]
 
-    def recover_stuck_processing_orders(self, max_processing_minutes: int = 5) -> List[Dict[str, Any]]:
+    def recover_stuck_processing_orders(self, max_processing_minutes: int = 45) -> List[Dict[str, Any]]:
         """
         Zombie Order Reaper / Self-Healing Sweeper:
         Identifies orders stuck in 'processing' longer than max_processing_minutes

@@ -6,7 +6,6 @@ import { setTier, setVolume, setCurrency } from "../../store/slices/pricingSlice
 import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed, restoreOrder, resetOrder } from "../../store/slices/orderSlice";
 import { useGetCampaignsQuery, useCreateOrderMutation, useProfileIntentMutation } from "../../store/api/michitoApi";
 import { LiveStatusTracker } from "../tracker/LiveStatusTracker";
-import { WompiCheckoutModal } from "../payment/WompiCheckoutModal";
 import { SUPPORTED_CURRENCIES, formatCurrencyAmount, formatUnitCurrency, SupportedCurrency } from "../../config/currencies";
 import {
   Zap,
@@ -16,6 +15,7 @@ import {
   MapPin,
   Hash,
   Building2,
+  Layers,
   User,
   Mail,
   Phone,
@@ -663,28 +663,50 @@ export const OrderGenerator: React.FC = () => {
 
                     {/* Enrichment Tier Selector */}
                     <div className="form-group">
-                      <label className="form-label">{g.tierLabel}</label>
+                      <label className="form-label">
+                        <Layers className="form-label-icon text-sky-400" />
+                        <span>{g.tierLabel}</span>
+                      </label>
                       <div className="tier-pills-selector">
                         <button
                           type="button"
                           onClick={() => dispatch(setTier(1))}
                           className={`tier-pill ${tier === 1 ? "active" : ""}`}
                         >
-                          Directorio Base ({formatUnitCurrency(curConfig.tierPrices[1], currency)})
+                          <div className="tier-pill-title-row">
+                            <span className="tier-pill-name">Directorio Base</span>
+                          </div>
+                          <div className="tier-pill-price-row">
+                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[1], currency)}</span>
+                            <span className="tier-pill-unit">/ cta</span>
+                          </div>
                         </button>
                         <button
                           type="button"
                           onClick={() => dispatch(setTier(2))}
                           className={`tier-pill ${tier === 2 ? "active" : ""}`}
                         >
-                          Contactos Directos ({formatUnitCurrency(curConfig.tierPrices[2], currency)}) ⭐
+                          <div className="tier-pill-title-row">
+                            <span className="tier-pill-name">Contactos Directos</span>
+                            <span className="tier-pill-badge">Rec.</span>
+                          </div>
+                          <div className="tier-pill-price-row">
+                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[2], currency)}</span>
+                            <span className="tier-pill-unit">/ cta</span>
+                          </div>
                         </button>
                         <button
                           type="button"
                           onClick={() => dispatch(setTier(3))}
                           className={`tier-pill ${tier === 3 ? "active" : ""}`}
                         >
-                          Auditoría Completa ({formatUnitCurrency(curConfig.tierPrices[3], currency)})
+                          <div className="tier-pill-title-row">
+                            <span className="tier-pill-name">Auditoría Completa</span>
+                          </div>
+                          <div className="tier-pill-price-row">
+                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[3], currency)}</span>
+                            <span className="tier-pill-unit">/ cta</span>
+                          </div>
                         </button>
                       </div>
                     </div>
@@ -755,6 +777,27 @@ export const OrderGenerator: React.FC = () => {
                           >
                             100 <span className="discount-tag">-20%</span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(250))}
+                            className={`preset-btn ${volume === 250 ? "active" : ""}`}
+                          >
+                            250 <span className="discount-tag">-28%</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(500))}
+                            className={`preset-btn ${volume === 500 ? "active" : ""}`}
+                          >
+                            500 <span className="discount-tag">-35%</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(1000))}
+                            className={`preset-btn ${volume >= 1000 ? "active" : ""}`}
+                          >
+                            1.000+ <span className="discount-tag">-42%</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -768,19 +811,20 @@ export const OrderGenerator: React.FC = () => {
                       <input
                         type="range"
                         min="10"
-                        max="500"
+                        max="1000"
                         step="5"
                         value={volume}
                         onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
                         className="volume-slider"
                       />
                       <div className="slider-ticks">
-                        <span>10 (Rápido)</span>
-                        <span>25 (Rec.)</span>
-                        <span>50</span>
-                        <span>100</span>
-                        <span>250</span>
-                        <span>500+</span>
+                        <span>10 (Piloto)</span>
+                        <span>25 (-6%)</span>
+                        <span>50 (-12%)</span>
+                        <span>100 (-20%)</span>
+                        <span>250 (-28%)</span>
+                        <span>500 (-35%)</span>
+                        <span>1.000+ (-42%)</span>
                       </div>
                     </div>
                   </div>
@@ -1033,8 +1077,6 @@ export const OrderGenerator: React.FC = () => {
           )}
         </div>
       </div>
-
-      <WompiCheckoutModal />
     </section>
   );
 };
