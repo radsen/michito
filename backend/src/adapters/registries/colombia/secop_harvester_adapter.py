@@ -79,9 +79,38 @@ class SecopHarvesterAdapter:
         "vichada": "Vichada",
     }
 
+    # Non-commercial legal titles & statutory figureheads to filter out from public registries
+    DISQUALIFIED_REPRESENTATIVE_KEYWORDS = (
+        "liquidador", "liquidadora", "en liquidacion", "en liquidación",
+        "apoderado", "apoderada", "apoderado judicial", "apoderada judicial",
+        "revisor fiscal", "revisora fiscal",
+        "secretario ad-hoc", "secretaria ad-hoc",
+        "agente especial", "curador", "curadora",
+        "abogado externo", "abogada externa", "defensor",
+        "no registra", "no reporta", "en tramite", "en trámite", "por definir",
+        "no asignado", "sin representante", "vacante", "suplente",
+    )
+
     def __init__(self, app_token: Optional[str] = None, timeout: int = 15):
         self.app_token = app_token
         self.timeout = timeout
+
+    def _is_disqualified_representative(self, name: str) -> bool:
+        if not name:
+            return True
+        lower = name.lower().strip()
+        if len(lower) < 3 or re.match(r"^[\d\W]+$", lower):
+            return True
+        return any(kw in lower for kw in self.DISQUALIFIED_REPRESENTATIVE_KEYWORDS)
+
+    def _clean_representative_name(self, name: str) -> str:
+        if not name:
+            return ""
+        # Strip prefixes like Dr., Dra., Abog., etc.
+        cleaned = re.sub(r"^(dr\.|dra\.|ing\.|abog\.|sr\.|sra\.|don|doña)\s+", "", name.strip(), flags=re.IGNORECASE)
+        # Strip trailing roles like "- Representante Legal", "(Principal)", etc.
+        cleaned = re.sub(r"[-–—/]\s*(representante legal|gerente general|suplente|principal).*$", "", cleaned, flags=re.IGNORECASE)
+        return cleaned.strip()
 
     @staticmethod
     def _clean_phone(raw_phone: Optional[str]) -> str:
@@ -176,13 +205,19 @@ class SecopHarvesterAdapter:
                 continue
             if not rep_name or rep_name.upper() == company_name.upper():
                 continue
+            if self._is_disqualified_representative(rep_name):
+                continue
             if not raw_nit:
                 continue
 
-            # Clean and normalize
+            # Clean and normalize representative name & title
+            clean_rep_name = self._clean_representative_name(rep_name)
+            if not clean_rep_name or self._is_disqualified_representative(clean_rep_name):
+                continue
+
             clean_nit_base = raw_nit.replace(".", "").split("-")[0]
-            clean_rep_title = "Representante Legal / Gerente General"
-            rep_name_title = rep_name.title()
+            clean_rep_title = "Representante Legal (Firmante Estatutario)"
+            rep_name_title = clean_rep_name.title()
 
             google_xray = (
                 f"https://www.google.com/search?q="
@@ -201,6 +236,7 @@ class SecopHarvesterAdapter:
                 "company_type": item.get("tipo_empresa") or "",
                 "decision_maker_name": rep_name_title,
                 "decision_maker_title": clean_rep_title,
+                "decision_maker_category": "Representante Legal Estatutario (RUES / SECOP)",
                 "email": email,
                 "phone": phone,
                 "linkedin_xray_url": google_xray,

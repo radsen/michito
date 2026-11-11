@@ -76,3 +76,90 @@ def test_deliver_order_use_case_not_found():
         use_case.execute("ord_123")
         
     adapter_mock.send_delivery.assert_not_called()
+
+
+def test_omnichannel_delivery_archives_artifacts(tmp_path):
+    adapter = OmnichannelDeliveryAdapter(outputs_dir=str(tmp_path))
+    order = {
+        "order_id": "ord_test_archive",
+        "client": {
+            "name": "Carlos Gomez",
+            "email": "carlos@empresa.co",
+            "phone": "+573001234567"
+        },
+        "request": {
+            "campaign_id": "tinkko_enterprise_offices",
+            "city": "Medellín",
+            "tier": 3,
+        },
+        "delivery": {
+            "total_qualified": 25,
+            "csv_download_url": "/api/v1/orders/ord_test_archive/download/csv",
+            "dossier_download_url": "/api/v1/orders/ord_test_archive/download/md"
+        }
+    }
+    
+    success = adapter.send_delivery(order)
+    assert success is True
+    
+    email_html = tmp_path / "dispatched_emails" / "ord_test_archive.html"
+    email_json = tmp_path / "dispatched_emails" / "ord_test_archive.json"
+    wa_json = tmp_path / "dispatched_whatsapp" / "ord_test_archive.json"
+    
+    assert email_html.exists()
+    assert email_json.exists()
+    assert wa_json.exists()
+    
+    html_text = email_html.read_text(encoding="utf-8")
+    assert "ord_test_archive" in html_text
+    assert "Carlos Gomez" in html_text
+    assert "Medellín" in html_text
+    assert "25 empresas" in html_text
+    assert "Garantía de Calidad Michito" in html_text
+
+
+@patch("smtplib.SMTP")
+def test_omnichannel_delivery_dispatches_smtp_with_attachment(mock_smtp_cls, tmp_path, monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.test-resend.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "resend_api_user")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret_pass")
+    monkeypatch.setenv("DEV_DELIVERY_EMAIL", "developer@chiketto.com")
+
+    # Create dummy csv deliverable
+    dummy_csv = tmp_path / "prospects.csv"
+    dummy_csv.write_text("Company,Email,NIT\nEmpresa A,a@a.com,900123\n", encoding="utf-8")
+
+    mock_server = MagicMock()
+    mock_smtp_cls.return_value = mock_server
+
+    adapter = OmnichannelDeliveryAdapter(outputs_dir=str(tmp_path))
+    order = {
+        "order_id": "ord_smtp_123",
+        "client": {
+            "name": "Elena Soto",
+            "email": "elena@empresa.com",
+            "phone": "+573105556677"
+        },
+        "csv_path": str(dummy_csv),
+        "delivery": {
+            "total_qualified": 10,
+            "csv_download_url": "/api/v1/orders/ord_smtp_123/download/csv",
+        }
+    }
+
+    success = adapter.send_delivery(order)
+    assert success is True
+
+    # Assert SMTP methods were called
+    mock_smtp_cls.assert_called_once_with("smtp.test-resend.com", 587, timeout=10)
+    mock_server.starttls.assert_called_once()
+    mock_server.login.assert_called_once_with("resend_api_user", "secret_pass")
+    mock_server.send_message.assert_called_once()
+    mock_server.quit.assert_called_once()
+
+    # Check recipient list passed to send_message
+    call_args, call_kwargs = mock_server.send_message.call_args
+    assert "elena@empresa.com" in call_kwargs.get("to_addrs", [])
+    assert "developer@chiketto.com" in call_kwargs.get("to_addrs", [])
+

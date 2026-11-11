@@ -94,6 +94,50 @@ def build_hiring_xray_url(company_name: str, city: str, country: str = "CO") -> 
     return f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
 
+def build_targeted_linkedin_xray_url(
+    company_name: str,
+    rep_name: str,
+    campaign_id: str = "",
+    country: str = "CO",
+) -> str:
+    """
+    Constructs an executive LinkedIn X-Ray query targeting both the statutory signer
+    and the domain-specific departmental decision maker (CTO, VP Ops, Facility Manager, CFO)
+    based on the campaign ICP vertical.
+    """
+    import urllib.parse
+    domain_suffix = "do" if country == "DO" else "co"
+    clean_company = re.sub(
+        r"\b(S\.?A\.?S\.?|S\.?R\.?L\.?|S\.?A\.?|LTDA\.?|LIMITADA|E\.?I\.?R\.?L\.?|INC\.?|CORP\.?)\b",
+        "",
+        company_name,
+        flags=re.IGNORECASE
+    ).strip().rstrip(" ,.-")
+
+    cid = (campaign_id or "").lower()
+    if any(k in cid for k in ("tinkko", "office", "oficina", "coworking", "facility", "inmueble")):
+        vertical_roles = '("Gerente General" OR "Director Administrativo" OR "Facility Manager" OR "Director de Operaciones" OR "Compras")'
+    elif any(k in cid for k in ("chiketto", "software", "tech", "dev", "ia", "ai", "cloud", "api")):
+        vertical_roles = '("CTO" OR "Director de Tecnología" OR "Líder de TI" OR "VP Engineering" OR "Gerente General")'
+    elif any(k in cid for k in ("hebi", "credit", "cobranza", "cartera", "fintech", "recaudo", "pago")):
+        vertical_roles = '("Director de Cartera" OR "Gerente de Cobranzas" OR "CFO" OR "Director Financiero" OR "Gerente General")'
+    else:
+        vertical_roles = '("Gerente General" OR "Director Comercial" OR "CEO" OR "Director de Operaciones")'
+
+    valid_rep = (
+        rep_name.strip()
+        if rep_name and rep_name.lower() not in ("representante legal", "no provisto", "no definido", "directivo clave", "gerencia")
+        else ""
+    )
+
+    if valid_rep:
+        query = f'site:{domain_suffix}.linkedin.com/in/ "{clean_company}" ("{valid_rep}" OR {vertical_roles})'
+    else:
+        query = f'site:{domain_suffix}.linkedin.com/in/ "{clean_company}" {vertical_roles}'
+
+    return f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
+
+
 def mask_teaser_email(email: str) -> str:
     if not email or "@" not in email:
         return "contacto@••••••••.co"
@@ -436,6 +480,14 @@ class GenerateProspectsUseCase:
                     item.get("tama_o_entidad", "Mediana"), country=target_country
                 )
 
+                rep_title = item.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)"
+                targeted_xray = build_targeted_linkedin_xray_url(
+                    company_name=company_name,
+                    rep_name=rep_name,
+                    campaign_id=campaign_id,
+                    country=target_country,
+                )
+
                 lead_record = {
                     "company_name": company_name,
                     "clean_name": clean_name,
@@ -451,11 +503,12 @@ class GenerateProspectsUseCase:
                     "website_url": audited_url,
                     "website_audit_status": audit_note,
                     "decision_maker_name": rep_name,
-                    "decision_maker_title": item.get("decision_maker_title", "Representante Legal / Gerente General"),
+                    "decision_maker_title": rep_title,
+                    "decision_maker_category": "Representante Legal Estatutario (RUES / SECOP)",
                     "email": email,
                     "phone": phone,
                     "mx_host": mx_host,
-                    "linkedin_xray_url": item.get("linkedin_xray_url", ""),
+                    "linkedin_xray_url": targeted_xray,
                     "contracts_data": contracts_data,
                     "hiring_xray_url": hiring_xray,
                     "expansion_flag": expansion_flag,
@@ -583,6 +636,7 @@ class GenerateProspectsUseCase:
                 "Website Audit Status": lead["website_audit_status"],
                 "Decision Maker Name": lead["decision_maker_name"],
                 "Official Title": lead["decision_maker_title"],
+                "Contact Category": lead.get("decision_maker_category", "Representante Legal Estatutario (RUES / SECOP)"),
                 "Verified Work Email": lead["email"],
                 "Direct Mobile Phone": lead["phone"],
                 "Mail Server (MX)": lead["mx_host"],
@@ -789,7 +843,7 @@ class GenerateProspectsUseCase:
             raw_phone = lead.get("phone", "")
             raw_nit = lead.get("nit", "")
             rep_name = lead.get("decision_maker_name", "")
-            rep_role = lead.get("decision_maker_title", "Representante Legal / Gerente General")
+            rep_role = lead.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)"
             contracts = lead.get("contracts_data", {})
             intent_msg = contracts.get("intent_level") or lead.get("expansion_flag") or "Adjudicación Contrato Reciente"
 

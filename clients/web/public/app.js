@@ -183,7 +183,7 @@ function handleStatusUpdate(status, order) {
             <h4>${item.company_name}</h4>
             <p>${item.city || "Ciudad"} • ${item.sector || "Sector B2B"}</p>
             <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">
-              ${item.decision_maker_name || "Directivo Clave"} • ${item.decision_maker_role || item.decision_maker_title || "Tomador de Decisión"}
+              ${item.decision_maker_name || "Directivo Clave"} • ${item.decision_maker_role || item.decision_maker_title || "Representante Legal"}
             </div>
             <div style="font-size: 0.75rem; color: #34d399; margin-top: 2px;">
               ✉️ ${item.email || "c***@empresa.com"} • 📞 ${item.phone || "+57 3•• ••• ••••"}

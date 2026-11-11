@@ -86,6 +86,24 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
         self.assertNotIn("departamento", req_nationwide.full_url)
         self.assertNotIn("municipio", req_nationwide.full_url)
 
+    def test_disqualified_representatives_and_role_calibration(self):
+        # Disqualified titles/figureheads should be recognized
+        self.assertTrue(self.adapter._is_disqualified_representative("JUAN PEREZ - APODERADO JUDICIAL"))
+        self.assertTrue(self.adapter._is_disqualified_representative("LIQUIDADOR: CARLOS LOPEZ"))
+        self.assertTrue(self.adapter._is_disqualified_representative("REVISOR FISCAL PRINCIPAL"))
+        self.assertTrue(self.adapter._is_disqualified_representative("SECRETARIO AD-HOC"))
+        self.assertTrue(self.adapter._is_disqualified_representative("AGENTE ESPECIAL"))
+        self.assertTrue(self.adapter._is_disqualified_representative("ABOGADO EXTERNO"))
+        self.assertTrue(self.adapter._is_disqualified_representative("No Registra"))
+        
+        # Valid commercial representatives should pass
+        self.assertFalse(self.adapter._is_disqualified_representative("CARLOS ALBERTO RESTREPO"))
+        self.assertFalse(self.adapter._is_disqualified_representative("MARIA FERNANDA GOMEZ"))
+
+        # Name cleaning
+        self.assertEqual(self.adapter._clean_representative_name("Dr. Roberto Silva"), "Roberto Silva")
+        self.assertEqual(self.adapter._clean_representative_name("Ing. Andrés Castro - Representante Legal"), "Andrés Castro")
+
     def test_fallback_candidates_department_assignment(self):
         fallbacks = self.adapter._get_fallback_candidates(city="Valle del Cauca")
         self.assertGreater(len(fallbacks), 0)
