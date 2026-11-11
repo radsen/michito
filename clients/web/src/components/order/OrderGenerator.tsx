@@ -123,10 +123,13 @@ export const OrderGenerator: React.FC = () => {
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
 
+  // 2-Step Guided Stepper States
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [searchMode, setSearchMode] = useState<"direct" | "ai">("direct");
+
   // Stage 1 AI Intent Discovery States
   const [aiQuery, setAiQuery] = useState("");
   const [discoveryResult, setDiscoveryResult] = useState<any>(null);
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
 
   const handleProfileIntent = async (overrideQuery?: string) => {
@@ -143,11 +146,19 @@ export const OrderGenerator: React.FC = () => {
         const safeTier = (res.recommended_tier === 1 || res.recommended_tier === 3 ? res.recommended_tier : 2) as (1 | 2 | 3);
         dispatch(setTier(safeTier));
         dispatch(setVolume(res.recommended_limit));
-        setIsAdvancedOpen(false);
       }
     } catch (err: any) {
       console.warn("AI Intent discovery error:", err);
     }
+  };
+
+  const handleProceedToStep2 = () => {
+    if (!targetCity.trim()) {
+      setFormError("Por favor ingresa la ciudad o territorio objetivo.");
+      return;
+    }
+    setFormError(null);
+    setCurrentStep(2);
   };
 
   useEffect(() => {
@@ -278,427 +289,507 @@ export const OrderGenerator: React.FC = () => {
               </div>
             )}
 
-            <div className="card-header-box">
-              <h3 className="generator-card-title">{g.step1Heading}</h3>
-              <p className="generator-card-sub">{g.step1Sub}</p>
-
-              {partner.isAffiliate && (
-                <div className="partner-attribution-notice" data-testid="partner-order-notice">
-                  <span className="partner-notice-text">Alianza Oficial: <strong>{partner.name}</strong></span>
-                  {partner.discountRate > 0 && (
-                    <span className="partner-notice-discount">
-                      • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
-                    </span>
-                  )}
-                </div>
-              )}
+            {/* Guided 2-Step Stepper Header */}
+            <div className="generator-stepper-header">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className={`stepper-pill ${currentStep === 1 ? "active" : "done"}`}
+              >
+                <span className="stepper-circle">{currentStep === 2 ? "✓" : "1"}</span>
+                <span>1. {g.step1Heading?.replace(/^1\.\s*/, "") || "Qué Empresas Buscas"}</span>
+              </button>
+              <div className="stepper-divider-line" />
+              <button
+                type="button"
+                onClick={handleProceedToStep2}
+                className={`stepper-pill ${currentStep === 2 ? "active" : ""}`}
+              >
+                <span className="stepper-circle">2</span>
+                <span>2. {g.buyerSection}</span>
+              </button>
             </div>
 
-            {/* AI Natural Language Intent Hero */}
-            <div className="ai-intent-hero">
-              <div className="ai-intent-header">
-                <span className="ai-intent-badge">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                  Michito Intent Engine™
-                </span>
-                <h3 className="ai-intent-title">¿A qué empresas le quieres vender hoy?</h3>
-                <p className="ai-intent-subtitle">
-                  Describe tu oferta o tu cliente ideal en una frase. Nuestra IA configurará el lote óptimo en tiempo real.
-                </p>
-              </div>
+            {currentStep === 1 ? (
+              <div className="generator-step-1">
+                <div className="card-header-box">
+                  <h3 className="generator-card-title">{g.step1Heading}</h3>
+                  <p className="generator-card-sub">{g.step1Sub}</p>
 
-              <div className="ai-intent-input-wrap">
-                <input
-                  type="text"
-                  value={aiQuery}
-                  onChange={(e) => setAiQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleProfileIntent();
-                    }
-                  }}
-                  placeholder="Ej: Vendo software y busco firmas de abogados en Bogotá con más de 10 empleados..."
-                  className="ai-intent-input"
-                  disabled={isProfiling}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleProfileIntent()}
-                  disabled={isProfiling || !aiQuery.trim()}
-                  className="ai-intent-submit-btn"
-                >
-                  {isProfiling ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Analizando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Descubrir con IA</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Quick Suggestion Pills */}
-              <div className="ai-pills-container">
-                <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
-                <div className="ai-pills-grid">
-                  {[
-                    { label: "Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
-                    { label: "Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
-                    { label: "Ferias Comerciales B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
-                    { label: "Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
-                    { label: "Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
-                  ].map((pill, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setAiQuery(pill.query);
-                        handleProfileIntent(pill.query);
-                      }}
-                      className="ai-quick-pill"
-                    >
-                      <span>{pill.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Discovery Match Card */}
-              {discoveryResult && (
-                <div className="discovery-card">
-                  <div className="discovery-match-header">
-                    <div>
-                      <span className="discovery-match-badge">
-                        <CheckCircle2 className="w-4 h-4" />
-                        {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
-                      </span>
-                      <p className="text-xs text-slate-300 mt-1 font-medium">
-                        {discoveryResult.summary_message}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-slate-400 block">Lote Sugerido:</span>
-                      <strong className="text-sm font-bold text-emerald-400">
-                        {discoveryResult.recommended_limit} Contactos Directos ({formatCop(discoveryResult.pricing.total_cop)} COP)
-                      </strong>
-                    </div>
-                  </div>
-
-                  {discoveryResult.sample_preview && (
-                    <div className="discovery-sample-preview">
-                      <div className="discovery-sample-title">Ejemplo de cuenta calificada en este lote:</div>
-                      <div className="discovery-sample-company">{discoveryResult.sample_preview.company_name}</div>
-                      <div className="discovery-sample-person">
-                        {discoveryResult.sample_preview.masked_decision_maker}
-                      </div>
-                      <div className="discovery-sample-badges">
-                        <span className="discovery-sample-badge">✓ NIT Vigente en Cámara de Comercio</span>
-                        <span className="discovery-sample-badge">✓ Mailbox MX Corporativo Verificado</span>
-                        <span className="discovery-sample-badge">✓ Huella HTTP y Dominio Activo</span>
-                        <span className="discovery-sample-badge">✓ Solvencia Financiera Aprobada</span>
-                      </div>
-                      {discoveryResult.sample_preview.signals && (
-                        <div className="discovery-sample-signals">
-                          <strong>Señal de Compra:</strong> {discoveryResult.sample_preview.signals}
-                        </div>
+                  {partner.isAffiliate && (
+                    <div className="partner-attribution-notice" data-testid="partner-order-notice">
+                      <span className="partner-notice-text">Alianza Oficial: <strong>{partner.name}</strong></span>
+                      {partner.discountRate > 0 && (
+                        <span className="partner-notice-discount">
+                          • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
+                        </span>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <form onSubmit={handleSubmitOrder} className="generator-form">
-              {/* Advanced Configuration Toggle */}
-              <button
-                type="button"
-                onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-                className="advanced-toggle-btn"
-              >
-                <span>
-                  {isAdvancedOpen
-                    ? "Ocultar configuración manual"
-                    : "Ajustar filtros manualmente (Campaña, Tier, Cantidad, Territorio)"}
-                </span>
-                {isAdvancedOpen ? (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
+                {/* Mode Switcher Tabs */}
+                <div className="generator-mode-tabs">
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode("direct")}
+                    className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
+                  >
+                    <span>📋 Selección Directa</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode("ai")}
+                    className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Búsqueda con IA (Michito Engine™)</span>
+                  </button>
+                </div>
 
-              {isAdvancedOpen && (
-                <div className="advanced-section-wrapper">
-                  {/* Campaign Picker */}
-                  <div className="form-group">
-                    <label className="form-label">
-                      <Building2 className="form-label-icon text-sky-400" />
-                      <span>{g.campaignLabel}</span>
-                    </label>
-                    <select
-                      value={selectedCampaignId}
-                      onChange={(e) => handleCampaignChange(e.target.value)}
-                      className="form-select"
-                    >
-                      {CAMPAIGN_OPTIONS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Enrichment Tier Selector */}
-                  <div className="form-group">
-                    <label className="form-label">{g.tierLabel}</label>
-                    <div className="tier-pills-selector">
-                      <button
-                        type="button"
-                        onClick={() => dispatch(setTier(1))}
-                        className={`tier-pill ${tier === 1 ? "active" : ""}`}
-                      >
-                        Directorio Base ({formatUnitCurrency(curConfig.tierPrices[1], currency)})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => dispatch(setTier(2))}
-                        className={`tier-pill ${tier === 2 ? "active" : ""}`}
-                      >
-                        Contactos Directos ({formatUnitCurrency(curConfig.tierPrices[2], currency)}) ⭐
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => dispatch(setTier(3))}
-                        className={`tier-pill ${tier === 3 ? "active" : ""}`}
-                      >
-                        Auditoría Completa ({formatUnitCurrency(curConfig.tierPrices[3], currency)})
-                      </button>
+                {searchMode === "ai" ? (
+                  /* AI Natural Language Intent Hero */
+                  <div className="ai-intent-hero">
+                    <div className="ai-intent-header">
+                      <span className="ai-intent-badge">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                        Michito Intent Engine™
+                      </span>
+                      <h3 className="ai-intent-title">¿A qué empresas le quieres vender hoy?</h3>
+                      <p className="ai-intent-subtitle">
+                        Describe tu oferta o tu cliente ideal en una frase. Nuestra IA configurará el lote óptimo en tiempo real.
+                      </p>
                     </div>
-                  </div>
 
-                  {/* Target City & Account Volume Row */}
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label className="form-label">
-                        <MapPin className="form-label-icon text-emerald-400" />
-                        <span>{g.cityLabel}</span>
-                      </label>
+                    <div className="ai-intent-input-wrap">
                       <input
                         type="text"
-                        required
-                        value={targetCity}
-                        onChange={(e) => handleCityChange(e.target.value)}
-                        placeholder={g.cityPlaceholder}
-                        className="form-input"
+                        value={aiQuery}
+                        onChange={(e) => setAiQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleProfileIntent();
+                          }
+                        }}
+                        placeholder="Ej: Vendo software y busco firmas de abogados en Bogotá con más de 10 empleados..."
+                        className="ai-intent-input"
+                        disabled={isProfiling}
                       />
-                      <div className="city-quick-pills">
-                        {suggestedCities.map((city) => (
+                      <button
+                        type="button"
+                        onClick={() => handleProfileIntent()}
+                        disabled={isProfiling || !aiQuery.trim()}
+                        className="ai-intent-submit-btn"
+                      >
+                        {isProfiling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Analizando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            <span>Descubrir con IA</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Quick Suggestion Pills */}
+                    <div className="ai-pills-container">
+                      <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
+                      <div className="ai-pills-grid">
+                        {[
+                          { label: "Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
+                          { label: "Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
+                          { label: "Ferias Comerciales B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
+                          { label: "Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
+                          { label: "Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
+                        ].map((pill, idx) => (
                           <button
-                            key={city}
+                            key={idx}
                             type="button"
-                            onClick={() => handleCityChange(city)}
-                            className={`city-pill ${targetCity.toLowerCase() === city.toLowerCase() ? "active" : ""}`}
+                            onClick={() => {
+                              setAiQuery(pill.query);
+                              handleProfileIntent(pill.query);
+                            }}
+                            className="ai-quick-pill"
                           >
-                            {city}
+                            <span>{pill.label}</span>
                           </button>
                         ))}
                       </div>
-                      <span className="form-hint">
-                        Ingresa cualquier ciudad o territorio de cobertura comercial.
-                      </span>
                     </div>
 
+                    {/* Discovery Match Card */}
+                    {discoveryResult && (
+                      <div className="discovery-card">
+                        <div className="discovery-match-header">
+                          <div>
+                            <span className="discovery-match-badge">
+                              <CheckCircle2 className="w-4 h-4" />
+                              {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
+                            </span>
+                            <p className="text-xs text-slate-300 mt-1 font-medium">
+                              {discoveryResult.summary_message}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs text-slate-400 block">Lote Sugerido:</span>
+                            <strong className="text-sm font-bold text-emerald-400">
+                              {discoveryResult.recommended_limit} Contactos Directos ({formatCop(discoveryResult.pricing.total_cop)} COP)
+                            </strong>
+                          </div>
+                        </div>
+
+                        {discoveryResult.sample_preview && (
+                          <div className="discovery-sample-preview">
+                            <div className="discovery-sample-title">Ejemplo de cuenta calificada en este lote:</div>
+                            <div className="discovery-sample-company">{discoveryResult.sample_preview.company_name}</div>
+                            <div className="discovery-sample-person">
+                              {discoveryResult.sample_preview.masked_decision_maker}
+                            </div>
+                            <div className="discovery-sample-badges">
+                              <span className="discovery-sample-badge">✓ NIT Vigente en Cámara de Comercio</span>
+                              <span className="discovery-sample-badge">✓ Mailbox MX Corporativo Verificado</span>
+                              <span className="discovery-sample-badge">✓ Huella HTTP y Dominio Activo</span>
+                              <span className="discovery-sample-badge">✓ Solvencia Financiera Aprobada</span>
+                            </div>
+                            {discoveryResult.sample_preview.signals && (
+                              <div className="discovery-sample-signals">
+                                <strong>Señal de Compra:</strong> {discoveryResult.sample_preview.signals}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Direct Selection Configuration */
+                  <div className="direct-selection-wrapper">
+                    {/* Campaign Picker */}
                     <div className="form-group">
                       <label className="form-label">
-                        <Hash className="form-label-icon text-purple-400" />
-                        <span>{g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong></span>
+                        <Building2 className="form-label-icon text-sky-400" />
+                        <span>{g.campaignLabel}</span>
                       </label>
-                      <div className="volume-presets-grid">
+                      <select
+                        value={selectedCampaignId}
+                        onChange={(e) => handleCampaignChange(e.target.value)}
+                        className="form-select"
+                      >
+                        {CAMPAIGN_OPTIONS.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Enrichment Tier Selector */}
+                    <div className="form-group">
+                      <label className="form-label">{g.tierLabel}</label>
+                      <div className="tier-pills-selector">
                         <button
                           type="button"
-                          onClick={() => dispatch(setVolume(10))}
-                          className={`preset-btn ${volume === 10 ? "active" : ""}`}
+                          onClick={() => dispatch(setTier(1))}
+                          className={`tier-pill ${tier === 1 ? "active" : ""}`}
                         >
-                          10
+                          Directorio Base ({formatUnitCurrency(curConfig.tierPrices[1], currency)})
                         </button>
                         <button
                           type="button"
-                          onClick={() => dispatch(setVolume(25))}
-                          className={`preset-btn ${volume === 25 ? "active" : ""}`}
+                          onClick={() => dispatch(setTier(2))}
+                          className={`tier-pill ${tier === 2 ? "active" : ""}`}
                         >
-                          25 <span className="discount-tag">-6%</span>
+                          Contactos Directos ({formatUnitCurrency(curConfig.tierPrices[2], currency)}) ⭐
                         </button>
                         <button
                           type="button"
-                          onClick={() => dispatch(setVolume(50))}
-                          className={`preset-btn ${volume === 50 ? "active" : ""}`}
+                          onClick={() => dispatch(setTier(3))}
+                          className={`tier-pill ${tier === 3 ? "active" : ""}`}
                         >
-                          50 <span className="discount-tag">-12%</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => dispatch(setVolume(100))}
-                          className={`preset-btn ${volume === 100 ? "active" : ""}`}
-                        >
-                          100 <span className="discount-tag">-20%</span>
+                          Auditoría Completa ({formatUnitCurrency(curConfig.tierPrices[3], currency)})
                         </button>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Volume Slider for Custom Quantities */}
-                  <div className="form-group slider-group">
-                    <div className="slider-header">
-                      <span className="text-xs text-slate-400">Ajuste fino de volumen:</span>
-                      <span className="slider-value-badge">{volume} cuentas</span>
+                    {/* Target City & Account Volume Row */}
+                    <div className="form-row-2">
+                      <div className="form-group">
+                        <label className="form-label">
+                          <MapPin className="form-label-icon text-emerald-400" />
+                          <span>{g.cityLabel}</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={targetCity}
+                          onChange={(e) => handleCityChange(e.target.value)}
+                          placeholder={g.cityPlaceholder}
+                          className="form-input"
+                        />
+                        <div className="city-quick-pills">
+                          {suggestedCities.map((city) => (
+                            <button
+                              key={city}
+                              type="button"
+                              onClick={() => handleCityChange(city)}
+                              className={`city-pill ${targetCity.toLowerCase() === city.toLowerCase() ? "active" : ""}`}
+                            >
+                              {city}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="form-hint">
+                          Ingresa cualquier ciudad o territorio de cobertura comercial.
+                        </span>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">
+                          <Hash className="form-label-icon text-purple-400" />
+                          <span>{g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong></span>
+                        </label>
+                        <div className="volume-presets-grid">
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(10))}
+                            className={`preset-btn ${volume === 10 ? "active" : ""}`}
+                          >
+                            10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(25))}
+                            className={`preset-btn ${volume === 25 ? "active" : ""}`}
+                          >
+                            25 <span className="discount-tag">-6%</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(50))}
+                            className={`preset-btn ${volume === 50 ? "active" : ""}`}
+                          >
+                            50 <span className="discount-tag">-12%</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => dispatch(setVolume(100))}
+                            className={`preset-btn ${volume === 100 ? "active" : ""}`}
+                          >
+                            100 <span className="discount-tag">-20%</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="500"
-                      step="5"
-                      value={volume}
-                      onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
-                      className="volume-slider"
-                    />
-                    <div className="slider-ticks">
-                      <span>10 (Rápido)</span>
-                      <span>25 (Rec.)</span>
-                      <span>50</span>
-                      <span>100</span>
-                      <span>250</span>
-                      <span>500+</span>
+
+                    {/* Volume Slider for Custom Quantities */}
+                    <div className="form-group slider-group">
+                      <div className="slider-header">
+                        <span className="text-xs text-slate-400">Ajuste fino de volumen:</span>
+                        <span className="slider-value-badge">{volume} cuentas</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="10"
+                        max="500"
+                        step="5"
+                        value={volume}
+                        onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
+                        className="volume-slider"
+                      />
+                      <div className="slider-ticks">
+                        <span>10 (Rápido)</span>
+                        <span>25 (Rec.)</span>
+                        <span>50</span>
+                        <span>100</span>
+                        <span>250</span>
+                        <span>500+</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Price Calculation Box */}
-              <div className="calc-summary-box">
-                <div className="calc-row">
-                  <span>
-                    Precio por cuenta (
-                    {tier === 1
-                      ? "Directorio Base"
-                      : tier === 2
-                      ? "Contactos Directos"
-                      : "Auditoría Completa"}
-                    ):
-                  </span>
-                  <span>{formatCurrencyAmount(unitPrice, currency)}</span>
-                </div>
-                <div className="calc-row">
-                  <span>Subtotal ({volume} cuentas):</span>
-                  <span>{formatCurrencyAmount(subtotal, currency)}</span>
-                </div>
-                {discountPercent > 0 && (
-                  <div className="calc-row text-emerald-400">
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" /> Descuento por volumen (-{discountPercent}%):
+                {/* Price Calculation Box */}
+                <div className="calc-summary-box">
+                  <div className="calc-row">
+                    <span>
+                      Precio por cuenta (
+                      {tier === 1
+                        ? "Directorio Base"
+                        : tier === 2
+                        ? "Contactos Directos"
+                        : "Auditoría Completa"}
+                      ):
                     </span>
-                    <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
+                    <span>{formatCurrencyAmount(unitPrice, currency)}</span>
                   </div>
-                )}
-                <div className="calc-row-total">
-                  <span>{g.summaryTotal}</span>
-                  <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
+                  <div className="calc-row">
+                    <span>Subtotal ({volume} cuentas):</span>
+                    <span>{formatCurrencyAmount(subtotal, currency)}</span>
+                  </div>
+                  {discountPercent > 0 && (
+                    <div className="calc-row text-emerald-400">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" /> Descuento por volumen (-{discountPercent}%):
+                      </span>
+                      <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
+                    </div>
+                  )}
+                  <div className="calc-row-total">
+                    <span>{g.summaryTotal}</span>
+                    <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
+                  </div>
+                  {currency !== "COP" && (
+                    <div className="text-xs text-slate-400 mt-1 text-right">
+                      Equivalente en liquidación segura Wompi: {formatCop(totalCop)} COP
+                    </div>
+                  )}
+                  <div className="fair-billing-pill">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{g.fairBillingNote}</span>
+                  </div>
                 </div>
-                {currency !== "COP" && (
-                  <div className="text-xs text-slate-400 mt-1 text-right">
-                    Equivalente en liquidación segura Wompi: {formatCop(totalCop)} COP
+
+                {formError && (
+                  <div className="form-error-banner" style={{ marginTop: "16px" }}>
+                    <span>{formError}</span>
                   </div>
                 )}
-                <div className="fair-billing-pill">
+
+                <button
+                  type="button"
+                  onClick={handleProceedToStep2}
+                  className="generator-submit-btn"
+                  style={{ marginTop: "24px" }}
+                >
+                  <span>Continuar a Datos de Entrega</span>
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </button>
+              </div>
+            ) : (
+              /* Step 2: Buyer Delivery Info & Validation */
+              <form onSubmit={handleSubmitOrder} className="generator-step-2">
+                <div className="card-header-box">
+                  <h3 className="generator-card-title">2. {g.buyerSection}</h3>
+                  <p className="generator-card-sub">{g.buyerSectionSub}</p>
+                </div>
+
+                {/* Selected Order Recap */}
+                <div className="generator-recap-box">
+                  <div className="recap-item">
+                    <span className="recap-label">Vertical / Perfil</span>
+                    <span className="recap-value">{currentCamp.name}</span>
+                  </div>
+                  <div className="recap-item">
+                    <span className="recap-label">Ciudad / Territorio</span>
+                    <span className="recap-value">{targetCity}</span>
+                  </div>
+                  <div className="recap-item">
+                    <span className="recap-label">Lote Seleccionado</span>
+                    <span className="recap-value">
+                      {volume} cuentas ({tier === 1 ? "Directorio Base" : tier === 2 ? "Contactos Directos" : "Auditoría Completa"})
+                    </span>
+                  </div>
+                  <div className="recap-item">
+                    <span className="recap-label">Inversión Estimada</span>
+                    <span className="recap-value text-emerald-400">{formatCurrencyAmount(total, currency)}</span>
+                  </div>
+                </div>
+
+                <div className="buyer-fields-grid">
+                  <div className="form-group">
+                    <label className="form-label">
+                      <User className="form-label-icon" />
+                      <span>{g.buyerName}</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Juan Carlos Pérez"
+                      value={buyerName}
+                      onChange={(e) => setLocalName(e.target.value)}
+                      className="form-input"
+                    />
+                    <span className="form-hint">{g.buyerNameHint}</span>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Mail className="form-label-icon" />
+                      <span>{g.buyerEmail}</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="director@empresa.com"
+                      value={buyerEmail}
+                      onChange={(e) => setLocalEmail(e.target.value)}
+                      className="form-input"
+                    />
+                    <span className="form-hint">{g.buyerEmailHint}</span>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Phone className="form-label-icon" />
+                      <span>{g.buyerPhone}</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+57 300 123 4567"
+                      value={buyerPhone}
+                      onChange={(e) => setLocalPhone(e.target.value)}
+                      className="form-input"
+                    />
+                    <span className="form-hint">{g.buyerPhoneHint}</span>
+                  </div>
+                </div>
+
+                <div className="fair-billing-pill" style={{ marginTop: "16px" }}>
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>{g.fairBillingNote}</span>
                 </div>
-              </div>
 
-              {/* Buyer Contact Fields */}
-              <div className="card-header-box" style={{ marginTop: "36px", marginBottom: "20px" }}>
-                <h3 className="generator-card-title">2. {g.buyerSection}</h3>
-                <p className="generator-card-sub">{g.buyerSectionSub}</p>
-              </div>
-
-              <div className="buyer-fields-grid">
-                <div className="form-group">
-                  <label className="form-label">
-                    <User className="form-label-icon" />
-                    <span>{g.buyerName}</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: Juan Carlos Pérez o Tech Solutions SAS"
-                    value={buyerName}
-                    onChange={(e) => setLocalName(e.target.value)}
-                    className="form-input"
-                  />
-                  <span className="form-hint">{g.buyerNameHint}</span>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    <Mail className="form-label-icon" />
-                    <span>{g.buyerEmail}</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="director@empresa.com"
-                    value={buyerEmail}
-                    onChange={(e) => setLocalEmail(e.target.value)}
-                    className="form-input"
-                  />
-                  <span className="form-hint">{g.buyerEmailHint}</span>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    <Phone className="form-label-icon" />
-                    <span>{g.buyerPhone}</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+57 300 123 4567"
-                    value={buyerPhone}
-                    onChange={(e) => setLocalPhone(e.target.value)}
-                    className="form-input"
-                  />
-                  <span className="form-hint">{g.buyerPhoneHint}</span>
-                </div>
-              </div>
-
-              {formError && (
-                <div className="form-error-banner">
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="generator-submit-btn"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Iniciando calificación asíncrona...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5 fill-current" />
-                    <span>{g.submitBtn}</span>
-                  </>
+                {formError && (
+                  <div className="form-error-banner" style={{ marginTop: "16px" }}>
+                    <span>{formError}</span>
+                  </div>
                 )}
-              </button>
 
-              <p className="generator-disclaimer">{g.disclaimer}</p>
-            </form>
+                <div className="generator-step-actions">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="generator-back-btn"
+                  >
+                    ← Modificar Búsqueda
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="generator-submit-btn"
+                    style={{ flex: 1 }}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Iniciando calificación asíncrona...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5 fill-current" />
+                        <span>{g.submitBtn}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <p className="generator-disclaimer">{g.disclaimer}</p>
+              </form>
+            )}
           </div>
 
           {/* Live Tracker & Results (mounts upon submission) */}

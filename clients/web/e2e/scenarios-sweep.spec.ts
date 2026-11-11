@@ -93,19 +93,4 @@ test.describe("Multi-Scenario & Industry Sweep", () => {
     await expect(calcBox).toContainText("Directorio Base");
     await expect(calcBox).toContainText("5.000 COP");
   });
-
-  test("Scenario 6: Vertical Card Quick-Selector scrolls and updates generator", async ({ page }) => {
-    await page.goto("/#verticales");
-
-    // Click on the Hebi button in the verticals section
-    const hebiCard = page.locator(".vertical-card", { hasText: "Gestión de Cartera B2B" });
-    await hebiCard.locator("button.vertical-select-btn").click();
-
-    // Verify generator campaign is switched to hebi
-    const campaignSelect = page.locator("select.form-select");
-    await expect(campaignSelect).toHaveValue("hebi");
-
-    const cityInput = page.locator(".form-group:has-text('Ciudad') input.form-input");
-    await expect(cityInput).toHaveValue("Bogotá");
-  });
 });

@@ -62,7 +62,8 @@ test.describe("v1.2 Multi-Partner Affiliate & Commission Tracking", () => {
     await expect(partnerNotice).toBeVisible();
     await expect(partnerNotice).toContainText("Tinkko Coworking & Sedes");
 
-    // 4. Fill contact information
+    // 4. Advance to Step 2 & fill contact information
+    await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
     await page.locator("input[placeholder='Ej: Juan Carlos Pérez']").fill("Tinkko Resident Buyer");
     await page.locator("input[placeholder='director@empresa.com']").fill("resident@tinkkocompany.com");
     await page.locator("input[placeholder='+57 300 123 4567']").fill("+573009998888");
@@ -132,7 +133,8 @@ test.describe("v1.2 Multi-Partner Affiliate & Commission Tracking", () => {
     const campaignSelect = page.locator("select.form-select");
     await expect(campaignSelect).toHaveValue("eventos_ferias_b2b");
 
-    // Fill contact information & submit order
+    // Advance to Step 2, fill contact information & submit order
+    await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
     await page.locator("input[placeholder='Ej: Juan Carlos Pérez']").fill("Fair Organizer Pro");
     await page.locator("input[placeholder='director@empresa.com']").fill("director@eventosferias.com");
 
@@ -173,7 +175,8 @@ test.describe("v1.2 Multi-Partner Affiliate & Commission Tracking", () => {
     const banner = page.locator('[data-testid="partner-banner"]');
     await expect(banner).not.toBeVisible();
 
-    // Fill contact information & submit order
+    // Advance to Step 2, fill contact information & submit order
+    await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
     await page.locator("input[placeholder='Ej: Juan Carlos Pérez']").fill("Organic Direct Buyer");
     await page.locator("input[placeholder='director@empresa.com']").fill("direct@buyer.co");
 

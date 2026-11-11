@@ -89,6 +89,9 @@ test.describe("Order Creation, Wompi Payment & Delivery Tracking", () => {
 
     await page.goto("/#generador");
 
+    // Advance from Step 1 to Step 2: Datos de Entrega
+    await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
+
     // Fill in buyer information
     const nameInput = page.locator("input[placeholder='Ej: Juan Carlos Pérez']");
     await nameInput.fill("Radsen Tech Buyer");

@@ -17,8 +17,8 @@ test.describe("Landing Page & Value Proposition", () => {
 
     // Check statistical highlights
     await expect(page.locator(".hero-stats-grid")).toBeVisible();
-    await expect(page.locator("text=>95% Entregabilidad")).toBeVisible();
-    await expect(page.locator("text=Contactos Directos")).toBeVisible();
+    await expect(page.locator(".hero-stats-grid").locator("text=>95% Entregabilidad")).toBeVisible();
+    await expect(page.locator(".hero-stats-grid").locator("text=Contactos Directos")).toBeVisible();
   });
 
   test("should toggle language between Spanish (es_CO) and English (en_US)", async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe("Landing Page & Value Proposition", () => {
 
     // Verify key comparative columns
     await expect(page.locator("text=Bases Tradicionales")).toBeVisible();
-    await expect(page.locator("text=Lotes en Vivo Michito")).toBeVisible();
+    await expect(page.locator(".comparison-card").locator("text=Lotes en Vivo Michito")).toBeVisible();
   });
 
   test("should scroll smoothly to target sections via navbar", async ({ page }) => {
