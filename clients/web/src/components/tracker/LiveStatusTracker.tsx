@@ -4,6 +4,7 @@ import { RootState } from "../../store";
 import { updateOrderStatus, resetOrder } from "../../store/slices/orderSlice";
 import { useGetOrderQuery } from "../../store/api/michitoApi";
 import { SampleTeaserTable } from "./SampleTeaserTable";
+import { OutreachPlaybook } from "./OutreachPlaybook";
 import {
   CheckCircle2,
   Loader2,
@@ -20,6 +21,8 @@ import {
   FileText,
   Building2,
   AlertCircle,
+  Download,
+  FileCheck,
 } from "lucide-react";
 
 export const LiveStatusTracker: React.FC = () => {
@@ -32,11 +35,15 @@ export const LiveStatusTracker: React.FC = () => {
     totalLeadsTarget,
     totalAmountInCents,
     csvDownloadUrl,
+    xlsxDownloadUrl,
     dossierDownloadUrl,
+    pdfDownloadUrl,
+    playbook,
   } = useSelector((state: RootState) => state.order);
 
   const [copied, setCopied] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [activeViewTab, setActiveViewTab] = useState<"summary" | "playbook">("summary");
 
   // Poll every 2.5 seconds while active order is in flight
   const shouldPoll = Boolean(activeOrderId) && orderStatus !== "paid" && orderStatus !== "error";
@@ -74,7 +81,10 @@ export const LiveStatusTracker: React.FC = () => {
           status: orderData.status,
           teaserLeads: orderData.sample_leads,
           csvUrl: orderData.csv_download_url,
+          xlsxUrl: (orderData as any).xlsx_download_url,
           dossierUrl: orderData.dossier_download_url,
+          pdfUrl: (orderData as any).pdf_download_url,
+          playbook: (orderData as any).playbook || [],
           totalAmountInCents: orderData.amount_in_cents,
           totalLeadsTarget: resolvedTotal,
         })
@@ -347,15 +357,6 @@ export const LiveStatusTracker: React.FC = () => {
         </div>
       )}
 
-      {/* Sample Teaser Table if awaiting_payment or paid */}
-      {(isAwaitingPayment || isPaid) && teaserLeads && teaserLeads.length > 0 && (
-        <SampleTeaserTable
-          leads={teaserLeads}
-          totalLeads={totalLeadsTarget}
-          totalAmountCop={(totalAmountInCents || 0) / 100}
-        />
-      )}
-
       {/* Deliverables Unlocked State */}
       {isPaid && (
         <div className="deliverables-unlocked-card">
@@ -369,49 +370,132 @@ export const LiveStatusTracker: React.FC = () => {
             </div>
           </div>
 
-          <div className="download-buttons-grid">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+            {/* 1. Styled XLSX */}
+            {xlsxDownloadUrl || csvDownloadUrl ? (
+              <a
+                href={xlsxDownloadUrl || `/api/v1/orders/${activeOrderId}/download/xlsx`}
+                download
+                className="download-btn xlsx-download group p-3.5 rounded-xl bg-teal-950/40 border border-teal-600/40 hover:border-teal-400 hover:bg-teal-900/30 transition-all flex items-center gap-3 text-left shadow-sm"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div className="w-10 h-10 rounded-lg bg-teal-900/60 border border-teal-500/40 flex items-center justify-center text-teal-300 shrink-0 group-hover:scale-105 transition-transform">
+                  <FileSpreadsheet className="w-5 h-5 text-teal-300" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm truncate">Hoja de Cálculo (.XLSX)</div>
+                  <div className="text-xs text-teal-300/80 truncate">Excel con filtros y formato</div>
+                </div>
+              </a>
+            ) : null}
+
+            {/* 2. Executive PDF Dossier */}
+            {pdfDownloadUrl || dossierDownloadUrl ? (
+              <a
+                href={pdfDownloadUrl || `/api/v1/orders/${activeOrderId}/download/pdf`}
+                download
+                className="download-btn pdf-download group p-3.5 rounded-xl bg-sky-950/40 border border-sky-600/40 hover:border-sky-400 hover:bg-sky-900/30 transition-all flex items-center gap-3 text-left shadow-sm"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div className="w-10 h-10 rounded-lg bg-sky-900/60 border border-sky-500/40 flex items-center justify-center text-sky-300 shrink-0 group-hover:scale-105 transition-transform">
+                  <FileText className="w-5 h-5 text-sky-300" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm truncate">Dossier Ejecutivo (.PDF)</div>
+                  <div className="text-xs text-sky-300/80 truncate">Reporte C-Level & Guiones</div>
+                </div>
+              </a>
+            ) : null}
+
+            {/* 3. CRM-Clean CSV */}
             {csvDownloadUrl ? (
               <a
                 href={csvDownloadUrl}
                 download
-                className="download-btn csv-download"
+                className="download-btn csv-download group p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 transition-all flex items-center gap-3 text-left shadow-sm"
                 target="_blank"
                 rel="noreferrer"
               >
-                <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                <div className="text-left">
-                  <div className="font-semibold text-white">{dict.tracker.downloadCsv}</div>
-                  <div className="text-xs text-slate-400">HubSpot / Salesforce Ready</div>
+                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition-transform">
+                  <Download className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm truncate">Base para CRM (.CSV)</div>
+                  <div className="text-xs text-slate-400 truncate">HubSpot / Salesforce Ready</div>
                 </div>
               </a>
-            ) : (
-              <button className="download-btn csv-download" disabled type="button">
-                <FileSpreadsheet className="w-5 h-5 text-slate-400" />
-                <span>Generando enlace seguro...</span>
-              </button>
-            )}
+            ) : null}
 
+            {/* 4. Markdown Dossier */}
             {dossierDownloadUrl ? (
               <a
                 href={dossierDownloadUrl}
                 download
-                className="download-btn dossier-download"
+                className="download-btn dossier-download group p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 transition-all flex items-center gap-3 text-left shadow-sm"
                 target="_blank"
                 rel="noreferrer"
               >
-                <FileText className="w-5 h-5 text-blue-400" />
-                <div className="text-left">
-                  <div className="font-semibold text-white">{dict.tracker.downloadDossier}</div>
-                  <div className="text-xs text-slate-400">Cadencias de 5 toques & Finanzas</div>
+                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 shrink-0 group-hover:scale-105 transition-transform">
+                  <FileCheck className="w-5 h-5 text-slate-300" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm truncate">Playbook Texto (.MD)</div>
+                  <div className="text-xs text-slate-400 truncate">Notion / Obsidian Ready</div>
                 </div>
               </a>
-            ) : (
-              <button className="download-btn dossier-download" disabled type="button">
-                <FileText className="w-5 h-5 text-slate-400" />
-                <span>Generando enlace seguro...</span>
-              </button>
-            )}
+            ) : null}
           </div>
+        </div>
+      )}
+
+      {/* View Switcher Tabs: Summary Table vs Interactive Outreach Playbook */}
+      {(isAwaitingPayment || isPaid) && (
+        <div className="space-y-4 mt-6">
+          {playbook && playbook.length > 0 && (
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setActiveViewTab("summary")}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeViewTab === "summary"
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-950"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                📋 Resumen & Muestra de Datos
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveViewTab("playbook")}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
+                  activeViewTab === "playbook"
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-950"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <span>🎯 Playbook de Prospección (1-Click Outreach)</span>
+                <span className="px-1.5 py-0.5 text-xs bg-sky-950 text-sky-300 rounded font-mono">
+                  {playbook.length}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Tab 1: Summary Table */}
+          {activeViewTab === "summary" && teaserLeads && teaserLeads.length > 0 && (
+            <SampleTeaserTable
+              leads={teaserLeads}
+              totalLeads={totalLeadsTarget}
+              totalAmountCop={(totalAmountInCents || 0) / 100}
+            />
+          )}
+
+          {/* Tab 2: Interactive 1-Click Outreach Playbook */}
+          {activeViewTab === "playbook" && playbook && playbook.length > 0 && (
+            <OutreachPlaybook companies={playbook} />
+          )}
         </div>
       )}
     </div>

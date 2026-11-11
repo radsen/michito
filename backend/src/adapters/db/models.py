@@ -140,7 +140,10 @@ class OrderModel(Base):
     delivery_total_qualified: Any = Column(Integer, default=0)
     delivery_sample_teaser: Any = Column(JSON, nullable=True)
     delivery_csv_path: Any = Column(Text, nullable=True)
+    delivery_xlsx_path: Any = Column(Text, nullable=True)
     delivery_dossier_path: Any = Column(Text, nullable=True)
+    delivery_pdf_path: Any = Column(Text, nullable=True)
+    delivery_playbook: Any = Column(JSON, nullable=True)
     delivery_delivered_at: Any = Column(DateTime, nullable=True)
 
     # Benchmark & Errors
@@ -198,7 +201,10 @@ class OrderModel(Base):
                 "total_qualified": self.delivery_total_qualified,
                 "sample_teaser": self.delivery_sample_teaser or [],
                 "csv_path": self.delivery_csv_path,
+                "xlsx_path": self.delivery_xlsx_path,
                 "dossier_path": self.delivery_dossier_path,
+                "pdf_path": self.delivery_pdf_path,
+                "playbook": self.delivery_playbook or [],
                 "delivered_at": self.delivery_delivered_at.isoformat() if self.delivery_delivered_at else None,
             },
             "metrics": self.metrics or {},

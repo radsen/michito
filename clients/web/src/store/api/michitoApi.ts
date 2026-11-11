@@ -55,7 +55,10 @@ export interface OrderStatusResponse {
     underwriting_grade?: string;
   }>;
   csv_download_url?: string;
+  xlsx_download_url?: string;
   dossier_download_url?: string;
+  pdf_download_url?: string;
+  playbook?: any[];
   error_message?: string;
 }
 

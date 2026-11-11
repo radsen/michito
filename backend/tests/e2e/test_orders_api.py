@@ -175,7 +175,9 @@ class TestOrdersApi(unittest.TestCase):
                 order_id=oid,
                 worker_result={
                     "csv_path": temp_path,
+                    "xlsx_path": temp_path,
                     "dossier_path": f"gs://michito-deliverables/orders/{oid}/executive_dossier.md",
+                    "pdf_path": f"gs://michito-deliverables/orders/{oid}/executive_dossier.pdf",
                     "leads": []
                 }
             )
@@ -185,10 +187,19 @@ class TestOrdersApi(unittest.TestCase):
             self.assertEqual(res_csv.status_code, 200)
             self.assertIn("Acme S.A.S.", res_csv.text)
 
-            # 2. Download MD (redirects to GCS signed URL)
+            # 2. Download XLSX (served as FileResponse from local path)
+            res_xlsx = self.client.get(f"/api/v1/orders/{oid}/download/xlsx")
+            self.assertEqual(res_xlsx.status_code, 200)
+
+            # 3. Download MD (redirects to GCS signed URL)
             res_md = self.client.get(f"/api/v1/orders/{oid}/download/md", follow_redirects=False)
             self.assertEqual(res_md.status_code, 307)
             self.assertIn("michito-deliverables", res_md.headers["location"])
+
+            # 4. Download PDF (redirects to GCS signed URL)
+            res_pdf = self.client.get(f"/api/v1/orders/{oid}/download/pdf", follow_redirects=False)
+            self.assertEqual(res_pdf.status_code, 307)
+            self.assertIn("michito-deliverables", res_pdf.headers["location"])
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)

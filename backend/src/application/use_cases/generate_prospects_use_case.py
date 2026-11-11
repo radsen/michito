@@ -20,6 +20,8 @@ from src.adapters.registries.colombia.secop_contracts_adapter import SecopContra
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
 from src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
 from src.adapters.verifiers.website_auditor import WebsiteAuditor
+from src.adapters.export.excel_dossier_adapter import ExcelDossierAdapter
+from src.adapters.export.pdf_dossier_adapter import PdfDossierAdapter
 from src.domain.value_objects.ciiu_code import CiiuCode
 from src.application.use_cases.underwrite_lead_use_case import UnderwriteLeadUseCase
 
@@ -274,16 +276,16 @@ class GenerateProspectsUseCase:
                 accum = 0
                 items = list(country_allocations.items())
                 for c_k, pct in items[:-1]:
-                    q = max(1, int(round(limit * (pct / 100.0))))
+                    q = max(1, round(limit * (pct / 100.0)))
                     accum += q
                     active_allocations[c_k.upper()] = q
                 last_k, _ = items[-1]
                 active_allocations[last_k.upper()] = max(1, limit - accum)
             else:
-                active_allocations = {c_k.upper(): int(q) for c_k, q in country_allocations.items()}
+                active_allocations = {c_k.upper(): q for c_k, q in country_allocations.items()}
         elif raw_country in ("MULTI", "CROSS_BORDER", "LATAM"):
-            q_co = max(1, int(round(limit * 0.50)))
-            q_do = max(1, int(round(limit * 0.30)))
+            q_co = max(1, round(limit * 0.50))
+            q_do = max(1, round(limit * 0.30))
             q_ec = max(1, limit - q_co - q_do)
             active_allocations = {"CO": q_co, "DO": q_do, "EC": q_ec}
         else:
@@ -342,7 +344,7 @@ class GenerateProspectsUseCase:
         for exc in raw_exclusions:
             if not exc:
                 continue
-            item = str(exc).strip().lower()
+            item = exc.strip().lower()
             if not item:
                 continue
             clean_dom = re.sub(r"^https?://(www\.)?", "", item).split("/")[0].strip()
@@ -651,6 +653,8 @@ class GenerateProspectsUseCase:
 
         # 5. Format 5-Touch Outreach Cadence
         csv_rows = []
+        crm_rows = []
+        playbook_cadences = []
         now = datetime.now(timezone.utc)
         batch_timestamp = now.strftime("%Y%m%d_%H%M%S")
         batch_dir = os.path.join(GROWTH_OUTPUTS_BASE, campaign_id, batch_timestamp)
@@ -799,6 +803,63 @@ class GenerateProspectsUseCase:
 
             csv_rows.append(row)
 
+            # Clean CRM row (Stripped of multi-line text walls for 100% CRM ingestion)
+            cadence_keys = {
+                "Touch 1: LinkedIn Connection Note",
+                "Touch 2: Cold Email Subject",
+                "Touch 2: Cold Email Body",
+                "Touch 3: Operational Follow-up Subject",
+                "Touch 3: Operational Follow-up Body",
+                "Touch 4: Social Proof / VIP Subject",
+                "Touch 4: Social Proof / VIP Body",
+                "Touch 5: Breakup / Catalog Subject",
+                "Touch 5: Breakup / Catalog Body",
+            }
+            crm_row = {k: v for k, v in row.items() if k not in cadence_keys}
+            crm_rows.append(crm_row)
+
+            # Structured Playbook Cadence for Interactive Web SDR UI
+            playbook_cadences.append({
+                "index": idx,
+                "company_name": lead["company_name"],
+                "clean_name": clean_name,
+                "tax_id": lead["nit"],
+                "tax_id_type": lead_tax,
+                "country": lead_c,
+                "city": lead["city"],
+                "website": lead["website_url"],
+                "decision_maker_name": lead["decision_maker_name"],
+                "decision_maker_title": lead["decision_maker_title"],
+                "email": lead["email"],
+                "phone": lead["phone"],
+                "recommended_angle": recommended_angle,
+                "touches": {
+                    "touch1_linkedin": t1,
+                    "touch2_email": {
+                        "subject": t2_sub,
+                        "body": t2_body,
+                    },
+                    "touch3_followup": {
+                        "subject": t3_sub,
+                        "body": t3_body,
+                    },
+                    "touch4_social_proof": {
+                        "subject": t4_sub,
+                        "body": t4_body,
+                    },
+                    "touch5_breakup": {
+                        "subject": t5_sub,
+                        "body": t5_body,
+                    },
+                },
+                "triggers": {
+                    "contracts_won": contracts["total_value_display"],
+                    "entity": contracts["top_contract_entity"],
+                    "intent": contracts["intent_level"],
+                    "expansion": lead["expansion_flag"],
+                }
+            })
+
             # Record in persistent ledger if not dry-run
             if not dry_run:
                 ledger.record_prospect(
@@ -820,20 +881,33 @@ class GenerateProspectsUseCase:
                     }
                 )
 
-        # 6. Export CSV Deliverable
+        # 6. Export CRM Deliverables (Clean CSV & Styled XLSX)
         csv_filename = os.path.join(batch_dir, "prospects.csv")
+        xlsx_filename = os.path.join(batch_dir, "prospects.xlsx")
         md_filename = os.path.join(batch_dir, "executive_dossier.md")
+        pdf_filename = os.path.join(batch_dir, "executive_dossier.pdf")
         teaser_filename = os.path.join(batch_dir, "confidential_teaser.html")
 
-        if output_format in ("csv", "both"):
+        if output_format in ("csv", "both", "all", "xlsx"):
             with open(csv_filename, "w", newline="", encoding="utf-8-sig") as f:
-                writer = csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()))
+                writer = csv.DictWriter(f, fieldnames=list(crm_rows[0].keys()))
                 writer.writeheader()
-                writer.writerows(csv_rows)
+                writer.writerows(crm_rows)
             print(f"✅ Generated CRM CSV Batch: {csv_filename}")
 
+            try:
+                excel_adapter = ExcelDossierAdapter()
+                excel_adapter.export_prospects_xlsx(
+                    rows=crm_rows,
+                    output_path=xlsx_filename,
+                    campaign_title=campaign_name
+                )
+                print(f"✅ Generated Styled CRM XLSX Spreadsheet: {xlsx_filename}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not generate XLSX spreadsheet: {e}")
+
         # 7. Export Markdown Executive Dossier
-        if output_format in ("markdown", "both"):
+        if output_format in ("markdown", "both", "all", "pdf"):
             if is_multi_country:
                 country_flag = "🌎"
                 country_name_title = "Cross-Border (Latam)"
@@ -940,6 +1014,23 @@ class GenerateProspectsUseCase:
                 f.write("\n".join(md_content))
             print(f"✅ Generated Executive Dossier: {md_filename}")
 
+            try:
+                pdf_adapter = PdfDossierAdapter()
+                pdf_adapter.generate_dossier_pdf(
+                    campaign_cfg=campaign_cfg,
+                    leads=csv_rows,
+                    output_path=pdf_filename,
+                    tier=tier,
+                    metrics={
+                        "total_leads": len(csv_rows),
+                        "candidates_evaluated": total_candidates_scanned,
+                        "pipeline_pass_rate": f"{qual_rate:.1f}%",
+                    }
+                )
+                print(f"✅ Generated Executive PDF Dossier: {pdf_filename}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not generate PDF dossier: {e}")
+
         # 8. Compile Teaser if enabled
         compiled_teaser = compile_teaser_html(campaign_cfg, teaser_filename)
         if compiled_teaser:
@@ -1035,9 +1126,12 @@ class GenerateProspectsUseCase:
             "currency": target_currency,
             "target_cities": scanned_cities,
             "batch_dir": batch_dir,
-            "csv_path": csv_filename if output_format in ("csv", "both") else None,
-            "dossier_path": md_filename if output_format in ("markdown", "both") else None,
+            "csv_path": csv_filename if output_format in ("csv", "both", "all") else None,
+            "xlsx_path": xlsx_filename if (output_format in ("csv", "both", "all", "xlsx") and os.path.exists(xlsx_filename)) else None,
+            "dossier_path": md_filename if output_format in ("markdown", "both", "all") else None,
+            "pdf_path": pdf_filename if (output_format in ("markdown", "both", "all", "pdf") and os.path.exists(pdf_filename)) else None,
             "teaser_path": teaser_filename if compiled_teaser else None,
+            "playbook_cadences": playbook_cadences,
             "total_qualified": qualified_count,
             "leads": all_selected,
             "sample_teaser": teaser_list,

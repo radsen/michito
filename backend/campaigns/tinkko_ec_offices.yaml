@@ -68,3 +68,4 @@ touches:
 
   touch5_phone_script: |
     "Buenos días, con {decision_maker_name} de {clean_name}. Le saluda el equipo de Expansión Corporativa de Tinkko en Ecuador. Le enviamos una propuesta sobre sedes corporativas llave en mano y reducción de CapEx en {city}. ¿Pudo revisarla o prefiere que le coordinemos un recorrido presencial con su equipo administrativo?"
+

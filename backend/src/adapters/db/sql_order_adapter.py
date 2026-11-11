@@ -90,6 +90,12 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN max_retries INTEGER DEFAULT 3"))
                     if "last_retried_at" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN last_retried_at TIMESTAMP NULL"))
+                    if "delivery_xlsx_path" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_xlsx_path TEXT NULL"))
+                    if "delivery_pdf_path" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_pdf_path TEXT NULL"))
+                    if "delivery_playbook" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_playbook JSON NULL"))
             if "clients" in table_names:
                 client_columns = [c["name"] for c in inspector.get_columns("clients")]
                 if "referral_partner" not in client_columns:
@@ -227,7 +233,10 @@ class SqlOrderAdapter:
                 d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
                 d["error_message"] = getattr(order_obj, "error_message", None)
                 d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if delivery.get("csv_path") else None
+                d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if delivery.get("xlsx_path") else None
                 d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if delivery.get("dossier_path") else None
+                d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if delivery.get("pdf_path") else None
+                d["playbook"] = delivery.get("playbook") or []
                 return d
             return None
 
@@ -508,7 +517,10 @@ class SqlOrderAdapter:
             order_obj.delivery_total_qualified = res.get("total_qualified", len(leads_data))
             order_obj.delivery_sample_teaser = res.get("sample_teaser", [])
             order_obj.delivery_csv_path = res.get("csv_path")
+            order_obj.delivery_xlsx_path = res.get("xlsx_path")
             order_obj.delivery_dossier_path = res.get("dossier_path")
+            order_obj.delivery_pdf_path = res.get("pdf_path")
+            order_obj.delivery_playbook = res.get("playbook_cadences", [])
             order_obj.metrics = res.get("metrics", {})
             order_obj.completed_at = now
             order_obj.updated_at = now

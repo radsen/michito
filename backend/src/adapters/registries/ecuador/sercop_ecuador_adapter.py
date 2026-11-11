@@ -384,3 +384,4 @@ class SercopEcuadorAdapter:
                 "data_source": "SERCOP_ECUADOR_OCDS_REGISTRY",
             }
         ]
+

@@ -348,23 +348,32 @@ def pay_prospecting_order(order_id: str):
 @app.get("/api/v1/orders/{order_id}/download/{file_type}")
 def download_deliverable(order_id: str, file_type: str):
     """
-    Serves the generated CSV or Markdown executive dossier.
+    Serves the generated CSV, XLSX, PDF, or Markdown executive dossier.
     """
     order = sql_adapter.get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     delivery = order.get("delivery", {})
-    if file_type.lower() == "csv":
+    ft = file_type.lower()
+    if ft == "csv":
         file_path = delivery.get("csv_path")
         media_type = "text/csv"
         filename = f"{order_id}_prospects.csv"
-    elif file_type.lower() in ("md", "dossier", "markdown"):
+    elif ft in ("xlsx", "excel"):
+        file_path = delivery.get("xlsx_path")
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"{order_id}_prospects.xlsx"
+    elif ft in ("pdf",):
+        file_path = delivery.get("pdf_path")
+        media_type = "application/pdf"
+        filename = f"{order_id}_dossier_ejecutivo.pdf"
+    elif ft in ("md", "dossier", "markdown"):
         file_path = delivery.get("dossier_path")
         media_type = "text/markdown"
         filename = f"{order_id}_executive_dossier.md"
     else:
-        raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv' or 'md')")
+        raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv', 'xlsx', 'pdf', or 'md')")
 
     if not file_path:
         raise HTTPException(status_code=404, detail="No deliverable file path recorded for this order.")

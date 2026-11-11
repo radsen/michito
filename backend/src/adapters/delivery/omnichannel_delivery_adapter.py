@@ -74,10 +74,32 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         if not md_url:
             md_url = f"/api/v1/orders/{order_id}/download/md"
 
+        xlsx_url = order.get("xlsx_download_url") or ""
+        if not xlsx_url and "delivery" in order:
+            xlsx_url = order["delivery"].get("xlsx_download_url", "") or order["delivery"].get("xlsx_path", "")
+        if not xlsx_url:
+            xlsx_url = f"/api/v1/orders/{order_id}/download/xlsx"
+
+        pdf_url = order.get("pdf_download_url") or ""
+        if not pdf_url and "delivery" in order:
+            pdf_url = order["delivery"].get("pdf_download_url", "") or order["delivery"].get("pdf_path", "")
+        if not pdf_url:
+            pdf_url = f"/api/v1/orders/{order_id}/download/pdf"
+
+        xlsx_path = order.get("xlsx_path") or ""
+        if not xlsx_path and "delivery" in order:
+            xlsx_path = order["delivery"].get("xlsx_path", "")
+
+        pdf_path = order.get("pdf_path") or ""
+        if not pdf_path and "delivery" in order:
+            pdf_path = order["delivery"].get("pdf_path", "")
+
         # Resolve public absolute URLs for outbound links
         base_url = os.environ.get("BASE_URL") or os.environ.get("API_BASE_URL") or "http://localhost:8000"
         full_csv_url = f"{base_url.rstrip('/')}{csv_url}" if csv_url.startswith("/") else csv_url
         full_md_url = f"{base_url.rstrip('/')}{md_url}" if md_url.startswith("/") else md_url
+        full_xlsx_url = f"{base_url.rstrip('/')}{xlsx_url}" if xlsx_url.startswith("/") else xlsx_url
+        full_pdf_url = f"{base_url.rstrip('/')}{pdf_url}" if pdf_url.startswith("/") else pdf_url
 
         # Order metadata
         campaign_id = (
@@ -119,6 +141,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             tier=tier,
             csv_url=full_csv_url,
             md_url=full_md_url,
+            xlsx_url=full_xlsx_url,
+            pdf_url=full_pdf_url,
         )
         text_content = self._render_email_text(
             buyer_name=buyer_name,
@@ -128,6 +152,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             total_qualified=total_qualified,
             csv_url=full_csv_url,
             md_url=full_md_url,
+            xlsx_url=full_xlsx_url,
+            pdf_url=full_pdf_url,
         )
         whatsapp_text = self._render_whatsapp_text(
             buyer_name=buyer_name,
@@ -159,6 +185,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             html_content=html_content,
             text_content=text_content,
             csv_path=csv_path,
+            xlsx_path=xlsx_path,
+            pdf_path=pdf_path,
         )
 
         # 5. Outbound WhatsApp Delivery (if configured)
@@ -180,7 +208,11 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         tier: int,
         csv_url: str,
         md_url: str,
+        xlsx_url: Optional[str] = None,
+        pdf_url: Optional[str] = None,
     ) -> str:
+        xlsx_btn = f'<a href="{xlsx_url}" class="btn-primary" style="background:#0F766E;margin-bottom:10px;">📊 Descargar Hoja de Cálculo Formateada (.XLSX)</a><br>' if xlsx_url else ""
+        pdf_btn = f'<a href="{pdf_url}" class="btn-primary" style="background:#0284C7;margin-bottom:10px;">📑 Descargar Dossier Ejecutivo y Guiones (.PDF)</a><br>' if pdf_url else ""
         return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -227,9 +259,11 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         <div class="order-row"><span class="label">Nivel de Inteligencia:</span> <span class="value">Tier {tier}</span></div>
       </div>
       <div class="actions">
-        <a href="{csv_url}" class="btn-primary">📊 Descargar Base de Datos Completa (CSV)</a>
+        {xlsx_btn}
+        {pdf_btn}
+        <a href="{csv_url}" class="btn-secondary" style="margin-bottom:10px;">📂 Descargar Base para Ingesta CRM (.CSV)</a>
         <br>
-        <a href="{md_url}" class="btn-secondary">📑 Descargar Dossier Ejecutivo y Guiones (Markdown)</a>
+        <a href="{md_url}" class="btn-secondary">📝 Descargar Dossier (.MD)</a>
       </div>
       <div class="guarantee-box">
         <h4>🛡️ Garantía de Calidad Michito (Zero-Bounce Guarantee)</h4>
@@ -253,7 +287,11 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         total_qualified: int,
         csv_url: str,
         md_url: str,
+        xlsx_url: Optional[str] = None,
+        pdf_url: Optional[str] = None,
     ) -> str:
+        xlsx_line = f"- Descarga Hoja de Cálculo (.XLSX): {xlsx_url}\n" if xlsx_url else ""
+        pdf_line = f"- Descarga Dossier Ejecutivo (.PDF): {pdf_url}\n" if pdf_url else ""
         return f"""Hola {buyer_name},
 
 Tu orden de inteligencia B2B (#{order_id}) ha sido procesada exitosamente.
@@ -262,8 +300,8 @@ RESUMEN DE ENTREGA:
 - Campaña: {campaign_id}
 - Cobertura: {city}
 - Cuentas Calificadas: {total_qualified}
-- Descarga CSV (CRM): {csv_url}
-- Descarga Dossier Ejecutivo: {md_url}
+{xlsx_line}{pdf_line}- Descarga CSV (CRM): {csv_url}
+- Descarga Playbook (.MD): {md_url}
 
 GARANTÍA DE REPOSICIÓN MICHITO:
 Todos los buzones han sido validados vía Socket MX. Garantía de rebote 0%-3%.
@@ -352,7 +390,9 @@ Chiketto B2B Operations
         subject: str,
         html_content: str,
         text_content: str,
-        csv_path: str,
+        csv_path: Optional[str] = None,
+        xlsx_path: Optional[str] = None,
+        pdf_path: Optional[str] = None,
     ) -> bool:
         smtp_host = os.environ.get("SMTP_HOST")
         dev_email = os.environ.get("DEV_DELIVERY_EMAIL") or os.environ.get("TEST_EMAIL")
@@ -392,6 +432,30 @@ Chiketto B2B Operations
                         part.set_payload(f.read())
                         encoders.encode_base64(part)
                         filename = f"prospectos_{order_id}.csv"
+                        part.add_header("Content-Disposition", f"attachment; filename={filename}")
+                        msg.attach(part)
+
+            # Direct XLSX attachment
+            if xlsx_path and os.path.exists(xlsx_path) and os.path.isfile(xlsx_path):
+                file_size = os.path.getsize(xlsx_path)
+                if file_size < 20 * 1024 * 1024:
+                    with open(xlsx_path, "rb") as f:
+                        part = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        part.set_payload(f.read())
+                        encoders.encode_base64(part)
+                        filename = f"prospectos_{order_id}.xlsx"
+                        part.add_header("Content-Disposition", f"attachment; filename={filename}")
+                        msg.attach(part)
+
+            # Direct PDF attachment
+            if pdf_path and os.path.exists(pdf_path) and os.path.isfile(pdf_path):
+                file_size = os.path.getsize(pdf_path)
+                if file_size < 20 * 1024 * 1024:
+                    with open(pdf_path, "rb") as f:
+                        part = MIMEBase("application", "pdf")
+                        part.set_payload(f.read())
+                        encoders.encode_base64(part)
+                        filename = f"dossier_ejecutivo_{order_id}.pdf"
                         part.add_header("Content-Disposition", f"attachment; filename={filename}")
                         msg.attach(part)
 

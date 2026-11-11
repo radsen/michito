@@ -172,9 +172,11 @@ class OrderWorkerDaemon:
             )
 
             # Upload deliverables to Storage Adapter (Local or GCS)
-            print(f"[WorkerDaemon] 📦 [4/4] Packaging structured CSV manifest and executive dossier...")
+            print(f"[WorkerDaemon] 📦 [4/4] Packaging structured CSV/XLSX manifest and executive PDF dossier...")
             csv_path = job_result.get("csv_path")
+            xlsx_path = job_result.get("xlsx_path")
             dossier_path = job_result.get("dossier_path")
+            pdf_path = job_result.get("pdf_path")
 
             if csv_path and os.path.exists(csv_path):
                 dest_csv = f"orders/{order_id}/prospects.csv"
@@ -184,13 +186,29 @@ class OrderWorkerDaemon:
                 job_result["csv_download_url"] = csv_url
                 print(f"[WorkerDaemon] 📦 CSV Stored: {csv_uri}")
 
+            if xlsx_path and os.path.exists(xlsx_path):
+                dest_xlsx = f"orders/{order_id}/prospects.xlsx"
+                xlsx_uri = self.storage_adapter.upload_file(xlsx_path, dest_xlsx, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                xlsx_url = self.storage_adapter.generate_download_url(dest_xlsx, expiration_hours=48)
+                job_result["xlsx_uri"] = xlsx_uri
+                job_result["xlsx_download_url"] = xlsx_url
+                print(f"[WorkerDaemon] 📊 XLSX Stored: {xlsx_uri}")
+
             if dossier_path and os.path.exists(dossier_path):
                 dest_dossier = f"orders/{order_id}/executive_dossier.md"
                 dossier_uri = self.storage_adapter.upload_file(dossier_path, dest_dossier, content_type="text/markdown")
                 dossier_url = self.storage_adapter.generate_download_url(dest_dossier, expiration_hours=48)
                 job_result["dossier_uri"] = dossier_uri
                 job_result["dossier_download_url"] = dossier_url
-                print(f"[WorkerDaemon] 📄 Dossier Stored: {dossier_uri}")
+                print(f"[WorkerDaemon] 📄 Markdown Dossier Stored: {dossier_uri}")
+
+            if pdf_path and os.path.exists(pdf_path):
+                dest_pdf = f"orders/{order_id}/executive_dossier.pdf"
+                pdf_uri = self.storage_adapter.upload_file(pdf_path, dest_pdf, content_type="application/pdf")
+                pdf_url = self.storage_adapter.generate_download_url(dest_pdf, expiration_hours=48)
+                job_result["pdf_uri"] = pdf_uri
+                job_result["pdf_download_url"] = pdf_url
+                print(f"[WorkerDaemon] 📑 PDF Dossier Stored: {pdf_uri}")
 
             self.order_repository.complete_order(
                 order_id=order_id,

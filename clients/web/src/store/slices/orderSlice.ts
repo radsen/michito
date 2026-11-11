@@ -23,7 +23,10 @@ export interface OrderState {
   teaserLeads: TeaserLead[];
   totalAmountInCents: number;
   csvDownloadUrl: string | null;
+  xlsxDownloadUrl: string | null;
   dossierDownloadUrl: string | null;
+  pdfDownloadUrl: string | null;
+  playbook: any[];
 }
 
 function getInitialActiveOrderId(): string | null {
@@ -56,7 +59,10 @@ const initialState: OrderState = {
   teaserLeads: [],
   totalAmountInCents: 0,
   csvDownloadUrl: null,
+  xlsxDownloadUrl: null,
   dossierDownloadUrl: null,
+  pdfDownloadUrl: null,
+  playbook: [],
 };
 
 function syncUrlWithOrderId(orderId: string | null) {
@@ -131,7 +137,10 @@ export const orderSlice = createSlice({
         status: string;
         teaserLeads?: TeaserLead[];
         csvUrl?: string;
+        xlsxUrl?: string;
         dossierUrl?: string;
+        pdfUrl?: string;
+        playbook?: any[];
         totalAmountInCents?: number;
         totalLeadsTarget?: number;
       }>
@@ -143,8 +152,17 @@ export const orderSlice = createSlice({
       if (action.payload.csvUrl) {
         state.csvDownloadUrl = action.payload.csvUrl;
       }
+      if (action.payload.xlsxUrl) {
+        state.xlsxDownloadUrl = action.payload.xlsxUrl;
+      }
       if (action.payload.dossierUrl) {
         state.dossierDownloadUrl = action.payload.dossierUrl;
+      }
+      if (action.payload.pdfUrl) {
+        state.pdfDownloadUrl = action.payload.pdfUrl;
+      }
+      if (action.payload.playbook && action.payload.playbook.length > 0) {
+        state.playbook = action.payload.playbook;
       }
       if (action.payload.totalAmountInCents && action.payload.totalAmountInCents > 0) {
         state.totalAmountInCents = action.payload.totalAmountInCents;
@@ -163,7 +181,10 @@ export const orderSlice = createSlice({
       state.errorMessage = null;
       state.teaserLeads = [];
       state.csvDownloadUrl = null;
+      state.xlsxDownloadUrl = null;
       state.dossierDownloadUrl = null;
+      state.pdfDownloadUrl = null;
+      state.playbook = [];
       syncUrlWithOrderId(null);
     },
   },
