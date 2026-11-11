@@ -26,6 +26,8 @@ def calculate_lead_pricing(total_qualified: int, tier: int = 2, currency: str = 
 
     if currency.upper() == "DOP":
         base_rates = {1: 10000, 2: 35000, 3: 75000}  # 100, 350, 750 DOP in cents
+    elif currency.upper() == "USD":
+        base_rates = {1: 150, 2: 750, 3: 1600}  # $1.50, $7.50, $16.00 USD in cents
     else:
         base_rates = {1: 500000, 2: 3000000, 3: 6500000}  # $5.000, $30.000, $65.000 COP in cents
 
@@ -135,6 +137,10 @@ class OrderWorkerDaemon:
             }
             if exclusions:
                 exec_kwargs["exclusions"] = exclusions
+            if req.get("country") and req.get("country") != "CO":
+                exec_kwargs["country"] = req.get("country")
+            if req.get("country_allocations"):
+                exec_kwargs["country_allocations"] = req.get("country_allocations")
 
             job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0
@@ -149,7 +155,15 @@ class OrderWorkerDaemon:
                 return False
 
             country = req.get("country", "CO")
-            currency = job_result.get("currency", "DOP" if country == "DO" else "COP")
+            country_allocations = req.get("country_allocations")
+            if country_allocations:
+                currency = "USD"
+            elif country == "EC":
+                currency = "USD"
+            elif country == "DO":
+                currency = "DOP"
+            else:
+                currency = job_result.get("currency", "COP")
 
             total_price_cents = calculate_lead_pricing(
                 total_qualified=total_qualified,

@@ -70,6 +70,7 @@ class ClientDto(BaseModel):
 class RequestDto(BaseModel):
     campaign_id: str
     country: Optional[str] = "CO"
+    country_allocations: Optional[Dict[str, int]] = None
     city: Optional[str] = "Medellín"
     limit: Optional[int] = 10
     tier: Optional[int] = 2
@@ -219,7 +220,15 @@ def create_prospecting_order(payload: CreateOrderRequest):
     creates the client record, persists order in PostgreSQL, and queues it for the worker.
     """
     try:
-        currency = "DOP" if payload.request.country and payload.request.country.upper() == "DO" else "COP"
+        if payload.request.country_allocations:
+            currency = "USD"
+        elif payload.request.country and payload.request.country.upper() == "EC":
+            currency = "USD"
+        elif payload.request.country and payload.request.country.upper() == "DO":
+            currency = "DOP"
+        else:
+            currency = "COP"
+
         merged_exclusions = list(payload.request.keywords_exclude or [])
         if payload.request.exclusions:
             for item in payload.request.exclusions:
@@ -242,6 +251,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             keywords_include=payload.request.keywords_include,
             keywords_exclude=merged_exclusions or None,
             tier=payload.request.tier or 2,
+            country_allocations=payload.request.country_allocations,
         )
 
         try:

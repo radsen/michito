@@ -82,6 +82,8 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settled_at TIMESTAMP NULL"))
                     if "partner_settlement_status" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settlement_status VARCHAR(32) DEFAULT 'pending'"))
+                    if "country_allocations" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN country_allocations JSON NULL"))
                     if "retry_count" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN retry_count INTEGER DEFAULT 0"))
                     if "max_retries" not in columns:
@@ -144,6 +146,7 @@ class SqlOrderAdapter:
         keywords_exclude: Optional[List[str]] = None,
         referral_partner: str = "direct",
         tier: int = 2,
+        country_allocations: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -180,6 +183,7 @@ class SqlOrderAdapter:
             partner_settlement_status="pending" if partner_comm_rate > 0 else "not_applicable",
             campaign_id=campaign_id,
             country=country.upper(),
+            country_allocations=country_allocations,
             city=city,
             requested_limit=limit,
             tier=tier,

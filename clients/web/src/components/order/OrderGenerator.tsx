@@ -57,13 +57,23 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
+      isMultiCountry: false,
     },
     {
       id: "eventos_ferias_b2b",
-      name: "🇨🇴 Ferias Comerciales & Misiones de Compradores Internacionales",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Medellín",
+      name: "🌎 Cross-Border / Ferias Comerciales & Misiones B2B (Multi-País)",
+      country: "MULTI",
+      currency: "USD",
+      defaultCity: "Medellín, Santo Domingo, Quito",
+      isMultiCountry: true,
+    },
+    {
+      id: "tinkko_ec_offices",
+      name: "🇪🇨 Sedes & Oficinas Corporativas Ecuador (Quito / Guayaquil)",
+      country: "EC",
+      currency: "USD",
+      defaultCity: "Quito",
+      isMultiCountry: false,
     },
     {
       id: "tinkko_dr_offices",
@@ -71,6 +81,7 @@ export const OrderGenerator: React.FC = () => {
       country: "DO",
       currency: "DOP",
       defaultCity: "Santo Domingo",
+      isMultiCountry: false,
     },
     {
       id: "hebi",
@@ -78,6 +89,7 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Bogotá",
+      isMultiCountry: false,
     },
     {
       id: "chiketto",
@@ -85,6 +97,7 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Bogotá",
+      isMultiCountry: false,
     },
     {
       id: "blueoil",
@@ -92,6 +105,7 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
+      isMultiCountry: false,
     },
     {
       id: "facility_services_b2b",
@@ -99,6 +113,7 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
+      isMultiCountry: false,
     },
     {
       id: "warehouse_aburra_norte",
@@ -106,6 +121,7 @@ export const OrderGenerator: React.FC = () => {
       country: "CO",
       currency: "COP",
       defaultCity: "Medellín",
+      isMultiCountry: false,
     },
   ];
 
@@ -123,6 +139,8 @@ export const OrderGenerator: React.FC = () => {
       "Barranquilla",
     ],
     DO: ["🇩🇴 Todo el País", "Santo Domingo", "Santiago", "Punta Cana", "La Romana"],
+    EC: ["🇪🇨 Todo el Ecuador", "Pichincha", "Guayas", "Azuay", "Quito", "Guayaquil", "Cuenca"],
+    MULTI: ["🌎 Cross-Border (CO, DO, EC)", "Medellín, Santo Domingo, Quito", "Bogotá, Guayaquil, Santiago"],
   };
 
   const currentCamp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId) || CAMPAIGN_OPTIONS[0];
@@ -133,6 +151,11 @@ export const OrderGenerator: React.FC = () => {
   const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Cross-Border Multi-Country Quota Allocations (%)
+  const [quotaCO, setQuotaCO] = useState(50);
+  const [quotaDO, setQuotaDO] = useState(30);
+  const [quotaEC, setQuotaEC] = useState(20);
 
   // Exclusions State
   const [isExclusionsOpen, setIsExclusionsOpen] = useState(false);
@@ -228,6 +251,15 @@ export const OrderGenerator: React.FC = () => {
     dispatch(startOrderSubmission());
 
     try {
+      const isMulti = currentCamp.isMultiCountry || currentCamp.country === "MULTI";
+      const totalPct = quotaCO + quotaDO + quotaEC;
+      const normCO = totalPct > 0 ? quotaCO / totalPct : 0.5;
+      const normDO = totalPct > 0 ? quotaDO / totalPct : 0.3;
+      const leadCO = Math.max(1, Math.round(volume * normCO));
+      const leadDO = Math.max(1, Math.round(volume * normDO));
+      const leadEC = Math.max(1, volume - leadCO - leadDO);
+      const countryAllocations = isMulti ? { CO: leadCO, DO: leadDO, EC: leadEC } : undefined;
+
       const payload = {
         client: {
           name: buyerName,
@@ -238,7 +270,8 @@ export const OrderGenerator: React.FC = () => {
         },
         request: {
           campaign_id: selectedCampaignId,
-          country: currentCamp.country,
+          country: isMulti ? "MULTI" : currentCamp.country,
+          country_allocations: countryAllocations,
           city: targetCity,
           limit: volume,
           tier: tier,
@@ -510,6 +543,123 @@ export const OrderGenerator: React.FC = () => {
                         ))}
                       </select>
                     </div>
+
+                    {/* Cross-Border Country Quota Allocator */}
+                    {(currentCamp.isMultiCountry || currentCamp.country === "MULTI") && (
+                      <div className="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-4 mb-4 shadow-lg backdrop-blur">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-base">🌎</span>
+                            <span className="text-sm font-semibold text-slate-100">Distribución de Cuota Multi-País</span>
+                          </div>
+                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                            Total: {volume} prospectos
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-3">
+                          Asigna el porcentaje de prospectos calificados que deseas cosechar de cada jurisdicción:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-medium text-slate-300">🇨🇴 Colombia</span>
+                              <span className="text-emerald-400 font-bold">{Math.max(1, Math.round(volume * (quotaCO / 100)))} leads</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="range"
+                                min="10"
+                                max="80"
+                                step="5"
+                                value={quotaCO}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setQuotaCO(val);
+                                  const rem = 100 - val;
+                                  setQuotaDO(Math.round(rem * 0.6));
+                                  setQuotaEC(rem - Math.round(rem * 0.6));
+                                }}
+                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                              />
+                              <span className="text-xs font-mono text-slate-300 w-8">{quotaCO}%</span>
+                            </div>
+                          </div>
+                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-medium text-slate-300">🇩🇴 Rep. Dom.</span>
+                              <span className="text-emerald-400 font-bold">{Math.max(1, Math.round(volume * (quotaDO / 100)))} leads</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="range"
+                                min="10"
+                                max="80"
+                                step="5"
+                                value={quotaDO}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setQuotaDO(val);
+                                  const rem = 100 - val;
+                                  setQuotaCO(Math.round(rem * 0.7));
+                                  setQuotaEC(rem - Math.round(rem * 0.7));
+                                }}
+                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                              />
+                              <span className="text-xs font-mono text-slate-300 w-8">{quotaDO}%</span>
+                            </div>
+                          </div>
+                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-medium text-slate-300">🇪🇨 Ecuador</span>
+                              <span className="text-emerald-400 font-bold">{Math.max(1, volume - Math.round(volume * (quotaCO / 100)) - Math.round(volume * (quotaDO / 100)))} leads</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="range"
+                                min="10"
+                                max="80"
+                                step="5"
+                                value={quotaEC}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setQuotaEC(val);
+                                  const rem = 100 - val;
+                                  setQuotaCO(Math.round(rem * 0.6));
+                                  setQuotaDO(rem - Math.round(rem * 0.6));
+                                }}
+                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                              />
+                              <span className="text-xs font-mono text-slate-300 w-8">{quotaEC}%</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-500 font-medium">Presets:</span>
+                          <button
+                            type="button"
+                            onClick={() => { setQuotaCO(34); setQuotaDO(33); setQuotaEC(33); }}
+                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                          >
+                            Equitativo (34/33/33)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setQuotaCO(50); setQuotaDO(20); setQuotaEC(30); }}
+                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                          >
+                            Andino (50 CO / 30 EC / 20 DO)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setQuotaCO(30); setQuotaDO(50); setQuotaEC(20); }}
+                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                          >
+                            Caribe (50 DO / 30 CO / 20 EC)
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Enrichment Tier Selector */}
                     <div className="form-group">

@@ -31,7 +31,9 @@ let currentOrderCurrency = null;
 function calculateClientPrice(totalLeads, tier = 2, currency = "COP") {
   const baseRates = currency === "DOP"
     ? { 1: 10000, 2: 35000, 3: 75000 }
-    : { 1: 500000, 2: 3000000, 3: 6500000 };
+    : (currency === "USD"
+      ? { 1: 150, 2: 750, 3: 1600 }
+      : { 1: 500000, 2: 3000000, 3: 6500000 });
   const unit = baseRates[tier] || baseRates[2];
 
   let discount = 0.0;
@@ -53,11 +55,13 @@ if (campaignSelectEl && targetCityEl) {
   campaignSelectEl.addEventListener("change", () => {
     const opt = campaignSelectEl.options[campaignSelectEl.selectedIndex];
     if (opt.dataset.country === "DO") {
-      if (targetCityEl.value === "Medellín" || !targetCityEl.value) {
-        targetCityEl.value = "Santo Domingo";
-      }
+      targetCityEl.value = "Santo Domingo";
+    } else if (opt.dataset.country === "EC") {
+      targetCityEl.value = "Quito";
+    } else if (opt.dataset.country === "MULTI") {
+      targetCityEl.value = "Medellín, Santo Domingo, Quito";
     } else {
-      if (targetCityEl.value === "Santo Domingo") {
+      if (targetCityEl.value === "Santo Domingo" || targetCityEl.value === "Quito" || targetCityEl.value.includes("Santo Domingo")) {
         targetCityEl.value = "Medellín";
       }
     }

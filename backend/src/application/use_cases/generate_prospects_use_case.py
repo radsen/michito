@@ -18,6 +18,7 @@ from campaign_loader import load_campaign, list_available_campaigns, compile_tea
 from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
 from src.adapters.registries.colombia.secop_contracts_adapter import SecopContractsAdapter
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
+from src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
 from src.adapters.verifiers.website_auditor import WebsiteAuditor
 from src.domain.value_objects.ciiu_code import CiiuCode
 from src.application.use_cases.underwrite_lead_use_case import UnderwriteLeadUseCase
@@ -29,7 +30,7 @@ GROWTH_OUTPUTS_BASE = os.path.join(WORKSPACE_ROOT, "outputs")
 
 def clean_company_name(raw_name: str) -> str:
     cleaned = re.sub(
-        r"\b(S\.?A\.?S\.?|S\.?A\.?|S\.?R\.?L\.?|E\.?I\.?R\.?L\.?|LTDA\.?|LIMITADA|E\.?U\.?|INC\.?|CORP\.?)\b",
+        r"\b(S\.?A\.?S\.?|S\.?A\.?|S\.?R\.?L\.?|E\.?I\.?R\.?L\.?|LTDA\.?|LIMITADA|E\.?U\.?|INC\.?|CORP\.?|C\.?A\.?)\b",
         "",
         raw_name,
         flags=re.IGNORECASE
@@ -50,6 +51,7 @@ def get_segment_metrics(raw_size: str, country: str = "CO") -> tuple[str, str, s
     Returns (segment_name, revenue_bracket, employees_bracket)
     Colombia: Decreto 957 de 2019 (MinCIT / Supersociedades)
     República Dominicana: Ley 187-17 (MICM - Ministerio de Industria, Comercio y Mipymes)
+    Ecuador: COPCI / SuperCias (Superintendencia de Compañías)
     """
     size_norm = (raw_size or "Mediana").strip().lower()
     if country == "DO":
@@ -61,6 +63,15 @@ def get_segment_metrics(raw_size: str, country: str = "CO") -> tuple[str, str, s
             return "Microempresa (Ley 187-17)", "Hasta RD$ 11.4M DOP", "1 - 10 empleados"
         else:
             return "Mediana Empresa (Ley 187-17)", "RD$ 77M - RD$ 288M DOP", "51 - 150 empleados"
+    elif country == "EC":
+        if "grande" in size_norm:
+            return "Gran Empresa (SuperCias)", "> $5.000.000 USD", "> 200 empleados"
+        elif "peque" in size_norm:
+            return "Pequeña Empresa (SuperCias)", "$100.001 - $1.000.000 USD", "10 - 49 empleados"
+        elif "micro" in size_norm:
+            return "Microempresa (SuperCias)", "< $100.000 USD", "1 - 9 empleados"
+        else:
+            return "Mediana Empresa (SuperCias)", "$1.000.001 - $5.000.000 USD", "50 - 199 empleados"
     else:
         if "grande" in size_norm:
             return "Gran Empresa (Dec. 957)", "> $65.000M COP", "> 200 empleados"
@@ -88,8 +99,16 @@ def verify_mx(email: str) -> tuple[bool, str]:
 
 def build_hiring_xray_url(company_name: str, city: str, country: str = "CO") -> str:
     import urllib.parse
-    domain_suffix = "do" if country == "DO" else "co"
-    country_name = "República Dominicana" if country == "DO" else "Colombia"
+    c_up = (country or "CO").upper()
+    if c_up == "DO":
+        domain_suffix = "do"
+        country_name = "República Dominicana"
+    elif c_up == "EC":
+        domain_suffix = "ec"
+        country_name = "Ecuador"
+    else:
+        domain_suffix = "co"
+        country_name = "Colombia"
     query = f'site:{domain_suffix}.linkedin.com/jobs "{company_name}" ("{city}" OR "{country_name}")'
     return f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
@@ -106,7 +125,13 @@ def build_targeted_linkedin_xray_url(
     based on the campaign ICP vertical.
     """
     import urllib.parse
-    domain_suffix = "do" if country == "DO" else "co"
+    c_up = (country or "CO").upper()
+    if c_up == "DO":
+        domain_suffix = "do"
+    elif c_up == "EC":
+        domain_suffix = "ec"
+    else:
+        domain_suffix = "co"
     clean_company = re.sub(
         r"\b(S\.?A\.?S\.?|S\.?R\.?L\.?|S\.?A\.?|LTDA\.?|LIMITADA|E\.?I\.?R\.?L\.?|INC\.?|CORP\.?)\b",
         "",
@@ -156,6 +181,9 @@ def mask_teaser_phone(phone: str, country: str = "CO") -> str:
     if country == "DO":
         last2 = digits[-2:] if len(digits) >= 2 else "••"
         return f"+1 (809) ••• ••{last2}"
+    if country == "EC":
+        last2 = digits[-2:] if len(digits) >= 2 else "••"
+        return f"+593 9• ••• ••{last2}"
     if len(digits) >= 10:
         prefix = digits[:3]
         last2 = digits[-2:]
@@ -167,6 +195,8 @@ def mask_teaser_nit(raw_nit: str) -> str:
     if not raw_nit:
         return ""
     clean = raw_nit.strip()
+    if len(clean) == 13 and clean.endswith("001"):
+        return f"{clean[:4]}•••••••{clean[-2:]}"
     if "-" in clean:
         base, dv = clean.split("-", 1)
         parts = base.split(".")
@@ -189,6 +219,7 @@ class GenerateProspectsUseCase:
         self,
         harvester_co: Optional[Any] = None,
         harvester_dr: Optional[Any] = None,
+        harvester_ec: Optional[Any] = None,
         contracts_adapter: Optional[Any] = None,
         web_auditor: Optional[Any] = None,
         ledger: Optional[DeduplicationLedger] = None,
@@ -197,6 +228,7 @@ class GenerateProspectsUseCase:
     ):
         self.harvester_co = harvester_co
         self.harvester_dr = harvester_dr
+        self.harvester_ec = harvester_ec
         self.contracts_adapter = contracts_adapter
         self.web_auditor = web_auditor
         self.ledger = ledger
@@ -214,6 +246,8 @@ class GenerateProspectsUseCase:
         output_format: str = "both",
         tier: int = 2,
         exclusions: Optional[List[str]] = None,
+        country: Optional[str] = None,
+        country_allocations: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Any]:
         print("=" * 80)
         print("🚀 UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
@@ -229,8 +263,35 @@ class GenerateProspectsUseCase:
         campaign_name = campaign_cfg["name"]
         target_cfg = campaign_cfg.get("target", {})
         touches_cfg = campaign_cfg.get("touches", {})
-        target_country = target_cfg.get("country", "CO").upper()
-        target_currency = target_cfg.get("currency", "DOP" if target_country == "DO" else "COP")
+        
+        # Determine targeting & allocations across countries
+        raw_country = (country or target_cfg.get("country", "CO")).upper()
+        
+        active_allocations: Dict[str, int] = {}
+        if country_allocations and isinstance(country_allocations, dict) and len(country_allocations) > 0:
+            alloc_sum = sum(country_allocations.values())
+            if alloc_sum == 100 and limit != 100:
+                accum = 0
+                items = list(country_allocations.items())
+                for c_k, pct in items[:-1]:
+                    q = max(1, int(round(limit * (pct / 100.0))))
+                    accum += q
+                    active_allocations[c_k.upper()] = q
+                last_k, _ = items[-1]
+                active_allocations[last_k.upper()] = max(1, limit - accum)
+            else:
+                active_allocations = {c_k.upper(): int(q) for c_k, q in country_allocations.items()}
+        elif raw_country in ("MULTI", "CROSS_BORDER", "LATAM"):
+            q_co = max(1, int(round(limit * 0.50)))
+            q_do = max(1, int(round(limit * 0.30)))
+            q_ec = max(1, limit - q_co - q_do)
+            active_allocations = {"CO": q_co, "DO": q_do, "EC": q_ec}
+        else:
+            active_allocations = {raw_country: limit}
+
+        is_multi_country = len(active_allocations) > 1
+        target_country = "MULTI" if is_multi_country else list(active_allocations.keys())[0]
+        target_currency = "USD" if is_multi_country or target_country == "EC" else ("DOP" if target_country == "DO" else "COP")
         recommended_angle = campaign_cfg.get("angles", {}).get(
             "recommended", "Eficiencia Operativa y Soluciones B2B Llave en Mano"
         )
@@ -240,35 +301,34 @@ class GenerateProspectsUseCase:
             "eje cafetero": ["Pereira", "Manizales", "Armenia"],
         }
 
-        # Determine cities / departments / territories to prospect
-        target_cities: List[str] = []
-        if city:
-            raw_tokens = [c.strip() for c in city.split(",") if c.strip()]
-            for token in raw_tokens:
+        def get_country_cities(c_code: str, raw_city_str: Optional[str]) -> List[str]:
+            c_defaults = {
+                "EC": ["Quito", "Guayaquil", "Cuenca"],
+                "DO": ["Santo Domingo", "Santiago"],
+                "CO": ["Medellín", "Bogotá"],
+            }
+            if not raw_city_str:
+                cfg_cities = target_cfg.get("cities")
+                if cfg_cities and not is_multi_country:
+                    return cfg_cities
+                return c_defaults.get(c_code, ["Medellín"])
+            
+            tokens = [c.strip() for c in raw_city_str.split(",") if c.strip()]
+            matched = []
+            for token in tokens:
                 norm_token = re.sub(r"[^\w\s]", "", token.lower()).strip()
-                if norm_token in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país"):
-                    target_cities.append("all")
-                elif norm_token in REGIONAL_EXPANSIONS:
-                    target_cities.extend(REGIONAL_EXPANSIONS[norm_token])
-                else:
-                    target_cities.append(token)
-        else:
-            cfg_cities = target_cfg.get("cities")
-            if cfg_cities:
-                target_cities = cfg_cities
-            elif target_cfg.get("city") and target_cfg.get("city") != "all":
-                target_cities = [target_cfg.get("city")]
-            else:
-                target_cities = ["Santo Domingo"] if target_country == "DO" else ["Medellín", "Bogotá"]
-
-        # Deduplicate while preserving order
-        dedup_cities: List[str] = []
-        for c in target_cities:
-            if c not in dedup_cities:
-                dedup_cities.append(c)
-        target_cities = dedup_cities
-
-        per_city_limit = max(1, limit // len(target_cities))
+                if norm_token in ("all", "nacional", "todo", "toda colombia", "todo el pais", "todo el país", "multi", "cross-border"):
+                    return ["all"]
+                if norm_token in REGIONAL_EXPANSIONS and c_code == "CO":
+                    matched.extend(REGIONAL_EXPANSIONS[norm_token])
+                    continue
+                if c_code == "EC" and any(k in norm_token for k in ("quito", "guayaquil", "cuenca", "pichincha", "guayas", "azuay", "ecuador")):
+                    matched.append(token)
+                elif c_code == "DO" and any(k in norm_token for k in ("santo domingo", "santiago", "punta cana", "romana", "dominicana")):
+                    matched.append(token)
+                elif c_code == "CO" and not any(k in norm_token for k in ("quito", "guayaquil", "cuenca", "santo domingo", "santiago", "dominicana", "ecuador")):
+                    matched.append(token)
+            return matched if matched else c_defaults.get(c_code, ["Medellín"])
 
         # Build normalized customer/competitor exclusion sets
         clean_excl_nits: Set[str] = set()
@@ -300,8 +360,7 @@ class GenerateProspectsUseCase:
                     clean_excl_keywords.add(item)
 
         print(f"📋 Campaign Profile:  {campaign_name} (`{campaign_id}`)")
-        print(f"🌍 Country Target:     {target_country}")
-        print(f"📍 Target Cities:      {', '.join(target_cities)} (Limit per city: ~{per_city_limit})")
+        print(f"🌍 Country Target:     {target_country} ({', '.join(f'{k}:{v}' for k, v in active_allocations.items())})")
         print(f"🔢 Total Batch Target: {limit} qualified accounts")
         print(f"🎯 Recommended Angle:  {recommended_angle}")
         if raw_exclusions:
@@ -313,12 +372,6 @@ class GenerateProspectsUseCase:
         seen_nits = ledger.get_seen_nits(campaign=campaign_id)
         print(f"[Ledger] Tracking {len(seen_nits)} previously prospected accounts. Exclusions active.")
 
-        # 3. Initialize Adapters based on Country
-        if target_country == "DO":
-            harvester = self.harvester_dr or DgcpDrAdapter(timeout=15)
-        else:
-            harvester = self.harvester_co or SecopHarvesterAdapter(timeout=15)
-
         contracts_adapter = self.contracts_adapter or SecopContractsAdapter(timeout=6)
         web_auditor = self.web_auditor or WebsiteAuditor(timeout=5)
 
@@ -328,196 +381,238 @@ class GenerateProspectsUseCase:
         verify_time_total = 0.0
         total_candidates_scanned = 0
 
-        # 4. Harvest and Qualify Candidates per City
+        # 3. Harvest and Qualify Candidates per Country Allocation
         kw_include = target_cfg.get("keywords_include")
         kw_exclude = target_cfg.get("keywords_exclude")
+        scanned_cities: List[str] = []
 
-        for target_city in target_cities:
-            remaining_batch = limit - len(all_selected)
-            if remaining_batch <= 0:
-                break
+        for c_code, c_quota in active_allocations.items():
+            c_country_name = "Ecuador" if c_code == "EC" else ("República Dominicana" if c_code == "DO" else "Colombia")
+            c_currency = "USD" if c_code == "EC" else ("DOP" if c_code == "DO" else "COP")
+            c_tax_type = "RUC" if c_code == "EC" else ("RNC" if c_code == "DO" else "NIT")
+            
+            if c_code == "EC":
+                harvester = self.harvester_ec or SercopEcuadorAdapter(timeout=15)
+            elif c_code == "DO":
+                harvester = self.harvester_dr or DgcpDrAdapter(timeout=15)
+            else:
+                harvester = self.harvester_co or SecopHarvesterAdapter(timeout=15)
+            
+            c_cities = get_country_cities(c_code, city)
+            country_selected = 0
 
-            print(f"\n[Harvester] Querying active corporate providers in {target_city}...")
-            # Harvest candidates with a generous buffer to hit the target quota after strict filters
-            raw_multiplier = 10 if target_country == "DO" else 12
-            harvester_kwargs: Dict[str, Any] = {
-                "city": target_city,
-                "limit": max(remaining_batch * raw_multiplier, 100),
-                "corporate_only": True,
-            }
-            if target_country == "DO":
-                if kw_include:
-                    harvester_kwargs["include_keywords"] = kw_include
-                if kw_exclude:
-                    harvester_kwargs["exclude_keywords"] = kw_exclude
-
-            t_harv_start = time.time()
-            raw_candidates = harvester.fetch_candidates(**harvester_kwargs)
-            t_harv_elapsed = time.time() - t_harv_start
-            harvest_time_total += t_harv_elapsed
-            print(f"   Retrieved {len(raw_candidates)} candidate entities in {target_city} ({t_harv_elapsed:.2f}s).")
-
-            city_accepted = 0
-            t_verif_city_start = time.time()
-            for item in raw_candidates:
-                total_candidates_scanned += 1
-                if len(all_selected) >= limit:
+            for target_city in c_cities:
+                if target_city not in scanned_cities:
+                    scanned_cities.append(target_city)
+                remaining_country = c_quota - country_selected
+                if remaining_country <= 0 or len(all_selected) >= limit:
                     break
 
-                nit = item["nit"]
-                company_name = item["company_name"]
+                print(f"\n[Harvester] Querying active corporate providers in {target_city} ({c_country_name})...")
+                raw_multiplier = 10 if c_code in ("DO", "EC") else 12
+                harvester_kwargs: Dict[str, Any] = {
+                    "city": target_city,
+                    "limit": max(remaining_country * raw_multiplier, 100),
+                    "corporate_only": True,
+                }
+                if c_code in ("DO", "EC"):
+                    if kw_include:
+                        harvester_kwargs["include_keywords"] = kw_include
+                    if kw_exclude:
+                        harvester_kwargs["exclude_keywords"] = kw_exclude
 
-                # Deduplication Check (Against Ledger & Active Batch)
-                if ledger.is_seen(nit, company_name) or any(s["nit"] == nit for s in all_selected):
-                    continue
+                t_harv_start = time.time()
+                raw_candidates = harvester.fetch_candidates(**harvester_kwargs)
+                t_harv_elapsed = time.time() - t_harv_start
+                harvest_time_total += t_harv_elapsed
+                print(f"   Retrieved {len(raw_candidates)} candidate entities in {target_city} ({t_harv_elapsed:.2f}s).")
 
-                # Customer & Competitor Exclusion Filter
-                nit_clean = re.sub(r"\D", "", nit or "")
-                nit_stripped = (nit or "").strip().replace(".", "").replace(" ", "")
-                cand_email = (item.get("email") or "").strip().lower()
-                cand_website = (item.get("website") or "").strip().lower()
-                cand_email_domain = cand_email.split("@")[1].strip().lower() if "@" in cand_email else ""
-                cand_url_domain = re.sub(r"^https?://(www\.)?", "", cand_website).split("/")[0].strip()
+                t_verif_city_start = time.time()
+                for item in raw_candidates:
+                    total_candidates_scanned += 1
+                    if country_selected >= c_quota or len(all_selected) >= limit:
+                        break
 
-                if (
-                    nit_clean in clean_excl_nits
-                    or nit_stripped in clean_excl_nits
-                    or (cand_email_domain and any(d in cand_email_domain for d in clean_excl_domains))
-                    or (cand_url_domain and any(d in cand_url_domain for d in clean_excl_domains))
-                    or any(kw in company_name.lower() for kw in clean_excl_keywords)
-                ):
-                    print(f"   [Exclusion Gate] Skipping excluded account: {company_name} (NIT: {nit})")
-                    continue
+                    nit = item["nit"]
+                    company_name = item["company_name"]
 
-                email = item["email"]
-                phone = item["phone"]
-
-                # Phone Gate: Tier-adaptive validation
-                digits_phone = re.sub(r"\D", "", phone or "")
-                if tier == 1:
-                    # Tier 1 (Company & General Outreach): Valid corporate phone (landline, PBX, or mobile)
-                    if len(digits_phone) < 7:
+                    # Deduplication Check (Against Ledger & Active Batch)
+                    if ledger.is_seen(nit, company_name) or any(s["nit"] == nit for s in all_selected):
                         continue
-                else:
-                    # Tier 2 & Tier 3 (Direct Decision-Maker Outreach): Valid direct mobile phone
-                    if target_country == "DO":
-                        if len(digits_phone) < 10:
+
+                    # Customer & Competitor Exclusion Filter
+                    nit_clean = re.sub(r"\D", "", nit or "")
+                    nit_stripped = (nit or "").strip().replace(".", "").replace(" ", "")
+                    cand_email = (item.get("email") or "").strip().lower()
+                    cand_website = (item.get("website") or "").strip().lower()
+                    cand_email_domain = cand_email.split("@")[1].strip().lower() if "@" in cand_email else ""
+                    cand_url_domain = re.sub(r"^https?://(www\.)?", "", cand_website).split("/")[0].strip()
+
+                    if (
+                        nit_clean in clean_excl_nits
+                        or nit_stripped in clean_excl_nits
+                        or (cand_email_domain and any(d in cand_email_domain for d in clean_excl_domains))
+                        or (cand_url_domain and any(d in cand_url_domain for d in clean_excl_domains))
+                        or any(kw in company_name.lower() for kw in clean_excl_keywords)
+                    ):
+                        print(f"   [Exclusion Gate] Skipping excluded account: {company_name} ({c_tax_type}: {nit})")
+                        continue
+
+                    email = item["email"]
+                    phone = item["phone"]
+
+                    # Phone Gate: Tier-adaptive validation
+                    digits_phone = re.sub(r"\D", "", phone or "")
+                    if tier == 1:
+                        if len(digits_phone) < 7:
                             continue
                     else:
-                        if not phone or len(digits_phone) < 10 or not digits_phone.startswith("3"):
+                        if c_code == "DO":
+                            clean_do = digits_phone[1:] if digits_phone.startswith("1") and len(digits_phone) == 11 else digits_phone
+                            if len(clean_do) < 10:
+                                continue
+                        elif c_code == "EC":
+                            clean_ec = digits_phone[3:] if digits_phone.startswith("593") and len(digits_phone) >= 12 else digits_phone
+                            if len(clean_ec) < 9 or not clean_ec.startswith("9"):
+                                continue
+                        else:
+                            clean_co = digits_phone[2:] if digits_phone.startswith("57") and len(digits_phone) == 12 else digits_phone
+                            if not phone or len(clean_co) < 10 or not clean_co.startswith("3"):
+                                continue
+
+                    # Deliverability Gate: DNS MX verification
+                    ok_mx, mx_host = self.verify_mx_fn(email)
+                    if not ok_mx:
+                        continue
+
+                    is_corporate_domain = not any(
+                        pub in email for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")
+                    )
+
+                    # Website Resolution & Quality Audit Gate
+                    candidate_url = item.get("website") or ""
+                    if not candidate_url and is_corporate_domain:
+                        candidate_domain = email.split("@")[1].strip().lower()
+                        candidate_url = f"https://www.{candidate_domain}"
+
+                    if tier == 1:
+                        audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
+                        audit_note = "Validado por Dominio Corporativo & MX"
+                    else:
+                        is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
+                        if not is_active_web:
                             continue
 
-                # Deliverability Gate: DNS MX verification
-                ok_mx, mx_host = self.verify_mx_fn(email)
-                if not ok_mx:
-                    continue
+                    # DANE / Regional Activity Classification
+                    ciiu_obj = CiiuCode.infer_from_text(
+                        company_name=company_name,
+                        email=email,
+                        raw_desc=item.get("sector", "")
+                    )
 
-                is_corporate_domain = not any(
-                    pub in email for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")
-                )
+                    # Trigger 1: Public Contract Awards
+                    if c_code == "DO":
+                        c_val = float(item.get("contract_val_dop") or 0.0)
+                        contracts_data = {
+                            "has_contracts": c_val > 0,
+                            "contracts_count": 1 if c_val > 0 else 0,
+                            "total_value_cop": c_val,
+                            "total_value_display": item.get("contract_val_display", "$0 DOP"),
+                            "top_contract_entity": item.get("contract_entity", "Estado Dominicano"),
+                            "top_contract_value_cop": c_val,
+                            "top_contract_value_display": item.get("contract_val_display", "$0 DOP"),
+                            "top_contract_object": item.get("contract_object", "Contratista adjudicado DGCP"),
+                            "intent_level": "Alto (Adjudicación DGCP Activa)" if c_val > 0 else "Estándar",
+                        }
+                    elif c_code == "EC":
+                        c_val = float(item.get("contract_val_usd") or 0.0)
+                        contracts_data = {
+                            "has_contracts": c_val > 0,
+                            "contracts_count": 1 if c_val > 0 else 0,
+                            "total_value_cop": c_val,
+                            "total_value_display": item.get("contract_val_display", "$0 USD"),
+                            "top_contract_entity": item.get("contract_entity", "Estado Ecuatoriano (SERCOP)"),
+                            "top_contract_value_cop": c_val,
+                            "top_contract_value_display": item.get("contract_val_display", "$0 USD"),
+                            "top_contract_object": item.get("contract_object", "Contratista adjudicado SERCOP"),
+                            "intent_level": "Alto (Adjudicación SERCOP Activa)" if c_val > 0 else "Estándar",
+                        }
+                    else:
+                        contracts_data = contracts_adapter.fetch_contracts_summary(nit)
 
-                # Website Resolution & Quality Audit Gate
-                candidate_url = item.get("website") or ""
-                if not candidate_url and is_corporate_domain:
-                    candidate_domain = email.split("@")[1].strip().lower()
-                    candidate_url = f"https://www.{candidate_domain}"
+                    # Trigger 2: Active Hiring Signals
+                    hiring_xray = build_hiring_xray_url(company_name, target_city, country=c_code)
 
-                if tier == 1:
-                    # Tier 1: Corporate domain & deliverable MX is sufficient; accept fallback web URL
-                    audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
-                    audit_note = "Validado por Dominio Corporativo & MX"
-                else:
-                    # Tier 2 & 3: Require active, non-parked, non-login portal website
-                    is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
-                    if not is_active_web:
-                        continue
+                    # Trigger 3: Regional Expansion & Satellite Need
+                    reg_city = item.get("city") or target_city
+                    if reg_city.lower() != target_city.lower():
+                        expansion_flag = f"Sede Satélite en Expansión (Registrada en {reg_city})"
+                    elif contracts_data["has_contracts"]:
+                        expansion_flag = f"Ejecutando Contratos Públicos Activos en {c_country_name}"
+                    else:
+                        expansion_flag = "Operación Corporativa en Expansión Local"
 
-                # DANE / Regional Activity Classification
-                ciiu_obj = CiiuCode.infer_from_text(
-                    company_name=company_name,
-                    email=email,
-                    raw_desc=item.get("sector", "")
-                )
+                    clean_name = clean_company_name(company_name)
+                    rep_name = (item.get("decision_maker_name") or "").strip()
+                    if tier >= 2:
+                        if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
+                            continue
+                    if not rep_name:
+                        rep_name = "Representante Legal"
+                    first_name = get_first_name(rep_name)
+                    seg_name, rev_range, emp_range = get_segment_metrics(
+                        item.get("tama_o_entidad", "Mediana"), country=c_code
+                    )
 
-                # Trigger 1: Public Contract Awards (Cash Inflow & Project Delivery Intent)
-                if target_country == "DO":
-                    c_val = float(item.get("contract_val_dop") or 0.0)
-                    contracts_data = {
-                        "has_contracts": c_val > 0,
-                        "contracts_count": 1 if c_val > 0 else 0,
-                        "total_value_cop": c_val,
-                        "total_value_display": item.get("contract_val_display", "$0 DOP"),
-                        "top_contract_entity": item.get("contract_entity", "Estado Dominicano"),
-                        "top_contract_value_cop": c_val,
-                        "top_contract_value_display": item.get("contract_val_display", "$0 DOP"),
-                        "top_contract_object": item.get("contract_object", "Contratista adjudicado DGCP"),
-                        "intent_level": "Alto (Adjudicación DGCP Activa)" if c_val > 0 else "Estándar",
+                    default_title = (
+                        "Representante Legal / Gerente General (SuperCias)"
+                        if c_code == "EC"
+                        else ("Titular / Representante Registrado (DGCP)" if c_code == "DO" else "Representante Legal (Firmante Estatutario)")
+                    )
+                    rep_title = item.get("decision_maker_title") or default_title
+
+                    targeted_xray = build_targeted_linkedin_xray_url(
+                        company_name=company_name,
+                        rep_name=rep_name,
+                        campaign_id=campaign_id,
+                        country=c_code,
+                    )
+
+                    lead_record = {
+                        "company_name": company_name,
+                        "clean_name": clean_name,
+                        "first_name": first_name,
+                        "nit": nit,
+                        "tax_id": nit,
+                        "tax_id_type": c_tax_type,
+                        "country": c_code,
+                        "country_name": c_country_name,
+                        "currency": c_currency,
+                        "city": item.get("city") or target_city,
+                        "department": item.get("department") or "",
+                        "address": item.get("address", ""),
+                        "ciiu": ciiu_obj,
+                        "segment_name": seg_name,
+                        "revenue_bracket": rev_range,
+                        "employees_bracket": emp_range,
+                        "website_url": audited_url,
+                        "website_audit_status": audit_note,
+                        "decision_maker_name": rep_name,
+                        "decision_maker_title": rep_title,
+                        "decision_maker_category": default_title,
+                        "email": email,
+                        "phone": phone,
+                        "mx_host": mx_host,
+                        "linkedin_xray_url": targeted_xray,
+                        "contracts_data": contracts_data,
+                        "hiring_xray_url": hiring_xray,
+                        "expansion_flag": expansion_flag,
                     }
-                else:
-                    contracts_data = contracts_adapter.fetch_contracts_summary(nit)
 
-                # Trigger 2: Active Hiring Signals (1-click search link)
-                hiring_xray = build_hiring_xray_url(company_name, target_city, country=target_country)
+                    all_selected.append(lead_record)
+                    country_selected += 1
 
-                # Trigger 3: Regional Expansion & Satellite Need
-                reg_city = item.get("city") or target_city
-                if reg_city.lower() != target_city.lower():
-                    expansion_flag = f"Sede Satélite en Expansión (Registrada en {reg_city})"
-                elif contracts_data["has_contracts"]:
-                    expansion_flag = "Ejecutando Contratos Públicos Activos en Región"
-                else:
-                    expansion_flag = "Operación Corporativa en Expansión Local"
-
-                clean_name = clean_company_name(company_name)
-                rep_name = (item.get("decision_maker_name") or "").strip()
-                if tier >= 2:
-                    if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
-                        continue
-                if not rep_name:
-                    rep_name = "Representante Legal"
-                first_name = get_first_name(rep_name)
-                seg_name, rev_range, emp_range = get_segment_metrics(
-                    item.get("tama_o_entidad", "Mediana"), country=target_country
-                )
-
-                rep_title = item.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)"
-                targeted_xray = build_targeted_linkedin_xray_url(
-                    company_name=company_name,
-                    rep_name=rep_name,
-                    campaign_id=campaign_id,
-                    country=target_country,
-                )
-
-                lead_record = {
-                    "company_name": company_name,
-                    "clean_name": clean_name,
-                    "first_name": first_name,
-                    "nit": nit,
-                    "city": item.get("city") or target_city,
-                    "department": item.get("department") or "",
-                    "address": item.get("address", ""),
-                    "ciiu": ciiu_obj,
-                    "segment_name": seg_name,
-                    "revenue_bracket": rev_range,
-                    "employees_bracket": emp_range,
-                    "website_url": audited_url,
-                    "website_audit_status": audit_note,
-                    "decision_maker_name": rep_name,
-                    "decision_maker_title": rep_title,
-                    "decision_maker_category": "Representante Legal Estatutario (RUES / SECOP)",
-                    "email": email,
-                    "phone": phone,
-                    "mx_host": mx_host,
-                    "linkedin_xray_url": targeted_xray,
-                    "contracts_data": contracts_data,
-                    "hiring_xray_url": hiring_xray,
-                    "expansion_flag": expansion_flag,
-                }
-
-                all_selected.append(lead_record)
-                city_accepted += 1
-
-            verify_time_total += time.time() - t_verif_city_start
+                verify_time_total += time.time() - t_verif_city_start
 
         format_start_time = time.time()
 
@@ -531,7 +626,7 @@ class GenerateProspectsUseCase:
                 "campaign_name": campaign_name,
                 "country": target_country,
                 "currency": target_currency,
-                "target_cities": target_cities,
+                "target_cities": scanned_cities,
                 "batch_dir": None,
                 "csv_path": None,
                 "dossier_path": None,
@@ -562,10 +657,18 @@ class GenerateProspectsUseCase:
         os.makedirs(batch_dir, exist_ok=True)
 
         # Dynamic Country Regulatory Labels
-        tax_id_header = "RNC" if target_country == "DO" else "NIT"
-        size_header = "Company Size (Ley 187-17 MICM)" if target_country == "DO" else "Company Size (Decreto 957)"
-        activity_header = "Actividad Económica (DGII)" if target_country == "DO" else "CIIU Activity (RUT Box 46)"
-        code_header = "DGII Code" if target_country == "DO" else "CIIU Code"
+        tax_id_header = "RUC" if target_country == "EC" else ("RNC" if target_country == "DO" else "NIT")
+        size_header = (
+            "Company Size (SuperCias)"
+            if target_country == "EC"
+            else ("Company Size (Ley 187-17 MICM)" if target_country == "DO" else "Company Size (Decreto 957)")
+        )
+        activity_header = (
+            "Actividad Económica (SRI)"
+            if target_country == "EC"
+            else ("Actividad Económica (DGII)" if target_country == "DO" else "CIIU Activity (RUT Box 46)")
+        )
+        code_header = "SRI Code" if target_country == "EC" else ("DGII Code" if target_country == "DO" else "CIIU Code")
         contracts_header = f"Trigger 1: Total Contracts Won {target_currency}"
 
         for idx, lead in enumerate(all_selected, start=1):
@@ -575,6 +678,9 @@ class GenerateProspectsUseCase:
             city = lead["city"]
             ciiu = lead["ciiu"]
             contracts = lead["contracts_data"]
+            lead_c = lead.get("country", target_country)
+            lead_curr = lead.get("currency", target_currency)
+            lead_tax = lead.get("tax_id_type", "NIT")
 
             # Format touches from YAML
             t1 = touches_cfg.get("touch1_linkedin_invite", "").format(
@@ -621,14 +727,17 @@ class GenerateProspectsUseCase:
 
             row = {
                 "Index": idx,
+                "Country": lead_c,
+                "Country Name": lead.get("country_name", "Colombia"),
+                "Tax ID Type": lead_tax,
+                "Tax ID": lead["nit"],
                 "Company Name": lead["company_name"],
-                tax_id_header: lead["nit"],
                 "City": lead["city"],
                 "Department": lead.get("department", ""),
-                code_header: ciiu.code,
+                "Activity Code": ciiu.code,
                 "Sector Macro": ciiu.sector_macro,
-                activity_header: ciiu.description,
-                size_header: lead["segment_name"],
+                "Economic Activity": ciiu.description,
+                "Company Size": lead["segment_name"],
                 "Revenue Bracket": lead["revenue_bracket"],
                 "Estimated Employees": lead["employees_bracket"],
                 "Address": lead["address"],
@@ -640,7 +749,8 @@ class GenerateProspectsUseCase:
                 "Verified Work Email": lead["email"],
                 "Direct Mobile Phone": lead["phone"],
                 "Mail Server (MX)": lead["mx_host"],
-                contracts_header: contracts["total_value_display"],
+                "Trigger 1: Total Contracts Won": contracts["total_value_display"],
+                "Trigger 1: Currency": lead_curr,
                 "Trigger 1: Top Contracting Entity": contracts["top_contract_entity"],
                 "Trigger 1: Top Contract Object": contracts["top_contract_object"],
                 "Trigger 1: Intent Score": contracts["intent_level"],
@@ -658,6 +768,19 @@ class GenerateProspectsUseCase:
                 "Touch 5: Breakup / Catalog Subject": t5_sub,
                 "Touch 5: Breakup / Catalog Body": t5_body,
             }
+
+            # Backward-compatible columns for existing parsers
+            row[tax_id_header] = lead["nit"]
+            row[code_header] = ciiu.code
+            row[activity_header] = ciiu.description
+            row[size_header] = lead["segment_name"]
+            row[contracts_header] = contracts["total_value_display"]
+            if "NIT" not in row:
+                row["NIT"] = lead["nit"]
+            if "RNC" not in row:
+                row["RNC"] = lead["nit"]
+            if "RUC" not in row:
+                row["RUC"] = lead["nit"]
 
             if tier == 3 and self.underwriter:
                 uw_res = self.underwriter.execute(lead, email_status="valid")
@@ -692,8 +815,8 @@ class GenerateProspectsUseCase:
                         "contact_email": lead["email"],
                         "contact_phone": lead["phone"],
                         "contracts_total": contracts["total_value_cop"],
-                        "country": target_country,
-                        "currency": target_currency,
+                        "country": lead_c,
+                        "currency": lead_curr,
                     }
                 )
 
@@ -711,13 +834,28 @@ class GenerateProspectsUseCase:
 
         # 7. Export Markdown Executive Dossier
         if output_format in ("markdown", "both"):
-            country_flag = "🇩🇴" if target_country == "DO" else "🇨🇴"
-            country_name_title = "Dominican Republic" if target_country == "DO" else "Colombian"
-            ground_truth_desc = (
-                "Verified Dominican Republic B2B Ground Truth (DGCP / RNC) • Zero-Bounce DNS MX • Real-Time Website Audit"
-                if target_country == "DO"
-                else "Verified Colombian B2B Ground Truth (SECOP / RUES) • Zero-Bounce DNS MX • Real-Time Website Audit"
-            )
+            if is_multi_country:
+                country_flag = "🌎"
+                country_name_title = "Cross-Border (Latam)"
+                ground_truth_desc = (
+                    "Verified Cross-Border B2B Ground Truth (SECOP II 🇨🇴 • DGCP 🇩🇴 • SERCOP / SuperCias 🇪🇨) • Zero-Bounce DNS MX • Real-Time Website Audit"
+                )
+            elif target_country == "EC":
+                country_flag = "🇪🇨"
+                country_name_title = "Ecuadorian"
+                ground_truth_desc = "Verified Ecuadorian B2B Ground Truth (SERCOP / SuperCias) • Zero-Bounce DNS MX • Real-Time Website Audit"
+            elif target_country == "DO":
+                country_flag = "🇩🇴"
+                country_name_title = "Dominican Republic"
+                ground_truth_desc = (
+                    "Verified Dominican Republic B2B Ground Truth (DGCP / RNC) • Zero-Bounce DNS MX • Real-Time Website Audit"
+                )
+            else:
+                country_flag = "🇨🇴"
+                country_name_title = "Colombian"
+                ground_truth_desc = (
+                    "Verified Colombian B2B Ground Truth (SECOP / RUES) • Zero-Bounce DNS MX • Real-Time Website Audit"
+                )
 
             md_content = []
             md_content.append(f"# {country_flag} {country_name_title} B2B Qualified Prospect Batch — {campaign_name}")
@@ -727,20 +865,21 @@ class GenerateProspectsUseCase:
             md_content.append("---")
             md_content.append("\n## 📋 Master Qualification Table with Expansion Intent Triggers\n")
             md_content.append(
-                f"| # | Company Name | {code_header} & Macro Sector | City | Decision Maker | Email & Phone | Website | Contracts Won (Trigger 1) | Expansion Flag (Trigger 3) |"
+                f"| # | Country | Company Name | Activity & Macro Sector | City | Decision Maker | Email & Phone | Website | Contracts Won (Trigger 1) | Expansion Flag (Trigger 3) |"
             )
             md_content.append(
-                "| :-: | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :--- |"
+                "| :-: | :---: | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :--- |"
             )
 
             for r in csv_rows:
+                c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
                 web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
                 md_content.append(
-                    f"| {r['Index']} | **{r['Company Name']}**<br><small>{tax_id_header}: {r[tax_id_header]}</small> | "
-                    f"**{code_header} {r[code_header]}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
+                    f"| {r['Index']} | {c_icon} `{r['Country']}` | **{r['Company Name']}**<br><small>{r['Tax ID Type']}: {r['Tax ID']}</small> | "
+                    f"**{r['Activity Code']}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
                     f"**{r['Decision Maker Name']}**<br><small>{r['Official Title']}</small> | "
                     f"`{r['Verified Work Email']}`<br>`{r['Direct Mobile Phone']}` | "
-                    f"{web_display} | **{r[contracts_header]}**<br><small>{r['Trigger 1: Top Contracting Entity'][:30]}</small> | "
+                    f"{web_display} | **{r['Trigger 1: Total Contracts Won']}**<br><small>{r['Trigger 1: Top Contracting Entity'][:30]}</small> | "
                     f"<small>{r['Trigger 3: Regional Expansion Flag']}</small> |"
                 )
 
@@ -748,15 +887,16 @@ class GenerateProspectsUseCase:
             md_content.append("## 🎯 Detailed Profiles & 5-Touch Cadence\n")
 
             for r in csv_rows:
+                c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
                 web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
-                md_content.append(f"### {r['Index']}. {r['Company Name']} ({r['City']})")
-                md_content.append(f"* **{activity_header}**: **{code_header} {r[code_header]}** — {r[activity_header]}")
-                md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r[size_header]} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
+                md_content.append(f"### {r['Index']}. {c_icon} {r['Company Name']} ({r['City']}, {r['Country Name']})")
+                md_content.append(f"* **Actividad Económica**: **{r['Activity Code']}** — {r['Economic Activity']}")
+                md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r['Company Size']} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
                 md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
                 md_content.append(f"* **Contacto Registrado (Posible Decisor)**: **{r['Decision Maker Name']}** ({r['Official Title']})")
                 md_content.append(f"* **Email Verificado**: `{r['Verified Work Email']}` | **Celular**: `{r['Direct Mobile Phone']}` | **Servidor MX**: `{r['Mail Server (MX)']}`")
-                md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{tax_id_header}**: `{r[tax_id_header]}`")
-                md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r[contracts_header]}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
+                md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{r['Tax ID Type']}**: `{r['Tax ID']}`")
+                md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r['Trigger 1: Total Contracts Won']}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
                 if r['Trigger 1: Top Contract Object']:
                     md_content.append(f"  * *Objeto*: {r['Trigger 1: Top Contract Object']}")
                 md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [🔍 Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
@@ -789,7 +929,7 @@ class GenerateProspectsUseCase:
                 if tier == 3 and "Underwriting Grade" in r:
                     md_content.append("#### 🏛️ Suscripción Financiera y Riesgo Legal (Tier 3)")
                     md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
-                    md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {target_currency}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
+                    md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {r['Trigger 1: Currency']}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
                     md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
                     md_content.append(f"* **Semáforo Legal**: **{r['Legal Risk: Litigation Status']}** — {r['Legal Risk: Dockets & Sanctions Summary']}")
                     md_content.append(f"* **Recomendación Comercial de Crédito**: {r['Credit Terms Recommendation']}\n")
@@ -837,8 +977,22 @@ class GenerateProspectsUseCase:
         print(f"\n🎉 Batch Execution Complete! Deliverables saved to:\n   📂 {batch_dir}")
         print("=" * 80)
 
+        teaser_selected = []
+        represented_countries = set()
+        for lead in all_selected:
+            c = lead.get("country", target_country)
+            if c not in represented_countries and len(teaser_selected) < 3:
+                represented_countries.add(c)
+                teaser_selected.append(lead)
+
+        for lead in all_selected:
+            if len(teaser_selected) >= 3:
+                break
+            if lead not in teaser_selected:
+                teaser_selected.append(lead)
+
         teaser_list = []
-        for lead in all_selected[:3]:
+        for lead in teaser_selected:
             raw_email = lead.get("email", "")
             raw_phone = lead.get("phone", "")
             raw_nit = lead.get("nit", "")
@@ -846,17 +1000,22 @@ class GenerateProspectsUseCase:
             rep_role = lead.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)"
             contracts = lead.get("contracts_data", {})
             intent_msg = contracts.get("intent_level") or lead.get("expansion_flag") or "Adjudicación Contrato Reciente"
+            lead_c = lead.get("country", target_country)
 
             t_item = {
                 "company_name": lead.get("clean_name", lead.get("company_name", "")),
                 "nit": mask_teaser_nit(raw_nit),
-                "city": lead.get("city", target_cities[0] if target_cities else ""),
+                "tax_id": mask_teaser_nit(raw_nit),
+                "country": lead_c,
+                "country_name": lead.get("country_name", "Colombia"),
+                "flag": "🇪🇨" if lead_c == "EC" else ("🇩🇴" if lead_c == "DO" else "🇨🇴"),
+                "city": lead.get("city", ""),
                 "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
                 "decision_maker_name": rep_name,
                 "decision_maker_role": rep_role,
                 "decision_maker_title": rep_role,
                 "email": mask_teaser_email(raw_email),
-                "phone": mask_teaser_phone(raw_phone, country=target_country),
+                "phone": mask_teaser_phone(raw_phone, country=lead_c),
                 "intent_trigger": intent_msg,
                 "intent_level": intent_msg,
                 "has_contracts": contracts.get("has_contracts", False),
@@ -874,7 +1033,7 @@ class GenerateProspectsUseCase:
             "campaign_name": campaign_name,
             "country": target_country,
             "currency": target_currency,
-            "target_cities": target_cities,
+            "target_cities": scanned_cities,
             "batch_dir": batch_dir,
             "csv_path": csv_filename if output_format in ("csv", "both") else None,
             "dossier_path": md_filename if output_format in ("markdown", "both") else None,

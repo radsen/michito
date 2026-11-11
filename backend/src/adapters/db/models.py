@@ -115,7 +115,8 @@ class OrderModel(Base):
 
     # Campaign & Geography
     campaign_id: Any = Column(String(128), nullable=False, index=True)
-    country: Any = Column(String(4), default="CO")
+    country: Any = Column(String(8), default="CO")
+    country_allocations: Any = Column(JSON, nullable=True)
     city: Any = Column(String(128), default="Medellín")
     requested_limit: Any = Column(Integer, default=10)
     tier: Any = Column(Integer, default=2)
@@ -174,6 +175,7 @@ class OrderModel(Base):
             "request": {
                 "campaign_id": self.campaign_id,
                 "country": self.country,
+                "country_allocations": self.country_allocations,
                 "city": self.city,
                 "limit": self.requested_limit,
                 "tier": self.tier or 2,

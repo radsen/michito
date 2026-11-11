@@ -1,0 +1,70 @@
+id: "tinkko_ec_offices"
+name: "Tinkko — Sedes y Oficinas Privadas Corporativas (Ecuador)"
+description: "Espacios de trabajo corporativos, oficinas privadas llave en mano y sedes ejecutivas para empresas en Quito y Guayaquil."
+
+target:
+  country: "EC"
+  currency: "USD"
+  city: "Quito"
+  cities:
+    - "Quito"
+    - "Guayaquil"
+    - "Cuenca"
+  segment: "midmarket"
+  sectors:
+    - "tech_services"
+    - "consulting"
+    - "legal_financial"
+    - "logistics"
+    - "corporate_services"
+  keywords_include:
+    - "software"
+    - "tecnolog"
+    - "sistemas"
+    - "consultor"
+    - "asesor"
+    - "logistica"
+    - "comercial"
+    - "corporativ"
+    - "financier"
+    - "construccion"
+    - "ingenieria"
+
+angles:
+  recommended: "Sedes Corporativas Llave en Mano y Flexibilidad Contractual sin CapEx en Quito y Guayaquil"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, un saludo. Vi el crecimiento de {clean_name} en Ecuador.
+    En Tinkko apoyamos a empresas en expansión con oficinas privadas corporativas llave en mano (10 a 100 puestos) en las mejores torres empresariales de Quito y Guayaquil, sin inmovilizar capital en adecuaciones. ¿Conectamos?
+
+  touch2_email_subject: "Sede corporativa flexible y llave en mano para {clean_name} en Quito / Guayaquil"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque vemos el posicionamiento y crecimiento de {clean_name} en el mercado ecuatoriano.
+
+    En Tinkko facilitamos la expansión corporativa eliminando el CapEx tradicional en remodelaciones y contratos forzosos a 5 años. Diseñamos sedes y oficinas corporativas a la medida (desde 10 hasta 100+ puestos) con internet redundante de alta velocidad, salas de juntas y todos los servicios incluidos bajo una sola factura mensual deducible al 100%.
+
+    ¿Tendrías 10 minutos esta semana para revisar cómo podemos optimizar el costo operativo de su próxima sede en Quito o Guayaquil?
+
+  touch3_email_subject: "Re: {clean_name} — Alternativa flexible a arriendos tradicionales en Ecuador"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando seguimiento a mi correo anterior, varias multinacionales y firmas líderes en Ecuador han migrado a nuestro modelo llave en mano, reduciendo hasta un 35% sus costos fijos inmobiliarios y ganando flexibilidad para escalar puestos según sus proyectos.
+
+    ¿Te parece si te comparto nuestro catálogo corporativo y agendamos un recorrido virtual de 10 minutos?
+
+  touch4_email_subject: "Espacios disponibles para entrega inmediata en torres ejecutivas de {city}"
+  touch4_email_body: |
+    Estimado(a) {contact_title},
+
+    Tenemos habilitadas suites corporativas para entrega inmediata en los distritos financieros más prestigiosos de {city}.
+
+    Si {clean_name} tiene planes de reubicación, apertura de sede satélite o retorno híbrido eficiente, nos encantaría apoyarles con condiciones preferenciales.
+
+    ¿Coordinamos una llamada breve esta semana?
+
+  touch5_phone_script: |
+    "Buenos días, con {decision_maker_name} de {clean_name}. Le saluda el equipo de Expansión Corporativa de Tinkko en Ecuador. Le enviamos una propuesta sobre sedes corporativas llave en mano y reducción de CapEx en {city}. ¿Pudo revisarla o prefiere que le coordinemos un recorrido presencial con su equipo administrativo?"

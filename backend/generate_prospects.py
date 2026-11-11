@@ -25,6 +25,7 @@ from src.domain.value_objects.company_segment import list_supported_segments
 from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
 from src.adapters.registries.colombia.secop_contracts_adapter import SecopContractsAdapter
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
+from src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
 from src.adapters.verifiers.website_auditor import WebsiteAuditor
 
 # Import use case logic and domain helpers
@@ -48,6 +49,8 @@ def run_prospector(
     output_format: str = "both",
     tier: int = 2,
     exclusions: Optional[List[str]] = None,
+    country: Optional[str] = None,
+    country_allocations: Optional[dict] = None,
 ):
     """
     Executes the GenerateProspectsUseCase using active adapters and configuration.
@@ -56,6 +59,7 @@ def run_prospector(
     use_case = GenerateProspectsUseCase(
         harvester_co=SecopHarvesterAdapter(timeout=15) if "SecopHarvesterAdapter" in globals() else None,
         harvester_dr=DgcpDrAdapter(timeout=15) if "DgcpDrAdapter" in globals() else None,
+        harvester_ec=SercopEcuadorAdapter(timeout=15) if "SercopEcuadorAdapter" in globals() else None,
         contracts_adapter=SecopContractsAdapter(timeout=6) if "SecopContractsAdapter" in globals() else None,
         web_auditor=WebsiteAuditor(timeout=5) if "WebsiteAuditor" in globals() else None,
         verify_mx_fn=verify_mx,
@@ -70,6 +74,8 @@ def run_prospector(
         output_format=output_format,
         tier=tier,
         exclusions=exclusions,
+        country=country,
+        country_allocations=country_allocations,
     )
 
 

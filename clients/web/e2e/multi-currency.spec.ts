@@ -67,5 +67,36 @@ test.describe("Multi-Currency Support (COP, DOP, USD)", () => {
     const calcBox = page.locator(".calc-summary-box");
     await expect(calcBox).toContainText("DOP");
   });
+
+  test("should switch to USD and show Country Allocator when selecting Cross-Border campaign", async ({ page }) => {
+    await page.goto("/#generador");
+    const campaignSelect = page.locator("select.form-select");
+    await campaignSelect.selectOption("eventos_ferias_b2b");
+
+    // Navbar should now show USD
+    const currencyDropdownBtn = page.locator(".currency-switcher-btn");
+    await expect(currencyDropdownBtn).toContainText("USD");
+
+    // Quota Allocator Card should be visible
+    const allocator = page.locator(".bg-slate-900\\/80");
+    await expect(allocator.getByText("Distribución de Cuota Multi-País")).toBeVisible();
+    await expect(allocator.getByText("🇨🇴 Colombia", { exact: true })).toBeVisible();
+    await expect(allocator.getByText("🇩🇴 Rep. Dom.", { exact: true })).toBeVisible();
+    await expect(allocator.getByText("🇪🇨 Ecuador", { exact: true })).toBeVisible();
+  });
+
+  test("should switch to USD and suggest Ecuadorian cities when selecting Ecuador campaign", async ({ page }) => {
+    await page.goto("/#generador");
+    const campaignSelect = page.locator("select.form-select");
+    await campaignSelect.selectOption("tinkko_ec_offices");
+
+    // Navbar should now show USD
+    const currencyDropdownBtn = page.locator(".currency-switcher-btn");
+    await expect(currencyDropdownBtn).toContainText("USD");
+
+    // City pills should show Ecuadorian cities
+    await expect(page.locator(".city-pill:has-text('Quito')")).toBeVisible();
+    await expect(page.locator(".city-pill:has-text('Guayaquil')")).toBeVisible();
+  });
 });
 

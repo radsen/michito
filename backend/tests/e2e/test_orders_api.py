@@ -254,6 +254,65 @@ class TestOrdersApi(unittest.TestCase):
         self.assertIn("900123456", req_data.get("exclusions", []))
         self.assertEqual(req_data.get("city"), "Antioquia")
 
+    def test_create_cross_border_order_with_allocations(self):
+        payload = {
+            "client": {
+                "name": "Trade Fair Global Buyer",
+                "email": "buyer@fairglobal.com",
+                "phone": "+13055551234",
+                "channel": "web_portal"
+            },
+            "request": {
+                "campaign_id": "eventos_ferias_b2b",
+                "country": "MULTI",
+                "city": "Medellín, Santo Domingo, Quito",
+                "limit": 20,
+                "country_allocations": {"CO": 10, "DO": 6, "EC": 4}
+            }
+        }
+        res = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res.status_code, 201)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["order"]["payment"]["currency"], "USD")
+        order_id = data["order_id"]
+
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        order_data = res_get.json()
+        req_data = order_data["request"]
+        self.assertEqual(req_data["country"], "MULTI")
+        self.assertEqual(req_data["country_allocations"], {"CO": 10, "DO": 6, "EC": 4})
+        self.assertEqual(order_data["payment"]["currency"], "USD")
+
+    def test_create_ecuador_order(self):
+        payload = {
+            "client": {
+                "name": "Ecuadorian Tech Firm",
+                "email": "carlos@ecuatech.com",
+                "phone": "+593998765432",
+                "channel": "web_portal"
+            },
+            "request": {
+                "campaign_id": "tinkko_ec_offices",
+                "country": "EC",
+                "city": "Quito",
+                "limit": 15
+            }
+        }
+        res = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res.status_code, 201)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["order"]["payment"]["currency"], "USD")
+        order_id = data["order_id"]
+
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        order_data = res_get.json()
+        self.assertEqual(order_data["request"]["country"], "EC")
+        self.assertEqual(order_data["payment"]["currency"], "USD")
+
 if __name__ == "__main__":
     unittest.main()
 
