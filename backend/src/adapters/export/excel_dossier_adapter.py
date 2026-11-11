@@ -74,7 +74,8 @@ class ExcelDossierAdapter(DossierExportPort):
             # Empty workbook fallback
             if OPENPYXL_AVAILABLE:
                 wb = openpyxl.Workbook()
-                wb.active.title = "Prospectos"
+                ws = wb.active if wb.active is not None else wb.create_sheet()
+                ws.title = "Prospectos"
                 wb.save(output_path)
             else:
                 with open(output_path, "w", encoding="utf-8") as f:
@@ -91,9 +92,9 @@ class ExcelDossierAdapter(DossierExportPort):
             return csv_path
 
         wb = openpyxl.Workbook()
-        ws = wb.active
+        ws = wb.active if wb.active is not None else wb.create_sheet()
         ws.title = "Prospectos CRM"
-        ws.views.sheetView[0].showGridLines = True
+        ws.sheet_view.showGridLines = True
 
         headers = list(rows[0].keys())
 

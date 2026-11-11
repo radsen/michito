@@ -1016,6 +1016,7 @@ class GenerateProspectsUseCase:
 
             try:
                 pdf_adapter = PdfDossierAdapter()
+                pass_rate_pct = (len(csv_rows) / max(1, total_candidates_scanned)) * 100
                 pdf_adapter.generate_dossier_pdf(
                     campaign_cfg=campaign_cfg,
                     leads=csv_rows,
@@ -1024,7 +1025,7 @@ class GenerateProspectsUseCase:
                     metrics={
                         "total_leads": len(csv_rows),
                         "candidates_evaluated": total_candidates_scanned,
-                        "pipeline_pass_rate": f"{qual_rate:.1f}%",
+                        "pipeline_pass_rate": f"{pass_rate_pct:.1f}%",
                     }
                 )
                 print(f"✅ Generated Executive PDF Dossier: {pdf_filename}")
