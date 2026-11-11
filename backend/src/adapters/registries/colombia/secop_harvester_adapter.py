@@ -79,37 +79,49 @@ class SecopHarvesterAdapter:
         "vichada": "Vichada",
     }
 
-    # Non-commercial legal titles & statutory figureheads to filter out from public registries
-    DISQUALIFIED_REPRESENTATIVE_KEYWORDS = (
+    # Insolvent, bankrupt or placeholder entries that must be discarded to protect data quality
+    BANKRUPT_OR_PLACEHOLDER_KEYWORDS = (
         "liquidador", "liquidadora", "en liquidacion", "en liquidación",
-        "apoderado", "apoderada", "apoderado judicial", "apoderada judicial",
         "revisor fiscal", "revisora fiscal",
         "secretario ad-hoc", "secretaria ad-hoc",
         "agente especial", "curador", "curadora",
-        "abogado externo", "abogada externa", "defensor",
         "no registra", "no reporta", "en tramite", "en trámite", "por definir",
-        "no asignado", "sin representante", "vacante", "suplente",
+        "no asignado", "sin representante", "vacante",
     )
 
     def __init__(self, app_token: Optional[str] = None, timeout: int = 15):
         self.app_token = app_token
         self.timeout = timeout
 
-    def _is_disqualified_representative(self, name: str) -> bool:
+    def _is_invalid_or_bankrupt(self, name: str) -> bool:
         if not name:
             return True
         lower = name.lower().strip()
         if len(lower) < 3 or re.match(r"^[\d\W]+$", lower):
             return True
-        return any(kw in lower for kw in self.DISQUALIFIED_REPRESENTATIVE_KEYWORDS)
+        return any(kw in lower for kw in self.BANKRUPT_OR_PLACEHOLDER_KEYWORDS)
+
+    def _determine_representative_role(self, raw_name: str) -> str:
+        """
+        Calibrates the registered contact persona accurately rather than overpromising.
+        Differentiates statutory signers, legal proxies (apoderados), and alternate representatives.
+        """
+        lower = raw_name.lower().strip()
+        if any(k in lower for k in ("apoderad", "abogad", "apoderamiento")):
+            return "Apoderado / Representación Legal"
+        if "suplente" in lower:
+            return "Representante Legal Suplente"
+        if any(k in lower for k in ("gerente", "presidente", "director")):
+            return "Representante Legal / Gerencia"
+        return "Representante Legal (Firmante Estatutario)"
 
     def _clean_representative_name(self, name: str) -> str:
         if not name:
             return ""
         # Strip prefixes like Dr., Dra., Abog., etc.
         cleaned = re.sub(r"^(dr\.|dra\.|ing\.|abog\.|sr\.|sra\.|don|doña)\s+", "", name.strip(), flags=re.IGNORECASE)
-        # Strip trailing roles like "- Representante Legal", "(Principal)", etc.
-        cleaned = re.sub(r"[-–—/]\s*(representante legal|gerente general|suplente|principal).*$", "", cleaned, flags=re.IGNORECASE)
+        # Strip trailing roles like "- Representante Legal", "- Apoderado Judicial", etc.
+        cleaned = re.sub(r"[-–—/]\s*(representante legal|gerente general|suplente|principal|apoderado.*|abogado.*).*$", "", cleaned, flags=re.IGNORECASE)
         return cleaned.strip()
 
     @staticmethod
@@ -205,18 +217,18 @@ class SecopHarvesterAdapter:
                 continue
             if not rep_name or rep_name.upper() == company_name.upper():
                 continue
-            if self._is_disqualified_representative(rep_name):
+            if self._is_invalid_or_bankrupt(rep_name):
                 continue
             if not raw_nit:
                 continue
 
-            # Clean and normalize representative name & title
+            # Calibrate role and clean contact name
+            clean_rep_title = self._determine_representative_role(rep_name)
             clean_rep_name = self._clean_representative_name(rep_name)
-            if not clean_rep_name or self._is_disqualified_representative(clean_rep_name):
+            if not clean_rep_name or self._is_invalid_or_bankrupt(clean_rep_name):
                 continue
 
             clean_nit_base = raw_nit.replace(".", "").split("-")[0]
-            clean_rep_title = "Representante Legal (Firmante Estatutario)"
             rep_name_title = clean_rep_name.title()
 
             google_xray = (
@@ -236,7 +248,7 @@ class SecopHarvesterAdapter:
                 "company_type": item.get("tipo_empresa") or "",
                 "decision_maker_name": rep_name_title,
                 "decision_maker_title": clean_rep_title,
-                "decision_maker_category": "Representante Legal Estatutario (RUES / SECOP)",
+                "decision_maker_category": "Representación Legal / Registrada (RUES / SECOP)",
                 "email": email,
                 "phone": phone,
                 "linkedin_xray_url": google_xray,

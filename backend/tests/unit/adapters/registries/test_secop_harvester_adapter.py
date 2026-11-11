@@ -87,22 +87,40 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
         self.assertNotIn("municipio", req_nationwide.full_url)
 
     def test_disqualified_representatives_and_role_calibration(self):
-        # Disqualified titles/figureheads should be recognized
-        self.assertTrue(self.adapter._is_disqualified_representative("JUAN PEREZ - APODERADO JUDICIAL"))
-        self.assertTrue(self.adapter._is_disqualified_representative("LIQUIDADOR: CARLOS LOPEZ"))
-        self.assertTrue(self.adapter._is_disqualified_representative("REVISOR FISCAL PRINCIPAL"))
-        self.assertTrue(self.adapter._is_disqualified_representative("SECRETARIO AD-HOC"))
-        self.assertTrue(self.adapter._is_disqualified_representative("AGENTE ESPECIAL"))
-        self.assertTrue(self.adapter._is_disqualified_representative("ABOGADO EXTERNO"))
-        self.assertTrue(self.adapter._is_disqualified_representative("No Registra"))
+        # Truly bankrupt, defunct, or placeholder entries should be recognized as invalid
+        self.assertTrue(self.adapter._is_invalid_or_bankrupt("LIQUIDADOR: CARLOS LOPEZ"))
+        self.assertTrue(self.adapter._is_invalid_or_bankrupt("REVISOR FISCAL PRINCIPAL"))
+        self.assertTrue(self.adapter._is_invalid_or_bankrupt("SECRETARIO AD-HOC"))
+        self.assertTrue(self.adapter._is_invalid_or_bankrupt("AGENTE ESPECIAL"))
+        self.assertTrue(self.adapter._is_invalid_or_bankrupt("No Registra"))
         
-        # Valid commercial representatives should pass
-        self.assertFalse(self.adapter._is_disqualified_representative("CARLOS ALBERTO RESTREPO"))
-        self.assertFalse(self.adapter._is_disqualified_representative("MARIA FERNANDA GOMEZ"))
+        # Legal proxies, apoderados, and valid managers are NOT bankrupt
+        self.assertFalse(self.adapter._is_invalid_or_bankrupt("JUAN PEREZ - APODERADO JUDICIAL"))
+        self.assertFalse(self.adapter._is_invalid_or_bankrupt("CARLOS ALBERTO RESTREPO"))
+        self.assertFalse(self.adapter._is_invalid_or_bankrupt("MARIA FERNANDA GOMEZ"))
+
+        # Role Calibration accurately labels the contact instead of falsely claiming universal decision-maker
+        self.assertEqual(
+            self.adapter._determine_representative_role("JUAN PEREZ - APODERADO GENERAL"),
+            "Apoderado / Representación Legal"
+        )
+        self.assertEqual(
+            self.adapter._determine_representative_role("MARIA GOMEZ - SUPLENTE"),
+            "Representante Legal Suplente"
+        )
+        self.assertEqual(
+            self.adapter._determine_representative_role("CARLOS RESTREPO - GERENTE GENERAL"),
+            "Representante Legal / Gerencia"
+        )
+        self.assertEqual(
+            self.adapter._determine_representative_role("PEDRO PICAPIEDRA"),
+            "Representante Legal (Firmante Estatutario)"
+        )
 
         # Name cleaning
         self.assertEqual(self.adapter._clean_representative_name("Dr. Roberto Silva"), "Roberto Silva")
         self.assertEqual(self.adapter._clean_representative_name("Ing. Andrés Castro - Representante Legal"), "Andrés Castro")
+        self.assertEqual(self.adapter._clean_representative_name("Abog. Fernando Ruiz - Apoderado Judicial"), "Fernando Ruiz")
 
     def test_fallback_candidates_department_assignment(self):
         fallbacks = self.adapter._get_fallback_candidates(city="Valle del Cauca")

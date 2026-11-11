@@ -753,7 +753,7 @@ class GenerateProspectsUseCase:
                 md_content.append(f"* **{activity_header}**: **{code_header} {r[code_header]}** — {r[activity_header]}")
                 md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r[size_header]} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
                 md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
-                md_content.append(f"* **Tomador de Decisión**: **{r['Decision Maker Name']}** ({r['Official Title']})")
+                md_content.append(f"* **Contacto Registrado (Posible Decisor)**: **{r['Decision Maker Name']}** ({r['Official Title']})")
                 md_content.append(f"* **Email Verificado**: `{r['Verified Work Email']}` | **Celular**: `{r['Direct Mobile Phone']}` | **Servidor MX**: `{r['Mail Server (MX)']}`")
                 md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{tax_id_header}**: `{r[tax_id_header]}`")
                 md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r[contracts_header]}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
@@ -761,7 +761,7 @@ class GenerateProspectsUseCase:
                     md_content.append(f"  * *Objeto*: {r['Trigger 1: Top Contract Object']}")
                 md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [🔍 Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
                 md_content.append(f"* **Trigger 3 (Expansión)**: {r['Trigger 3: Regional Expansion Flag']}")
-                md_content.append(f"* [🔍 1-Click LinkedIn Search Profile]({r['LinkedIn X-Ray URL']})\n")
+                md_content.append(f"* [🔍 Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
 
                 md_content.append("#### 🔹 Touch 1: LinkedIn Connection Note (<300 chars)")
                 md_content.append(f"> \"{r['Touch 1: LinkedIn Connection Note']}\"\n")

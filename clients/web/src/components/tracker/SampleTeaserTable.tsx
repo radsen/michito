@@ -57,9 +57,9 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                   {lead.nit && <span className="text-xs text-slate-400">NIT: {lead.nit}</span>}
                 </td>
                 <td>
-                  <div>{lead.decision_maker_name || "Directivo Clave"}</div>
+                  <div>{lead.decision_maker_name || "Contacto Institucional"}</div>
                   <div className="text-xs text-sky-400">
-                    {lead.decision_maker_role || (lead as any).decision_maker_title || "Tomador de Decisión"}
+                    {lead.decision_maker_role || (lead as any).decision_maker_title || "Representante Legal"}
                   </div>
                 </td>
                 <td>
