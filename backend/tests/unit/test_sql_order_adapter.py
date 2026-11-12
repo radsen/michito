@@ -178,6 +178,102 @@ class TestSqlOrderAdapter(unittest.TestCase):
         self.assertEqual(paid_order["partner"]["commission_cop"], 0)
         self.assertEqual(paid_order["partner"]["settlement_status"], "not_applicable")
 
+    def test_claim_lead_replacement_2x1_guarantee_success(self):
+        order = self.adapter.create_order(
+            client_name="Guarantee Client",
+            client_email="guarantee@client.co",
+            campaign_id="universal_prospecting",
+            city="Medellín",
+            limit=10,
+        )
+        order_id = order["order_id"]
+        self.adapter.mark_order_paid(order_id, transaction_id="tx_guar_1", amount_in_cents=50000000)
+
+        res = self.adapter.claim_lead_replacement(
+            order_id=order_id,
+            bounced_email="invalid_lead@failcompany.com",
+            company_name="Fail Company S.A.S.",
+            reason="hard_bounce",
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["bounced_email"], "invalid_lead@failcompany.com")
+        self.assertEqual(len(res["replacement_leads"]), 2)
+        self.assertTrue(res["claim_id"].startswith("claim_"))
+        self.assertTrue(all(l.get("is_guarantee_replacement") for l in res["replacement_leads"]))
+
+        updated = self.adapter.get_order(order_id)
+        assert updated is not None
+        self.assertEqual(len(updated["replacement_claims"]), 1)
+        claim = updated["replacement_claims"][0]
+        self.assertEqual(claim["bounced_email"], "invalid_lead@failcompany.com")
+        self.assertEqual(claim["reason"], "hard_bounce")
+        self.assertEqual(claim["replacement_count"], 2)
+
+    def test_claim_lead_replacement_unpaid_order_rejected(self):
+        order = self.adapter.create_order(
+            client_name="Unpaid User",
+            client_email="unpaid@test.com",
+            campaign_id="universal_prospecting",
+        )
+        with self.assertRaises(ValueError) as ctx:
+            self.adapter.claim_lead_replacement(
+                order_id=order["order_id"],
+                bounced_email="bounce_unpaid@test.com",
+            )
+        self.assertIn("Replacement guarantee applies only to completed/paid orders", str(ctx.exception))
+
+    def test_claim_lead_replacement_duplicate_email_rejected(self):
+        order = self.adapter.create_order(
+            client_name="Dup Client",
+            client_email="dup@client.co",
+            campaign_id="universal_prospecting",
+        )
+        order_id = order["order_id"]
+        self.adapter.mark_order_paid(order_id, transaction_id="tx_dup_1", amount_in_cents=50000000)
+
+        self.adapter.claim_lead_replacement(
+            order_id=order_id,
+            bounced_email="twice_bounce@target.com",
+        )
+
+        with self.assertRaises(ValueError) as ctx:
+            self.adapter.claim_lead_replacement(
+                order_id=order_id,
+                bounced_email="twice_bounce@target.com",
+            )
+        self.assertIn("already claimed for 2x1 replacement", str(ctx.exception))
+
+    def test_claim_lead_replacement_expired_window_rejected(self):
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import select
+        from src.adapters.db.models import OrderModel
+
+        order = self.adapter.create_order(
+            client_name="Expired User",
+            client_email="expired@user.com",
+            campaign_id="universal_prospecting",
+        )
+        order_id = order["order_id"]
+        self.adapter.mark_order_paid(order_id, transaction_id="tx_exp_1", amount_in_cents=50000000)
+
+        # Artificially set completion date to 8 days ago
+        with self.adapter._get_session() as session:
+            obj = session.scalars(select(OrderModel).where(OrderModel.order_id == order_id)).first()
+            if obj:
+                eight_days_ago = datetime.now(timezone.utc) - timedelta(days=8)
+                obj.completed_at = eight_days_ago
+                obj.payment_paid_at = eight_days_ago
+                obj.created_at = eight_days_ago
+                session.commit()
+
+        with self.assertRaises(ValueError) as ctx:
+            self.adapter.claim_lead_replacement(
+                order_id=order_id,
+                bounced_email="late_claim@target.com",
+            )
+        self.assertIn("guarantee window has expired", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

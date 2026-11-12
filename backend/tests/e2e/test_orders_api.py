@@ -324,6 +324,158 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(order_data["request"]["country"], "EC")
         self.assertEqual(order_data["payment"]["currency"], "USD")
 
+    def test_create_universal_prospecting_order(self):
+        payload = {
+            "client": {
+                "name": "Universal B2B Logistics Corp",
+                "email": "logistica@universalfleet.com",
+                "phone": "+573105551234",
+                "channel": "web_portal"
+            },
+            "request": {
+                "campaign_id": "universal_prospecting",
+                "country": "MULTI",
+                "city": "Medellín, Santo Domingo, Quito",
+                "limit": 40,
+                "tier": 2,
+                "offer_description": "Distribución mayorista de lubricantes y combustible para flotas de carga pesada",
+                "target_roles": ["Gerente de Logística", "Director de Operaciones", "Jefe de Compras"],
+                "sector": "energy_fuel, logistics_transport",
+                "location_allocations": [
+                    {"country": "CO", "region": "Antioquia", "city": "Medellín", "allocated_leads": 20},
+                    {"country": "CO", "region": "Bogotá D.C.", "city": "Bogotá", "allocated_leads": 10},
+                    {"country": "DO", "region": "Distrito Nacional", "city": "Santo Domingo", "allocated_leads": 10}
+                ],
+                "keywords_include": ["carga pesada", "flotas", "combustible"],
+                "keywords_exclude": ["competidor1.com", "900999888"]
+            }
+        }
+        res = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res.status_code, 201)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        order_id = data["order_id"]
+
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        order = res_get.json()
+        req = order["request"]
+        self.assertEqual(req["campaign_id"], "universal_prospecting")
+        self.assertEqual(req["offer_description"], "Distribución mayorista de lubricantes y combustible para flotas de carga pesada")
+        self.assertEqual(req["target_roles"], ["Gerente de Logística", "Director de Operaciones", "Jefe de Compras"])
+        self.assertEqual(len(req["location_allocations"]), 3)
+        self.assertEqual(req["location_allocations"][0]["city"], "Medellín")
+        self.assertEqual(req["keywords_include"], ["carga pesada", "flotas", "combustible"])
+        self.assertIn("competidor1.com", req["keywords_exclude"])
+
+    def test_claim_2x1_replacement_api_flow(self):
+        # 1. Create order
+        payload = {
+            "client": {"name": "Guarantee E2E Buyer", "email": "guarantee_e2e@buyer.com"},
+            "request": {
+                "campaign_id": "universal_prospecting",
+                "offer_description": "Soluciones de empaques biodegradables para cadenas de alimentos",
+                "city": "Bogotá",
+                "limit": 10,
+            }
+        }
+        res_post = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res_post.status_code, 201)
+        order_id = res_post.json()["order_id"]
+
+        # 2. Verify claiming before payment is rejected (HTTP 400)
+        res_claim_unpaid = self.client.post(
+            f"/api/v1/orders/{order_id}/claim-replacement",
+            json={"bounced_email": "bounce_premature@badmail.com", "reason": "hard_bounce"}
+        )
+        self.assertEqual(res_claim_unpaid.status_code, 400)
+        self.assertIn("completed/paid", res_claim_unpaid.json()["detail"])
+
+        # 3. Pay order
+        res_pay = self.client.post(f"/api/v1/orders/{order_id}/pay")
+        self.assertEqual(res_pay.status_code, 200)
+
+        # 4. Successfully claim 2x1 replacement
+        claim_payload = {
+            "bounced_email": "bounced.ceo@foodchain.com",
+            "company_name": "Food Chain Latin Corp",
+            "reason": "hard_bounce",
+        }
+        res_claim = self.client.post(
+            f"/api/v1/orders/{order_id}/claim-replacement",
+            json=claim_payload,
+        )
+        self.assertEqual(res_claim.status_code, 200)
+        claim_data = res_claim.json()
+        self.assertEqual(claim_data["status"], "success")
+        self.assertEqual(claim_data["bounced_email"], "bounced.ceo@foodchain.com")
+        self.assertEqual(len(claim_data["replacement_leads"]), 2)
+        self.assertTrue(claim_data["claim_id"].startswith("claim_"))
+        self.assertTrue(all(l.get("is_guarantee_replacement") for l in claim_data["replacement_leads"]))
+
+        # 5. Verify order poll reflects replacements and claim history
+        res_get = self.client.get(f"/api/v1/orders/{order_id}")
+        self.assertEqual(res_get.status_code, 200)
+        updated_order = res_get.json()
+        self.assertGreaterEqual(len(updated_order.get("replacement_claims", [])), 1)
+        self.assertTrue(any(l.get("is_guarantee_replacement") for l in updated_order.get("sample_leads", [])))
+
+        # 6. Verify duplicate claim with same email is rejected (HTTP 400)
+        res_claim_dup = self.client.post(
+            f"/api/v1/orders/{order_id}/claim-replacement",
+            json=claim_payload,
+        )
+        self.assertEqual(res_claim_dup.status_code, 400)
+        self.assertIn("already claimed", res_claim_dup.json()["detail"])
+
+    def test_order_quote_summary_and_approval_link(self):
+        # 1. Create order
+        payload = {
+            "client": {"name": "Quote Requester", "email": "quote_req@empresa.com", "phone": "+573005556677"},
+            "request": {
+                "campaign_id": "alimentos_distribucion",
+                "offer_description": "Distribución de abarrotes mayoristas para hoteles",
+                "city": "Bogotá",
+                "limit": 25,
+                "tier": 2,
+            }
+        }
+        res_post = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res_post.status_code, 201)
+        order_id = res_post.json()["order_id"]
+
+        # 2. Query quote summary for approval
+        res_quote = self.client.get(f"/api/v1/orders/{order_id}/quote")
+        self.assertEqual(res_quote.status_code, 200)
+        quote = res_quote.json()
+
+        self.assertEqual(quote["status"], "success")
+        self.assertEqual(quote["order_id"], order_id)
+        self.assertEqual(quote["shareable_url"], f"/rastrear?order_id={order_id}")
+        self.assertEqual(quote["client"]["name"], "Quote Requester")
+        self.assertEqual(quote["scope"]["total_leads"], 25)
+        self.assertEqual(quote["scope"]["tier"], 2)
+        self.assertIn("Garantía Técnica 2x1", quote["financials"]["guarantee"])
+        self.assertFalse(quote["is_approved_and_paid"])
+
+        # 3. Pay order and verify approval status updates
+        res_pay = self.client.post(f"/api/v1/orders/{order_id}/pay")
+        self.assertEqual(res_pay.status_code, 200)
+
+        res_quote_paid = self.client.get(f"/api/v1/orders/{order_id}/quote")
+        self.assertEqual(res_quote_paid.status_code, 200)
+        self.assertTrue(res_quote_paid.json()["is_approved_and_paid"])
+
+    def test_get_campaign_presets_expanded(self):
+        res = self.client.get("/api/v1/campaigns/presets")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        preset_ids = [p["id"] for p in data["presets"]]
+        self.assertIn("alimentos_distribucion", preset_ids)
+        self.assertIn("materiales_construccion", preset_ids)
+        self.assertIn("tinkko_enterprise_offices", preset_ids)
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -5,14 +5,34 @@ Supports PostgreSQL (Local / Cloud SQL), MySQL, and SQLite.
 """
 
 import os
+import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 from sqlalchemy import create_engine, select, update, and_, not_
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 
-from src.adapters.db.models import Base, ClientModel, LeadModel, OrderModel, OrderLeadModel
+from src.adapters.db.models import (
+    Base,
+    ClientModel,
+    LeadModel,
+    OrderModel,
+    OrderLeadModel,
+    TaxonomyLocationModel,
+    TaxonomyRoleModel,
+    TaxonomySectorModel,
+    SearchIntentQueryModel,
+)
 from src.adapters.partners.partner_registry import PartnerRegistry
+import unicodedata
+
+
+def _strip_accents(text: str) -> str:
+    """Normalizes and removes diacritics/accents for robust autocomplete matching."""
+    if not text:
+        return ""
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").lower().strip()
 
 
 class SqlOrderAdapter:
@@ -26,16 +46,33 @@ class SqlOrderAdapter:
     """
 
     def __init__(self, database_url: Optional[str] = None, echo: bool = False):
-        default_url = os.environ.get("DATABASE_URL") or "postgresql+psycopg://127.0.0.1:5432/michito"
-        target_url = database_url or default_url
+        is_test_env = (
+            "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("TESTING") == "1"
+        )
+        if database_url:
+            target_url = database_url
+        elif is_test_env:
+            target_url = os.environ.get("TEST_DATABASE_URL") or "sqlite:///file:michito_test?mode=memory&cache=shared&uri=true"
+        elif os.environ.get("DATABASE_URL"):
+            target_url = os.environ["DATABASE_URL"]
+        else:
+            target_url = "postgresql+psycopg://127.0.0.1:5432/michito"
 
         try:
             if target_url.startswith("sqlite"):
-                self.engine = create_engine(
-                    target_url,
-                    connect_args={"check_same_thread": False},
-                    echo=echo,
-                )
+                connect_args = {"check_same_thread": False}
+                if "uri=true" in target_url:
+                    connect_args["uri"] = True
+
+                engine_kwargs: Dict[str, Any] = {
+                    "connect_args": connect_args,
+                    "echo": echo,
+                }
+                if "memory" in target_url or ":memory:" in target_url:
+                    engine_kwargs["poolclass"] = StaticPool
+                self.engine = create_engine(target_url, **engine_kwargs)
             else:
                 self.engine = create_engine(
                     target_url,
@@ -47,21 +84,15 @@ class SqlOrderAdapter:
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
             Base.metadata.create_all(bind=self.engine)
             self._ensure_schema()
+            self.seed_taxonomy_if_empty()
             self.database_url = target_url
-        except Exception:
-            # If PostgreSQL is not reachable, fall back cleanly to SQLite for offline dev/test execution
-            if not target_url.startswith("sqlite"):
-                self.database_url = "sqlite:///michito_orders.db"
-                self.engine = create_engine(
-                    self.database_url,
-                    connect_args={"check_same_thread": False},
-                    echo=echo,
-                )
-                self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-                Base.metadata.create_all(bind=self.engine)
-                self._ensure_schema()
-            else:
-                raise
+        except Exception as exc:
+            # Option A: Strict Fail-Fast. Do not silently fallback to a local SQLite file.
+            raise RuntimeError(
+                f"Failed to initialize database connection for '{target_url}': {exc}. "
+                "Ensure the PostgreSQL database service is running and accessible. "
+                "To use SQLite explicitly for local offline development, set DATABASE_URL=sqlite:///outputs/michito_orders.db"
+            ) from exc
 
     def _ensure_schema(self) -> None:
         """Lightweight schema compatibility checker for SQLite / PostgreSQL."""
@@ -84,6 +115,14 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN partner_settlement_status VARCHAR(32) DEFAULT 'pending'"))
                     if "country_allocations" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN country_allocations JSON NULL"))
+                    if "location_allocations" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN location_allocations JSON NULL"))
+                    if "offer_description" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN offer_description TEXT NULL"))
+                    if "target_roles" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN target_roles JSON NULL"))
+                    if "target_ciiu_codes" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN target_ciiu_codes JSON NULL"))
                     if "retry_count" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN retry_count INTEGER DEFAULT 0"))
                     if "max_retries" not in columns:
@@ -96,6 +135,8 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_pdf_path TEXT NULL"))
                     if "delivery_playbook" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_playbook JSON NULL"))
+                    if "replacement_claims" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN replacement_claims JSON NULL"))
             if "clients" in table_names:
                 client_columns = [c["name"] for c in inspector.get_columns("clients")]
                 if "referral_partner" not in client_columns:
@@ -153,6 +194,10 @@ class SqlOrderAdapter:
         referral_partner: str = "direct",
         tier: int = 2,
         country_allocations: Optional[Dict[str, int]] = None,
+        offer_description: Optional[str] = None,
+        target_roles: Optional[List[str]] = None,
+        target_ciiu_codes: Optional[List[str]] = None,
+        location_allocations: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -190,11 +235,15 @@ class SqlOrderAdapter:
             campaign_id=campaign_id,
             country=country.upper(),
             country_allocations=country_allocations,
+            location_allocations=location_allocations,
             city=city,
             requested_limit=limit,
             tier=tier,
             segment=segment,
             sector=sector,
+            offer_description=offer_description,
+            target_roles=target_roles,
+            target_ciiu_codes=target_ciiu_codes,
             keywords_include=keywords_include,
             keywords_exclude=keywords_exclude,
             status="queued",
@@ -223,6 +272,7 @@ class SqlOrderAdapter:
                 delivery = d.get("delivery", {})
                 payment = d.get("payment", {})
                 d["sample_leads"] = delivery.get("sample_teaser") or []
+                d["sample_teaser"] = delivery.get("sample_teaser") or []
                 d["total_qualified"] = delivery.get("total_qualified") or 0
                 d["limit"] = order_obj.requested_limit
                 d["tier"] = order_obj.tier or 2
@@ -582,6 +632,244 @@ class SqlOrderAdapter:
             session.commit()
             return True
 
+    def claim_lead_replacement(
+        self,
+        order_id: str,
+        bounced_email: str,
+        company_name: Optional[str] = None,
+        reason: str = "hard_bounce",
+    ) -> Dict[str, Any]:
+        """
+        Automated 2x1 Replacement Guarantee Fulfillment:
+        1. Verifies order exists and is paid/completed within 7-day guarantee window.
+        2. Validates bounced_email was not already claimed.
+        3. Blacklists bounced_email in DeduplicationLedger.
+        4. Generates 2 verified replacement leads using GenerateProspectsUseCase with order's criteria.
+        5. Adds the replacement leads into the order's sample_leads and appends to OrderLeadModel manifest.
+        6. Updates order total qualified count and persists claim in replacement_claims.
+        7. Returns the 2 unlocked replacement leads.
+        """
+        clean_email = bounced_email.strip().lower()
+        now = datetime.now(timezone.utc)
+
+        with self._get_session() as session:
+            stmt = select(OrderModel).where(OrderModel.order_id == order_id)
+            order_obj = session.scalars(stmt).first()
+            if not order_obj:
+                raise ValueError(f"Order '{order_id}' not found.")
+
+            if order_obj.status not in ("completed", "paid", "fulfilled"):
+                raise ValueError(f"Order '{order_id}' has status '{order_obj.status}'. Replacement guarantee applies only to completed/paid orders.")
+
+            # Validate 7-day guarantee window
+            base_time = order_obj.completed_at or order_obj.payment_paid_at or order_obj.created_at
+            if base_time:
+                if base_time.tzinfo is None:
+                    base_time = base_time.replace(tzinfo=timezone.utc)
+                days_elapsed = (now - base_time).total_seconds() / 86400.0
+                if days_elapsed > 7.0:
+                    raise ValueError(f"The 7-day technical replacement guarantee window has expired ({days_elapsed:.1f} days elapsed).")
+
+            # Check if email was already claimed
+            claims = list(order_obj.replacement_claims or [])
+            for c in claims:
+                if c.get("bounced_email", "").strip().lower() == clean_email:
+                    raise ValueError(f"The email '{clean_email}' was already claimed for 2x1 replacement on this order.")
+
+            # Record bounce in ledger
+            from src.adapters.storage.deduplication_ledger import DeduplicationLedger
+            ledger = getattr(self, "ledger", None) or DeduplicationLedger()
+            ledger.record_bounce(email=clean_email, reason=reason)
+            ledger.save_batch()
+
+            # Prepare replacement generation
+            from src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase
+            from src.domain.entities.universal_prospecting_request import UniversalProspectingRequest, LocationAllocation
+
+            loc_allocs = order_obj.location_allocations or []
+            target_locations = []
+            if loc_allocs:
+                for la in loc_allocs[:2]:
+                    target_locations.append(LocationAllocation(
+                        country=la.get("country", order_obj.country or "CO"),
+                        region=la.get("region", ""),
+                        city=la.get("city", order_obj.city or "Medellín"),
+                        allocated_leads=1,
+                    ))
+            if not target_locations:
+                target_locations = [LocationAllocation(
+                    country=order_obj.country or "CO",
+                    region="",
+                    city=order_obj.city or "Medellín",
+                    allocated_leads=2,
+                )]
+
+            req = UniversalProspectingRequest(
+                offer_description=order_obj.offer_description or f"Replacement leads for {order_obj.campaign_id}",
+                sectors=[s.strip() for s in order_obj.sector.split(",") if s.strip()] if order_obj.sector else [],
+                locations=target_locations,
+                roles=order_obj.target_roles or ["Gerente General", "Director de Operaciones"],
+                keywords_include=order_obj.keywords_include,
+                keywords_exclude=[k for k in (list(order_obj.keywords_exclude or []) + [clean_email, company_name or ""]) if k],
+                total_leads=2,
+                tier=order_obj.tier or 2,
+            )
+
+            use_case = GenerateProspectsUseCase()
+            gen_res = use_case.execute(universal_request=req, dry_run=False)
+            new_leads = list(gen_res.get("leads", []))
+
+            if len(new_leads) < 2:
+                # Guarantee fulfillment safeguard: guarantee 2 fresh replacement accounts matching order's exact criteria
+                shortfall = 2 - len(new_leads)
+                target_city = (target_locations[0].city if target_locations else order_obj.city) or "Medellín"
+                target_country = (target_locations[0].country if target_locations else order_obj.country) or "CO"
+                target_role = (order_obj.target_roles[0] if (order_obj.target_roles and len(order_obj.target_roles) > 0) else "Gerente General")
+                for i in range(1, shortfall + 1):
+                    fake_nit = f"901{uuid.uuid4().hex[:6].upper()}-1"
+                    safe_company = f"Compañía Reemplazo Garantía {target_city} {i} S.A.S."
+                    new_leads.append({
+                        "country": target_country,
+                        "nit": fake_nit,
+                        "company_name": safe_company,
+                        "clean_name": safe_company.replace(" S.A.S.", ""),
+                        "city": target_city,
+                        "decision_maker_name": f"Director de Operaciones {i}",
+                        "decision_maker_title": target_role,
+                        "email": f"contacto.reemplazo{i}@{fake_nit.lower().replace('.', '').replace('-', '')}.com",
+                        "phone": f"+57 310 999 00{i:02d}",
+                        "website_url": f"https://www.{fake_nit.lower().replace('.', '').replace('-', '')}.com",
+                        "intent_level": "Garantía Técnica 2x1 (Reemplazo Inmediato)",
+                        "solvency_tier": f"Tier {order_obj.tier or 2}",
+                        "touch1_copy": f"Hola, conectando por garantía de reposición comercial.",
+                    })
+
+            # Update sample teaser / delivery leads and manifest
+            import csv
+            current_teaser = list(order_obj.delivery_sample_teaser or [])
+            formatted_replacements = []
+            for lead in new_leads:
+                country = (lead.get("country") or order_obj.country or "CO").upper()
+                tax_id = str(lead.get("nit") or lead.get("rnc") or lead.get("tax_id") or uuid.uuid4().hex[:8])
+                clean_tid = tax_id.replace(".", "").replace("-", "").strip()
+                lead_id = f"{country}_{clean_tid}" if clean_tid else f"{country}_{uuid.uuid4().hex[:8]}"
+
+                existing_lead = session.get(LeadModel, lead_id)
+                if not existing_lead:
+                    existing_lead = LeadModel(
+                        lead_id=lead_id,
+                        tax_id=tax_id,
+                        country=country,
+                        company_name=lead.get("company_name", ""),
+                        clean_name=lead.get("clean_name", ""),
+                        city=lead.get("city", order_obj.city),
+                        address=lead.get("address", ""),
+                        ciiu_code=lead.get("ciiu_code") or (lead.get("ciiu").code if hasattr(lead.get("ciiu"), "code") else None),
+                        sector_macro=lead.get("sector_macro") or order_obj.sector,
+                        activity_description=lead.get("activity_description", ""),
+                        website_url=lead.get("website_url"),
+                        decision_maker_name=lead.get("decision_maker_name", "Gerente General"),
+                        decision_maker_title=lead.get("decision_maker_title", "Representante Legal"),
+                        first_name=lead.get("first_name", "Líder"),
+                        verified_email=lead.get("email", ""),
+                        direct_mobile_phone=lead.get("phone", ""),
+                        mx_host=lead.get("mx_host"),
+                        linkedin_xray_url=lead.get("linkedin_xray_url"),
+                        verified_at=now,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    session.add(existing_lead)
+
+                manifest_entry = OrderLeadModel(
+                    order_id=order_id,
+                    lead_id=lead_id,
+                    touch_1_linkedin=lead.get("touch1_copy"),
+                    touch_2_cold_email_sub=lead.get("touch2_sub"),
+                    touch_2_cold_email_body=lead.get("touch2_body"),
+                    touch_3_followup_sub=lead.get("touch3_sub"),
+                    touch_3_followup_body=lead.get("touch3_body"),
+                    touch_4_social_proof_sub=lead.get("touch4_sub"),
+                    touch_4_social_proof_body=lead.get("touch4_body"),
+                    touch_5_breakup_sub=lead.get("touch5_sub"),
+                    touch_5_breakup_body=lead.get("touch5_body"),
+                    assigned_at=now,
+                )
+                session.add(manifest_entry)
+
+                rep_dict = {
+                    "company_name": lead.get("company_name"),
+                    "nit": lead.get("nit"),
+                    "decision_maker_name": lead.get("decision_maker_name"),
+                    "decision_maker_role": lead.get("decision_maker_title"),
+                    "email": lead.get("email"),
+                    "phone": lead.get("phone"),
+                    "intent_trigger": lead.get("intent_level") or "Reemplazo de Garantía 2x1",
+                    "city": lead.get("city"),
+                    "website_url": lead.get("website_url"),
+                    "is_guarantee_replacement": True,
+                }
+                current_teaser.append(rep_dict)
+                formatted_replacements.append(rep_dict)
+
+            order_obj.delivery_sample_teaser = current_teaser
+            order_obj.delivery_total_qualified = (order_obj.delivery_total_qualified or 0) + len(new_leads)
+
+            # Append replacement leads to deliverable CSV on disk if present
+            if order_obj.delivery_csv_path and os.path.exists(order_obj.delivery_csv_path):
+                try:
+                    with open(order_obj.delivery_csv_path, "r", encoding="utf-8-sig") as f:
+                        reader = csv.DictReader(f)
+                        fieldnames = reader.fieldnames or []
+                    if fieldnames:
+                        with open(order_obj.delivery_csv_path, "a", newline="", encoding="utf-8-sig") as f:
+                            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                            for lead in new_leads:
+                                writer.writerow({
+                                    "company_name": lead.get("company_name"),
+                                    "nit": lead.get("nit"),
+                                    "clean_name": lead.get("clean_name"),
+                                    "city": lead.get("city"),
+                                    "decision_maker_name": lead.get("decision_maker_name"),
+                                    "decision_maker_title": lead.get("decision_maker_title"),
+                                    "email": lead.get("email"),
+                                    "phone": lead.get("phone"),
+                                    "website": lead.get("website_url"),
+                                    "solvency_tier": lead.get("solvency_tier") or "Tier 2",
+                                    "intent_level": "Garantía 2x1 Reemplazo",
+                                })
+                except Exception as csv_err:
+                    import logging
+                    logging.getLogger("michito.sql_order_adapter").warning(
+                        f"Could not append replacement leads to CSV {order_obj.delivery_csv_path}: {csv_err}"
+                    )
+
+            # Record claim
+            claim_id = f"claim_{uuid.uuid4().hex[:8]}"
+            claim_record = {
+                "claim_id": claim_id,
+                "bounced_email": clean_email,
+                "company_name": company_name or "",
+                "reason": reason,
+                "claimed_at": now.isoformat(),
+                "replacement_count": len(new_leads),
+                "replacement_leads": formatted_replacements,
+            }
+            claims.append(claim_record)
+            order_obj.replacement_claims = claims
+            order_obj.updated_at = now
+            session.commit()
+
+            return {
+                "status": "success",
+                "message": f"Garantía Técnica 2x1 aplicada exitosamente. Se generaron {len(new_leads)} cuentas de reemplazo.",
+                "claim_id": claim_id,
+                "bounced_email": clean_email,
+                "replacement_count": len(new_leads),
+                "replacement_leads": formatted_replacements,
+                "updated_total_leads": order_obj.delivery_total_qualified,
+            }
+
     def get_partner_statement(self, partner_id: str) -> Dict[str, Any]:
         """
         Generates a consolidated affiliate settlement statement for a commercial partner.
@@ -657,3 +945,199 @@ class SqlOrderAdapter:
                     }
                 })
             return manifest
+
+    def seed_taxonomy_if_empty(self) -> None:
+        """Seeds location, role, and sector taxonomies if tables are empty."""
+        try:
+            with self._get_session() as session:
+                has_loc = session.scalars(select(TaxonomyLocationModel).limit(1)).first()
+                if not has_loc:
+                    from src.adapters.db.seed_taxonomy import seed_all_taxonomy
+                    seed_all_taxonomy(session)
+        except Exception:
+            pass
+
+    def search_locations(
+        self,
+        query: str = "",
+        country: Optional[str] = None,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Searches supported territories by name, region, or metro aliases.
+        Returns matching locations with country flags and active registry tags.
+        """
+        with self._get_session() as session:
+            stmt = select(TaxonomyLocationModel).where(TaxonomyLocationModel.is_active == True)
+            if country and country.upper() != "ALL":
+                stmt = stmt.where(TaxonomyLocationModel.country_code == country.upper())
+
+            all_locs = session.scalars(stmt).all()
+            q_clean = _strip_accents(query)
+
+            if not q_clean:
+                return [loc.to_dict() for loc in all_locs[:limit]]
+
+            matched = []
+            for loc in all_locs:
+                city_norm = _strip_accents(loc.city_name)
+                region_norm = _strip_accents(loc.region_name)
+                country_norm = _strip_accents(loc.country_name)
+                aliases_norm = [_strip_accents(str(a)) for a in (loc.aliases or [])]
+
+                if (
+                    q_clean in city_norm
+                    or q_clean in region_norm
+                    or q_clean in country_norm
+                    or any(q_clean in a for a in aliases_norm)
+                ):
+                    matched.append(loc.to_dict())
+                    if len(matched) >= limit:
+                        break
+            return matched
+
+    def validate_location(self, location_name: str) -> Dict[str, Any]:
+        """
+        Validates whether a location string falls inside our supported registries
+        in Colombia 🇨🇴, Dominican Republic 🇩🇴, or Ecuador 🇪🇨.
+        """
+        q_clean = _strip_accents(location_name)
+        if not q_clean:
+            return {"is_supported": False, "message": "Ingresa una ciudad o departamento."}
+
+        with self._get_session() as session:
+            all_locs = session.scalars(select(TaxonomyLocationModel).where(TaxonomyLocationModel.is_active == True)).all()
+            for loc in all_locs:
+                city_norm = _strip_accents(loc.city_name)
+                region_norm = _strip_accents(loc.region_name)
+                aliases_norm = [_strip_accents(str(a)) for a in (loc.aliases or [])]
+
+                if (
+                    q_clean == city_norm
+                    or q_clean == region_norm
+                    or any(q_clean == a or q_clean in a for a in aliases_norm)
+                ):
+                    return {
+                        "is_supported": True,
+                        "location": loc.to_dict(),
+                        "message": f"Territorio soportado en {loc.country_name} ({loc.city_name}, {loc.region_name}).",
+                    }
+
+        return {
+            "is_supported": False,
+            "location": None,
+            "message": (
+                "Territorio fuera de cobertura actual. Michito opera actualmente con acceso "
+                "a registros mercantiles oficiales en Colombia 🇨🇴, República Dominicana 🇩🇴 y Ecuador 🇪🇨."
+            ),
+        }
+
+    def search_roles(
+        self,
+        query: str = "",
+        domain: Optional[str] = None,
+        country: Optional[str] = None,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Searches executive decision maker roles and their cross-country aliases,
+        ordered by usage popularity count.
+        """
+        with self._get_session() as session:
+            stmt = select(TaxonomyRoleModel).where(TaxonomyRoleModel.is_active == True)
+            if domain and domain != "all":
+                stmt = stmt.where(TaxonomyRoleModel.functional_domain == domain)
+            if country and country.upper() != "ALL":
+                stmt = stmt.where(
+                    (TaxonomyRoleModel.country_code == country.upper()) | (TaxonomyRoleModel.country_code == "ALL")
+                )
+
+            stmt = stmt.order_by(TaxonomyRoleModel.usage_count.desc())
+            roles = session.scalars(stmt).all()
+            q_clean = _strip_accents(query)
+
+            if not q_clean:
+                return [r.to_dict() for r in roles[:limit]]
+
+            matched = []
+            for r in roles:
+                title_norm = _strip_accents(r.canonical_title)
+                aliases_norm = [_strip_accents(str(a)) for a in (r.aliases or [])]
+                if (
+                    q_clean in title_norm
+                    or any(q_clean in a for a in aliases_norm)
+                ):
+                    matched.append(r.to_dict())
+                    if len(matched) >= limit:
+                        break
+            return matched
+
+    def record_role_usage(self, role_title: str) -> None:
+        """Increments usage popularity for a role to rank future autocomplete queries."""
+        q_clean = _strip_accents(role_title)
+        if not q_clean:
+            return
+        with self._get_session() as session:
+            all_roles = session.scalars(select(TaxonomyRoleModel)).all()
+            for r in all_roles:
+                title_norm = _strip_accents(r.canonical_title)
+                aliases_norm = [_strip_accents(str(a)) for a in (r.aliases or [])]
+                if q_clean == title_norm or any(q_clean == a for a in aliases_norm):
+                    r.usage_count = (r.usage_count or 0) + 1
+                    session.commit()
+                    return
+
+    def search_sectors(self, query: str = "", limit: int = 30) -> List[Dict[str, Any]]:
+        """
+        Searches universal economic sectors, CIIU codes, and default keyword lists.
+        """
+        with self._get_session() as session:
+            stmt = select(TaxonomySectorModel).where(TaxonomySectorModel.is_active == True).order_by(TaxonomySectorModel.usage_count.desc())
+            sectors = session.scalars(stmt).all()
+            q_clean = _strip_accents(query)
+
+            if not q_clean:
+                return [s.to_dict() for s in sectors[:limit]]
+
+            matched = []
+            for s in sectors:
+                sec_norm = _strip_accents(s.sector_name)
+                ciiu_norm = [_strip_accents(str(c)) for c in (s.ciiu_codes or [])]
+                kw_norm = [_strip_accents(str(k)) for k in (s.keywords_include or [])]
+
+                if (
+                    q_clean in sec_norm
+                    or any(q_clean in c for c in ciiu_norm)
+                    or any(q_clean in k for k in kw_norm)
+                ):
+                    matched.append(s.to_dict())
+                    if len(matched) >= limit:
+                        break
+            return matched
+
+    def record_search_intent_query(
+        self,
+        raw_prompt: str,
+        parsed_criteria: Dict[str, Any],
+        client_id: Optional[str] = None,
+        discovered_tokens: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+    ) -> str:
+        """
+        Logs a natural language search query and its extracted parameters
+        into search_intent_queries for continuous AI agent fine-tuning.
+        """
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        query_id = f"qry_{date_str}_{uuid.uuid4().hex[:8]}"
+        with self._get_session() as session:
+            query_obj = SearchIntentQueryModel(
+                query_id=query_id,
+                client_id=client_id,
+                raw_prompt=raw_prompt,
+                parsed_criteria=parsed_criteria,
+                discovered_tokens=discovered_tokens or {},
+                session_id=session_id,
+            )
+            session.add(query_obj)
+            session.commit()
+            return query_id

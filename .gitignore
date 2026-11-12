@@ -9,8 +9,6 @@ venv/
 .DS_Store
 outputs/*
 !outputs/.gitkeep
-backend/outputs/*
-!backend/outputs/.gitkeep
 
 # Data ledger (runtime)
 data/prospects_ledger.json

@@ -148,10 +148,13 @@ class SecopHarvesterAdapter:
         limit: int = 50,
         corporate_only: bool = True,
         min_contracts_hint: bool = False,
+        include_keywords: Optional[List[str]] = None,
+        exclude_keywords: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Queries SECOP II for active registered corporate entities in the target city,
         extracting real legal representatives, direct emails, and phone numbers.
+        Supports positive and negative keyword filtering across company descriptions.
         """
         params: Dict[str, str] = {
             "esta_activa": "Si",
@@ -220,6 +223,13 @@ class SecopHarvesterAdapter:
             if self._is_invalid_or_bankrupt(rep_name):
                 continue
             if not raw_nit:
+                continue
+
+            # Universal positive and negative keyword filtering
+            full_text = f"{company_name} {item.get('descripcion_categoria_principal', '')} {item.get('objeto_social', '')}".lower()
+            if exclude_keywords and any(ex.lower() in full_text for ex in exclude_keywords):
+                continue
+            if include_keywords and not any(inc.lower() in full_text for inc in include_keywords):
                 continue
 
             # Calibrate role and clean contact name

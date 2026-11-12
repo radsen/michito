@@ -1,0 +1,51 @@
+id: "materiales_construccion"
+name: "Materiales de Construcción, Ferretería & Obras Civiles"
+description: "Suministro de aceros, cementos, prefabricados e insumos ferreteros para constructoras, contratistas de obras civiles y desarrolladores inmobiliarios."
+
+target:
+  city: "Medellín"
+  cities:
+    - "Medellín"
+    - "Bogotá"
+    - "Barranquilla"
+    - "Cali"
+  country: "CO"
+  currency: "COP"
+  segment: "all"
+  min_revenue_cop: "$4.000M COP"
+  sectors:
+    - "construction_realestate"
+    - "industrial_manufacturing"
+  roles:
+    - "Director de Obra"
+    - "Gerente de Compras e Insumos"
+    - "Gerente de Proyectos"
+    - "Gerente General"
+
+angles:
+  recommended: "Suministro directo de fábrica con entrega en obra y crédito rotativo para construcción"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, vi que lideras proyectos constructivos y compras en {clean_name}.
+    Abastecemos obras de infraestructura y edificación en {city} directamente desde fábrica con entregas en sitio.
+    ¿Abierto a conectar para enviar ficha técnica y lista de precios mayorista?
+
+  touch2_email_subject: "Suministro directo de materiales y aceros para obras de {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te escribo porque en {clean_name} desarrollan proyectos de alto impacto donde la disponibilidad inmediata en patio y los precios directos de fábrica impactan directamente en el presupuesto de obra.
+
+    Atendemos constructoras con despacho prioritario de acero, cemento, tuberías y acabados pesados con certificado de calidad y soporte logístico en {city}.
+
+    ¿Tendrías 10 minutos esta semana para revisar una cotización comparativa para su próxima etapa constructiva?
+
+  touch3_email_subject: "Re: {clean_name} — Disponibilidad y cotización de materiales para obra"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Dando alcance a mi mensaje anterior, actualmente contamos con despacho inmediato en {city} y líneas de crédito rotativo de acuerdo al avance de sus proyectos.
+
+    ¿Te convendría una breve llamada de 10 minutos este jueves para presentar nuestra propuesta de suministro?
+

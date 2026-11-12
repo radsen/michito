@@ -50,7 +50,7 @@ class WebhookAlertAdapter:
         error_info = payload_details.get("error", "No additional details")
 
         # 1. Always log locally for cloud observability (Cloud Logging / stdout)
-        log_line = f"🚨 [WatchdogAlert] [{level.upper()}] {title} | Order: {order_id} | Client: {client_email} | Message: {message} | Error: {error_info}"
+        log_line = f"[WatchdogAlert] [{level.upper()}] {title} | Order: {order_id} | Client: {client_email} | Message: {message} | Error: {error_info}"
         if level.lower() in ("critical", "error"):
             logger.error(log_line)
         else:
@@ -67,7 +67,7 @@ class WebhookAlertAdapter:
                     "username": "Michito Watchdog",
                     "embeds": [
                         {
-                            "title": f"🚨 {title}",
+                            "title": f"[ALERT] {title}",
                             "description": message,
                             "color": color_code,
                             "fields": [
@@ -84,7 +84,7 @@ class WebhookAlertAdapter:
             elif "slack.com" in dest_url:
                 payload = {
                     "text": (
-                        f"🚨 *[{level.upper()}] {title}*\n"
+                        f"*[{level.upper()}] {title}*\n"
                         f"*Order*: `{order_id}` | *Client*: `{client_email}`\n"
                         f"*Summary*: {message}\n"
                         f"```{str(error_info)[:500]}```"
@@ -128,10 +128,10 @@ class WebhookAlertAdapter:
         payload_details = details or {}
         order_id = payload_details.get("order_id", "N/A")
 
-        log_line = f"📦 [OrdersFeed] {title} | Order: {order_id} | Message: {message}"
+        log_line = f"[OrdersFeed] {title} | Order: {order_id} | Message: {message}"
         logger.info(log_line)
 
-        if not dest_url:
+        if not dest_url or os.environ.get("ENVIRONMENT") == "test" or os.environ.get("TESTING") == "1":
             return False
 
         try:
@@ -144,7 +144,7 @@ class WebhookAlertAdapter:
                             k_clean = k.replace("_", " ").title()
                             fields_str += f"• *{k_clean}*: {v}\n"
 
-                body_text = f"📦 *{title}*\n{message}"
+                body_text = f"*{title}*\n{message}"
                 if fields_str:
                     body_text += f"\n{fields_str.strip()}"
 

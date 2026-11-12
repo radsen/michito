@@ -16,7 +16,10 @@ class LocalStorageAdapter(StoragePort):
     """
 
     def __init__(self, base_dir: Optional[str] = None, base_url: str = ""):
-        self.base_dir = os.path.abspath(base_dir or os.path.join(os.getcwd(), "outputs"))
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+        if not os.path.exists(os.path.join(repo_root, "backend")):
+            repo_root = os.getcwd()
+        self.base_dir = os.path.abspath(base_dir or os.path.join(repo_root, "outputs"))
         self.base_url = base_url.rstrip("/")
         os.makedirs(self.base_dir, exist_ok=True)
 

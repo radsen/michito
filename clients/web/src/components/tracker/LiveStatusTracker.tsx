@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { updateOrderStatus, resetOrder } from "../../store/slices/orderSlice";
-import { useGetOrderQuery } from "../../store/api/michitoApi";
+import { useGetOrderQuery, useClaimLeadReplacementMutation } from "../../store/api/michitoApi";
 import { SampleTeaserTable } from "./SampleTeaserTable";
 import { OutreachPlaybook } from "./OutreachPlaybook";
 import {
@@ -17,12 +17,18 @@ import {
   Globe,
   Mail,
   ShieldCheck,
+  ShieldAlert,
   FileSpreadsheet,
   FileText,
   Building2,
   AlertCircle,
   Download,
   FileCheck,
+  RotateCcw,
+  X,
+  Share2,
+  ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 
 export const LiveStatusTracker: React.FC = () => {
@@ -42,8 +48,54 @@ export const LiveStatusTracker: React.FC = () => {
   } = useSelector((state: RootState) => state.order);
 
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [activeViewTab, setActiveViewTab] = useState<"summary" | "playbook">("summary");
+
+  const getShareableApprovalUrl = () => {
+    if (!activeOrderId) return "";
+    const origin = window.location.origin;
+    return `${origin}/rastrear?order_id=${activeOrderId}`;
+  };
+
+  const handleCopyApprovalLink = () => {
+    const url = getShareableApprovalUrl();
+    if (navigator?.clipboard && url) {
+      navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
+  // Guarantee 2x1 Replacement State
+  const [showGuaranteeModal, setShowGuaranteeModal] = useState(false);
+  const [claimEmail, setClaimEmail] = useState("");
+  const [claimCompany, setClaimCompany] = useState("");
+  const [claimReason, setClaimReason] = useState("hard_bounce");
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState<string | null>(null);
+  const [claimReplacement, { isLoading: isClaiming }] = useClaimLeadReplacementMutation();
+
+  const handleClaimSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeOrderId || !claimEmail.trim()) return;
+    setClaimError(null);
+    setClaimSuccess(null);
+    try {
+      const res = await claimReplacement({
+        orderId: activeOrderId,
+        bounced_email: claimEmail.trim(),
+        company_name: claimCompany.trim() || undefined,
+        reason: claimReason,
+      }).unwrap();
+      setClaimSuccess(res.message);
+      setClaimEmail("");
+      setClaimCompany("");
+      refetch();
+    } catch (err: any) {
+      setClaimError(err?.data?.detail || "No fue posible procesar la garantía técnica para este correo.");
+    }
+  };
 
   // Poll every 2.5 seconds while active order is in flight
   const shouldPoll = Boolean(activeOrderId) && orderStatus !== "paid" && orderStatus !== "error";
@@ -246,6 +298,16 @@ export const LiveStatusTracker: React.FC = () => {
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "¡Copiado!" : "Copiar"}</span>
               </button>
+              <button
+                onClick={handleCopyApprovalLink}
+                className="copy-id-btn"
+                title="Copiar enlace compartible para aprobación"
+                type="button"
+                style={{ marginLeft: "4px" }}
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-sky-400" />}
+                <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -268,6 +330,48 @@ export const LiveStatusTracker: React.FC = () => {
             <PlusCircle className="w-4 h-4" />
             <span>Nueva Búsqueda</span>
           </button>
+        </div>
+      </div>
+
+      {/* Shareable Quote & Approval Banner */}
+      <div className="shareable-quote-box p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 my-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-950/90 border border-sky-500/40 flex items-center justify-center text-sky-400 shrink-0">
+              <Share2 className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Enlace Compartible de Aprobación</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-500/30">
+                  {isPaid ? "Entrega Aprobada" : isAwaitingPayment ? "Listo para Aprobación" : "En Calificación"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Comparte este enlace directo con tu líder comercial o equipo para revisar los criterios, verificar la muestra y autorizar el lote.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyApprovalLink}
+              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? "¡Copiado!" : "Copiar Enlace"}</span>
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Hola, por favor revisa y aprueba esta cotización de prospección B2B en Michito: ${getShareableApprovalUrl()}`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5"
+              title="Compartir por WhatsApp"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+              <span>WhatsApp</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -506,6 +610,46 @@ export const LiveStatusTracker: React.FC = () => {
               </a>
             ) : null}
           </div>
+
+          {/* Phase 3: Automated 2x1 Replacement Guarantee Portal */}
+          <div className="mt-4 p-4 rounded-xl bg-slate-900/90 border border-emerald-600/30 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h5 className="text-sm font-bold text-white">Garantía Técnica 2x1 por Rebote Duro</h5>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/40">
+                      7 Días Activa
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Si un correo corporativo presenta rebote duro verificado, recibe 2 cuentas nuevas de reemplazo al instante.
+                  </p>
+                  {orderData?.replacement_claims && orderData.replacement_claims.length > 0 && (
+                    <div className="text-xs text-emerald-400 font-medium mt-1">
+                      Garantías aplicadas: {orderData.replacement_claims.length} rebote(s) reportado(s) •{" "}
+                      {orderData.replacement_claims.reduce((acc: number, c: any) => acc + (c.replacement_count || 2), 0)} cuentas adicionales generadas
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGuaranteeModal(true);
+                  setClaimError(null);
+                  setClaimSuccess(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 shrink-0 shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reclamar Reemplazo 2x1</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -523,7 +667,7 @@ export const LiveStatusTracker: React.FC = () => {
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
               >
-                📋 Resumen & Muestra de Datos
+                Resumen & Muestra de Datos
               </button>
               <button
                 type="button"
@@ -534,7 +678,7 @@ export const LiveStatusTracker: React.FC = () => {
                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
               >
-                <span>🎯 Playbook de Prospección (1-Click Outreach)</span>
+                <span>Playbook de Prospección (1-Click Outreach)</span>
                 <span className="px-1.5 py-0.5 text-xs bg-sky-950 text-sky-300 rounded font-mono">
                   {playbook.length}
                 </span>
@@ -555,6 +699,140 @@ export const LiveStatusTracker: React.FC = () => {
           {activeViewTab === "playbook" && playbook && playbook.length > 0 && (
             <OutreachPlaybook companies={playbook} />
           )}
+        </div>
+      )}
+
+      {/* 2x1 Guarantee Claim Modal */}
+      {showGuaranteeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-left">
+            <button
+              type="button"
+              onClick={() => setShowGuaranteeModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white">Reclamar Garantía Técnica 2x1</h4>
+                <p className="text-xs text-slate-400">Reemplazo instantáneo de contactos con rebote verificado</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+              Ingresa el correo corporativo que presentó rebote duro (hard bounce). El motor registrará el correo en el
+              ledger global de deduplicación y generará de inmediato <strong>2 cuentas nuevas</strong> con el mismo criterio territorial y de rol.
+            </p>
+
+            {claimSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{claimSuccess}</span>
+              </div>
+            )}
+
+            {claimError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{claimError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleClaimSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Correo Electrónico Rebotado *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="ejemplo@empresa.com"
+                  value={claimEmail}
+                  onChange={(e) => setClaimEmail(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                {teaserLeads && teaserLeads.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                    <span className="text-[11px] text-slate-400">Sugeridos de la orden:</span>
+                    {teaserLeads.slice(0, 4).map((l, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setClaimEmail(l.email);
+                          if (l.company_name) setClaimCompany(l.company_name);
+                        }}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 truncate max-w-[140px]"
+                      >
+                        {l.email}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Nombre de la Empresa (Opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Empresa asociada al contacto"
+                  value={claimCompany}
+                  onChange={(e) => setClaimCompany(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Motivo del Rechazo
+                </label>
+                <select
+                  value={claimReason}
+                  onChange={(e) => setClaimReason(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="hard_bounce">Rebote Duro / Buzón Inexistente (Error 550)</option>
+                  <option value="domain_dead">Dominio Inactivo / Sin Registro MX</option>
+                  <option value="left_company">Contacto Ya No Labora en la Compañía</option>
+                  <option value="mailbox_full">Buzón Saturado Permanente</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGuaranteeModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isClaiming || !claimEmail.trim()}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  {isClaiming ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Generando Reemplazos...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Ejecutar Garantía 2x1</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

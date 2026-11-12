@@ -97,7 +97,7 @@ class OrderWorkerDaemon:
     def process_order(self, order: Dict[str, Any]) -> bool:
         order_id = order.get("order_id")
         if not order_id:
-            print("[WorkerDaemon] ⚠️ Invalid order object received: missing order_id.")
+            print("[WorkerDaemon] [WARN] Invalid order object received: missing order_id.")
             return False
 
         client_name = order.get("client", {}).get("name", "Unknown Client")
@@ -109,22 +109,22 @@ class OrderWorkerDaemon:
         tier = req.get("tier", 2)
         exclusions = req.get("exclusions") or req.get("keywords_exclude")
 
-        print(f"\n[WorkerDaemon] ⚡ Locking and starting processing for Order `{order_id}`...")
+        print(f"\n[WorkerDaemon] [RUN] Locking and starting processing for Order `{order_id}`...")
         print(f"               Client:   {client_name}")
         print(f"               Campaign: {campaign_id} | City: {city} | Limit: {limit} | Tier: {tier}")
         if exclusions:
             print(f"               Exclusions: {len(exclusions)} accounts or domains blacklisted.")
-        print(f"[WorkerDaemon] ⏳ [1/4] Ingestion & Chamber of Commerce Harvester running...")
+        print(f"[WorkerDaemon] [WAIT] [1/4] Ingestion & Chamber of Commerce Harvester running...")
 
         # 1. Lock the order in the repository to prevent double processing
         if not self.order_repository.mark_processing(order_id):
-            print(f"[WorkerDaemon] ⚠️ Order `{order_id}` could not be locked (already picked up by another worker).")
+            print(f"[WorkerDaemon] [WARN] Order `{order_id}` could not be locked (already picked up by another worker).")
             return False
 
         # 2. Execute the heavy harvesting, verification, and intent pipeline
         try:
-            print(f"[WorkerDaemon] 🔍 [2/4] Verifying domains, HTTP footprint & Socket MX servers...")
-            print(f"[WorkerDaemon] 🛡️ [3/4] Underwriting solvency risk & composing 5 tailored multichannel touches...")
+            print(f"[WorkerDaemon] [SEARCH] [2/4] Verifying domains, HTTP footprint & Socket MX servers...")
+            print(f"[WorkerDaemon] [GUARD] [3/4] Underwriting solvency risk & composing 5 tailored multichannel touches...")
             t0 = time.time()
             exec_kwargs: Dict[str, Any] = {
                 "campaign": campaign_id,
@@ -141,6 +141,18 @@ class OrderWorkerDaemon:
                 exec_kwargs["country"] = req.get("country")
             if req.get("country_allocations"):
                 exec_kwargs["country_allocations"] = req.get("country_allocations")
+            if req.get("offer_description"):
+                exec_kwargs["offer_description"] = req.get("offer_description")
+            if req.get("target_roles"):
+                exec_kwargs["target_roles"] = req.get("target_roles")
+            if req.get("sector"):
+                exec_kwargs["target_sectors"] = [req.get("sector")]
+            if req.get("target_ciiu_codes"):
+                exec_kwargs["target_ciiu_codes"] = req.get("target_ciiu_codes")
+            if req.get("location_allocations"):
+                exec_kwargs["location_allocations"] = req.get("location_allocations")
+            if req.get("keywords_include"):
+                exec_kwargs["keywords_include"] = req.get("keywords_include")
 
             job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0
@@ -149,7 +161,7 @@ class OrderWorkerDaemon:
             total_qualified = job_result.get("total_qualified", len(job_result.get("leads", [])))
             if total_qualified == 0:
                 err_msg = job_result.get("message") or "No se encontraron prospectos que superaran los filtros de calidad o el registro mercantil estuvo inaccesible."
-                print(f"[WorkerDaemon] ⚠️ Order `{order_id}` produced 0 qualified leads. Marking failed.")
+                print(f"[WorkerDaemon] [WARN] Order `{order_id}` produced 0 qualified leads. Marking failed.")
                 if hasattr(self.order_repository, "mark_failed"):
                     self.order_repository.mark_failed(order_id, err_msg)
                 return False
@@ -172,7 +184,7 @@ class OrderWorkerDaemon:
             )
 
             # Upload deliverables to Storage Adapter (Local or GCS)
-            print(f"[WorkerDaemon] 📦 [4/4] Packaging structured CSV/XLSX manifest and executive PDF dossier...")
+            print(f"[WorkerDaemon] [PACKAGE] [4/4] Packaging structured CSV/XLSX manifest and executive PDF dossier...")
             csv_path = job_result.get("csv_path")
             xlsx_path = job_result.get("xlsx_path")
             dossier_path = job_result.get("dossier_path")
@@ -184,7 +196,7 @@ class OrderWorkerDaemon:
                 csv_url = self.storage_adapter.generate_download_url(dest_csv, expiration_hours=48)
                 job_result["csv_uri"] = csv_uri
                 job_result["csv_download_url"] = csv_url
-                print(f"[WorkerDaemon] 📦 CSV Stored: {csv_uri}")
+                print(f"[WorkerDaemon] [PACKAGE] CSV Stored: {csv_uri}")
 
             if xlsx_path and os.path.exists(xlsx_path):
                 dest_xlsx = f"orders/{order_id}/prospects.xlsx"
@@ -192,7 +204,7 @@ class OrderWorkerDaemon:
                 xlsx_url = self.storage_adapter.generate_download_url(dest_xlsx, expiration_hours=48)
                 job_result["xlsx_uri"] = xlsx_uri
                 job_result["xlsx_download_url"] = xlsx_url
-                print(f"[WorkerDaemon] 📊 XLSX Stored: {xlsx_uri}")
+                print(f"[WorkerDaemon]  XLSX Stored: {xlsx_uri}")
 
             if dossier_path and os.path.exists(dossier_path):
                 dest_dossier = f"orders/{order_id}/executive_dossier.md"
@@ -200,7 +212,7 @@ class OrderWorkerDaemon:
                 dossier_url = self.storage_adapter.generate_download_url(dest_dossier, expiration_hours=48)
                 job_result["dossier_uri"] = dossier_uri
                 job_result["dossier_download_url"] = dossier_url
-                print(f"[WorkerDaemon] 📄 Markdown Dossier Stored: {dossier_uri}")
+                print(f"[WorkerDaemon] [DOC] Markdown Dossier Stored: {dossier_uri}")
 
             if pdf_path and os.path.exists(pdf_path):
                 dest_pdf = f"orders/{order_id}/executive_dossier.pdf"
@@ -208,7 +220,7 @@ class OrderWorkerDaemon:
                 pdf_url = self.storage_adapter.generate_download_url(dest_pdf, expiration_hours=48)
                 job_result["pdf_uri"] = pdf_uri
                 job_result["pdf_download_url"] = pdf_url
-                print(f"[WorkerDaemon] 📑 PDF Dossier Stored: {pdf_uri}")
+                print(f"[WorkerDaemon] [PDF] PDF Dossier Stored: {pdf_uri}")
 
             self.order_repository.complete_order(
                 order_id=order_id,
@@ -218,7 +230,7 @@ class OrderWorkerDaemon:
 
             if hasattr(self.alert_dispatcher, "send_feed_event"):
                 self.alert_dispatcher.send_feed_event(
-                    title="Leads Ready & Awaiting Payment 🎯",
+                    title="Leads Ready & Awaiting Payment",
                     message=f"Order `{order_id}` finished processing in {elapsed:.1f}s. {job_result.get('total_qualified', 0)} qualified leads generated.",
                     details={
                         "order_id": order_id,
@@ -230,14 +242,14 @@ class OrderWorkerDaemon:
                     }
                 )
 
-            print(f"[WorkerDaemon] ✅ Order `{order_id}` completed successfully in {elapsed:.2f}s!")
+            print(f"[WorkerDaemon] [OK] Order `{order_id}` completed successfully in {elapsed:.2f}s!")
             print(f"               Qualified Leads: {job_result.get('total_qualified', 0)}")
             print(f"               Status: awaiting_payment (Quote: ${total_price_cents // 100:,.0f} COP)")
             print(f"               Ready for buyer review and Wompi unlock.\n")
             return True
 
         except Exception as e:
-            print(f"[WorkerDaemon] ❌ Error processing Order `{order_id}`: {e}")
+            print(f"[WorkerDaemon] [ERROR] Error processing Order `{order_id}`: {e}")
             failure_info = None
             if hasattr(self.order_repository, "record_order_failure"):
                 failure_info = self.order_repository.record_order_failure(order_id, str(e))
@@ -267,7 +279,7 @@ class OrderWorkerDaemon:
 
     def run_loop(self, poll_interval_sec: int = 5, run_once: bool = False):
         print("=" * 80)
-        print("⚙️  MICHITO ASYNCHRONOUS ORDER WORKER DAEMON STARTED")
+        print("  [DAEMON] MICHITO ASYNCHRONOUS ORDER WORKER DAEMON STARTED")
         print("=" * 80)
         mode_str = getattr(self.order_repository, "database_url", type(self.order_repository).__name__)
         queue_str = type(self.order_queue).__name__ if self.order_queue else "Direct Queue / Polling"
@@ -286,7 +298,7 @@ class OrderWorkerDaemon:
                 if loop_count % 6 == 1 and hasattr(self.order_repository, "recover_stuck_processing_orders"):
                     dead_lettered = self.order_repository.recover_stuck_processing_orders(max_processing_minutes=60)
                     for dead in dead_lettered:
-                        print(f"[WorkerDaemon] 🚨 Order `{dead['order_id']}` Dead-Lettered by Timeout Reaper!")
+                        print(f"[WorkerDaemon] [ALERT] Order `{dead['order_id']}` Dead-Lettered by Timeout Reaper!")
                         self.alert_dispatcher.send_alert(
                             title="Order Dead-Lettered (Timeout Recovery)",
                             message=f"Order `{dead['order_id']}` exceeded maximum execution time and maximum retry attempts.",
@@ -331,13 +343,13 @@ class OrderWorkerDaemon:
                 # Guarantees that even if Pub/Sub drops or delays a message, no order gets stuck
                 queued_orders = self.order_repository.fetch_queued_orders(limit=5)
                 if queued_orders:
-                    print(f"[WorkerDaemon] ⚡ Found {len(queued_orders)} queued order(s) waiting in database. Processing now...")
+                    print(f"[WorkerDaemon] [RUN] Found {len(queued_orders)} queued order(s) waiting in database. Processing now...")
                     for ord_doc in queued_orders:
                         self.process_order(ord_doc)
                 else:
                     if loop_count % 4 == 1 and not run_once:
                         now_str = time.strftime("%H:%M:%S")
-                        print(f"[{now_str}] 🟢 [WorkerDaemon] Heartbeat: Daemon healthy • Polling {mode_str} (Interval: {poll_interval_sec}s)...")
+                        print(f"[{now_str}]  [WorkerDaemon] [HEARTBEAT] Heartbeat: Daemon healthy • Polling {mode_str} (Interval: {poll_interval_sec}s)...")
 
                 if run_once:
                     print("[WorkerDaemon] Run-once flag active. Exiting worker process.")

@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from decimal import Decimal
 import uuid
 import os
@@ -68,14 +68,18 @@ class ClientDto(BaseModel):
     referral_partner: Optional[str] = "direct"
 
 class RequestDto(BaseModel):
-    campaign_id: str
+    campaign_id: Optional[str] = "universal_prospecting"
     country: Optional[str] = "CO"
     country_allocations: Optional[Dict[str, int]] = None
+    location_allocations: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None
     city: Optional[str] = "Medellín"
     limit: Optional[int] = 10
     tier: Optional[int] = 2
     segment: Optional[str] = None
     sector: Optional[str] = None
+    offer_description: Optional[str] = None
+    target_roles: Optional[List[str]] = None
+    target_ciiu_codes: Optional[List[str]] = None
     keywords_include: Optional[List[str]] = None
     keywords_exclude: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
@@ -177,6 +181,79 @@ def get_campaigns():
         })
     return {"status": "success", "total": len(results), "campaigns": results}
 
+class RoleUsageRequest(BaseModel):
+    role_title: str
+
+class ReplacementClaimRequest(BaseModel):
+    bounced_email: str
+    company_name: Optional[str] = None
+    reason: Optional[str] = "hard_bounce"
+
+@app.get("/api/v1/campaigns/presets")
+def get_campaign_presets():
+    """
+    Returns available demonstration presets for one-click inspiring lookups.
+    """
+    campaign_ids = list_available_campaigns()
+    presets = []
+    for cid in campaign_ids:
+        cfg = load_campaign(cid)
+        tgt = cfg.get("target", {})
+        presets.append({
+            "id": cfg.get("id", cid),
+            "name": cfg.get("name", cid),
+            "description": cfg.get("description", ""),
+            "country": tgt.get("country", "CO"),
+            "currency": tgt.get("currency", "COP"),
+            "cities": tgt.get("cities", []),
+            "sectors": tgt.get("sectors", []),
+            "roles": tgt.get("roles", []),
+            "segment": tgt.get("segment", "all"),
+            "is_preset": True,
+        })
+    return {"status": "success", "total": len(presets), "presets": presets}
+
+@app.get("/api/v1/taxonomy/locations")
+def search_taxonomy_locations(q: str = "", country: Optional[str] = None, limit: int = 20):
+    """
+    Searches supported LatAm territories, administrative departments, and metropolitan clusters.
+    """
+    results = sql_adapter.search_locations(query=q, country=country, limit=limit)
+    return {"status": "success", "total": len(results), "locations": results}
+
+@app.get("/api/v1/taxonomy/locations/validate")
+def validate_taxonomy_location(name: str):
+    """
+    Validates whether a location string falls inside our supported registries
+    in Colombia 🇨🇴, Dominican Republic 🇩🇴, or Ecuador 🇪🇨.
+    """
+    res = sql_adapter.validate_location(name)
+    return {"status": "success", **res}
+
+@app.get("/api/v1/taxonomy/roles")
+def search_taxonomy_roles(q: str = "", domain: Optional[str] = None, country: Optional[str] = None, limit: int = 20):
+    """
+    Searches executive decision maker roles and cross-country aliases, ordered by usage popularity.
+    """
+    results = sql_adapter.search_roles(query=q, domain=domain, country=country, limit=limit)
+    return {"status": "success", "total": len(results), "roles": results}
+
+@app.post("/api/v1/taxonomy/roles/usage")
+def record_taxonomy_role_usage(payload: RoleUsageRequest):
+    """
+    Records role selection usage count to train future autocomplete ranking.
+    """
+    sql_adapter.record_role_usage(payload.role_title)
+    return {"status": "success", "message": "Role popularity updated"}
+
+@app.get("/api/v1/taxonomy/sectors")
+def search_taxonomy_sectors(q: str = "", limit: int = 30):
+    """
+    Searches universal economic sectors, CIIU activity codes, and default keyword lists.
+    """
+    results = sql_adapter.search_sectors(query=q, limit=limit)
+    return {"status": "success", "total": len(results), "sectors": results}
+
 @app.get("/api/v1/partners/{partner_id}")
 def get_partner_profile(partner_id: str):
     """
@@ -241,7 +318,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             client_phone=payload.client.phone,
             client_channel=payload.client.channel or "web_portal",
             referral_partner=payload.client.referral_partner or "direct",
-            campaign_id=payload.request.campaign_id,
+            campaign_id=payload.request.campaign_id or "universal_prospecting",
             city=payload.request.city or "Medellín",
             limit=payload.request.limit or 10,
             country=payload.request.country or "CO",
@@ -252,6 +329,10 @@ def create_prospecting_order(payload: CreateOrderRequest):
             keywords_exclude=merged_exclusions or None,
             tier=payload.request.tier or 2,
             country_allocations=payload.request.country_allocations,
+            offer_description=payload.request.offer_description,
+            target_roles=payload.request.target_roles,
+            target_ciiu_codes=payload.request.target_ciiu_codes,
+            location_allocations=payload.request.location_allocations,
         )
 
         try:
@@ -266,8 +347,8 @@ def create_prospecting_order(payload: CreateOrderRequest):
         try:
             if hasattr(app_container, "alert_dispatcher"):
                 app_container.alert_dispatcher.send_feed_event(
-                    title="New Order Placed 🚀",
-                    message=f"Order `{order['order_id']}` placed by *{payload.client.name}* ({payload.client.email}).",
+                    "New Order Placed",
+                    f"Order `{order['order_id']}` placed by *{payload.client.name}* ({payload.client.email}).",
                     details={
                         "order_id": order["order_id"],
                         "client": payload.client.name,
@@ -275,7 +356,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
                         "city": payload.request.city or "Medellín",
                         "requested_leads": payload.request.limit or 10,
                         "tier": f"Tier {payload.request.tier or 2}",
-                    }
+                    },
                 )
         except Exception as e:
             logger.warning(f"Could not dispatch order feed event: {e}")
@@ -302,6 +383,69 @@ def get_prospecting_order(order_id: str):
         raise HTTPException(status_code=404, detail="Order not found")
     return order
 
+@app.get("/api/v1/orders/{order_id}/quote")
+def get_order_quote_summary(order_id: str):
+    """
+    Returns a consolidated executive quote and approval summary for an order.
+    Suitable for sharing with CFOs, partners, and decision-makers prior to payment authorization.
+    """
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    client = order.get("client", {})
+    req = order.get("request", {})
+    payment = order.get("payment", {})
+    delivery = order.get("delivery", {})
+
+    limit = req.get("limit") or order.get("limit") or 10
+    tier = req.get("tier") or order.get("tier") or 2
+    currency = payment.get("currency") or "COP"
+    amount_in_cents = payment.get("amount_in_cents") or 0
+    total_cop = amount_in_cents // 100
+
+    tier_labels = {
+        1: "Tier 1 — Mailbox Directo & Representante Legal",
+        2: "Tier 2 — Tomador de Decisión & Teléfono Celular Verificado",
+        3: "Tier 3 — Solvencia Financiera, EBITDA & Scoring Judicial",
+    }
+
+    quote_summary = {
+        "status": "success",
+        "order_id": order_id,
+        "shareable_url": f"/rastrear?order_id={order_id}",
+        "order_status": order.get("status"),
+        "created_at": order.get("created_at"),
+        "client": {
+            "name": client.get("name"),
+            "email": client.get("email"),
+            "phone": client.get("phone"),
+            "channel": client.get("channel"),
+        },
+        "scope": {
+            "campaign_id": req.get("campaign_id"),
+            "offer_description": req.get("offer_description") or f"Prospección dirigida para {req.get('campaign_id')}",
+            "sectors": req.get("sector") or "Multi-Sector",
+            "target_roles": req.get("target_roles") or ["Gerente General"],
+            "locations": req.get("location_allocations") or [{"city": req.get("city") or "Medellín", "allocated_leads": limit}],
+            "total_leads": limit,
+            "tier": tier,
+            "tier_description": tier_labels.get(tier, f"Tier {tier}"),
+            "exclusions_count": len(req.get("keywords_exclude") or []),
+        },
+        "financials": {
+            "currency": currency,
+            "amount_in_cents": amount_in_cents,
+            "total_price": total_cop,
+            "unit_price": total_cop // max(1, limit) if currency == "COP" else round((amount_in_cents / 100) / max(1, limit), 2),
+            "payment_status": payment.get("status") or "pending",
+            "guarantee": "Garantía Técnica 2x1 por Rebote Duro (7 días de cobertura)",
+        },
+        "is_approved_and_paid": order.get("status") in ("paid", "completed", "fulfilled"),
+        "sample_preview_count": len(delivery.get("sample_teaser") or []),
+    }
+    return quote_summary
+
 @app.post("/api/v1/orders/{order_id}/pay")
 def pay_prospecting_order(order_id: str):
     """
@@ -326,14 +470,14 @@ def pay_prospecting_order(order_id: str):
         if hasattr(app_container, "alert_dispatcher"):
             client_info = order.get("client", {})
             app_container.alert_dispatcher.send_feed_event(
-                title="Payment Approved! 💳",
-                message=f"Payment received for Order `{order_id}`! Deliverables unlocked for *{client_info.get('name', 'Client')}*.",
+                "Payment Approved!",
+                f"Payment received for Order `{order_id}`! Deliverables unlocked for *{client_info.get('name', 'Client')}*.",
                 details={
                     "order_id": order_id,
                     "amount": f"${amount // 100:,.0f} COP",
                     "transaction_id": tx_id,
                     "client": client_info.get("name"),
-                }
+                },
             )
     except Exception as e:
         logger.warning(f"Could not dispatch payment feed event: {e}")
@@ -395,6 +539,26 @@ def download_deliverable(order_id: str, file_type: str):
         return FileResponse(path=file_path, media_type=media_type, filename=filename)
 
     raise HTTPException(status_code=404, detail=f"Deliverable file not found at {file_path}")
+
+@app.post("/api/v1/orders/{order_id}/claim-replacement")
+def claim_order_replacement(order_id: str, payload: ReplacementClaimRequest):
+    """
+    Automated 2x1 Replacement Guarantee claim:
+    Validates hard bounce, blacklists email/company in DeduplicationLedger,
+    generates 2 replacement accounts matching exact order criteria, and updates manifest.
+    """
+    try:
+        return sql_adapter.claim_lead_replacement(
+            order_id=order_id,
+            bounced_email=payload.bounced_email,
+            company_name=payload.company_name,
+            reason=payload.reason or "hard_bounce",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error processing replacement claim for order {order_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal error fulfilling replacement guarantee.")
 
 # ------------------------------------------------------------------------------
 # Legacy Endpoints & Webhooks
@@ -491,11 +655,11 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                         transaction_id=str(tx_id),
                         amount_in_cents=int(amount_in_cents)
                     )
-                    logger.info(f"[WompiWebhook] ✅ Order `{reference}` marked paid in PostgreSQL.")
+                    logger.info(f"[WompiWebhook] Order `{reference}` marked paid in PostgreSQL.")
 
                     try:
                         deliver_order_use_case.execute(reference)
-                        logger.info(f"[WompiWebhook] ✅ Order `{reference}` dispatched via omnichannel delivery.")
+                        logger.info(f"[WompiWebhook] Order `{reference}` dispatched via omnichannel delivery.")
                     except Exception as e:
                         logger.error(f"[WompiWebhook] Error during delivery dispatch for order {reference}: {e}")
 
@@ -503,14 +667,14 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                         if hasattr(app_container, "alert_dispatcher"):
                             client_info = order.get("client", {})
                             app_container.alert_dispatcher.send_feed_event(
-                                title="Wompi Payment Confirmed! 💳",
-                                message=f"Webhook received! Order `{reference}` paid. Deliverables unlocked for *{client_info.get('name', 'Buyer')}*.",
+                                "Wompi Payment Confirmed!",
+                                f"Webhook received! Order `{reference}` paid. Deliverables unlocked for *{client_info.get('name', 'Buyer')}*.",
                                 details={
                                     "order_id": reference,
                                     "amount": f"${int(amount_in_cents) // 100:,.0f} COP",
                                     "transaction_id": str(tx_id),
                                     "provider": "Wompi Gateway",
-                                }
+                                },
                             )
                     except Exception as e:
                         logger.warning(f"Could not dispatch webhook payment feed event: {e}")

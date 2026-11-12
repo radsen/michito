@@ -1,0 +1,52 @@
+id: "alimentos_distribucion"
+name: "Distribución Mayorista de Alimentos & Canal HORECA"
+description: "Proveeduría mayorista de insumos alimenticios, perecederos, granos y abarrotes para cadenas de restaurantes, hoteles y distribuidores independientes."
+
+target:
+  city: "Bogotá"
+  cities:
+    - "Bogotá"
+    - "Medellín"
+    - "Cali"
+    - "Barranquilla"
+  country: "CO"
+  currency: "COP"
+  segment: "all"
+  min_revenue_cop: "$2.500M COP"
+  sectors:
+    - "retail_commerce"
+    - "consumer_goods"
+    - "logistics_transport"
+  roles:
+    - "Jefe de Compras"
+    - "Director de Abastecimiento"
+    - "Gerente de Alimentos y Bebidas"
+    - "Gerente General"
+
+angles:
+  recommended: "Optimización de costos en cadena de suministro de alimentos y entregas programadas"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, vi que lideras el área de compras y abastecimiento en {clean_name}.
+    Ayudamos a cadenas y operadores gastronómicos en {city} a optimizar costos de proveeduría de alimentos con despachos garantizados.
+    ¿Abierto a conectar para compartir nuestro catálogo mayorista?
+
+  touch2_email_subject: "Optimización de costos en abastecimiento de alimentos para {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque en {clean_name} manejan una operación representativa donde la frescura, el cumplimiento de entregas y los precios directos de origen marcan la rentabilidad.
+
+    Suministramos líneas completas de abarrotes, perecederos e insumos institucionales con entregas consolidadas en {city} y acuerdos de crédito a 30 días para clientes corporativos calificados.
+
+    ¿Tendrías 10 minutos esta semana para revisar nuestro catálogo institucional y lista de precios preferencial?
+
+  touch3_email_subject: "Re: {clean_name} — Comparativo de precios en alimentos e insumos"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Siguiendo con mi mensaje anterior, podemos realizar un ejercicio comparativo sin costo sobre sus 10 insumos de mayor rotación para demostrar el ahorro potencial en sus compras mensuales.
+
+    ¿Te parece si coordinamos una llamada de 10 minutos este jueves?
+

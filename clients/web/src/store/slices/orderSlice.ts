@@ -10,6 +10,7 @@ export interface TeaserLead {
   intent_trigger?: string;
   solvency_tier?: string;
   underwriting_grade?: string;
+  is_guarantee_replacement?: boolean;
 }
 
 export interface OrderState {

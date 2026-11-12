@@ -31,7 +31,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
     <div className="teaser-container">
       <div className="teaser-header">
         <h3 className="teaser-title">
-          🎯 Muestra de Cuentas Identificadas (3 de {totalLeads})
+          Muestra de Cuentas Identificadas (3 de {totalLeads})
         </h3>
         <p className="teaser-subtitle">{dict.tracker.teaserSubtitle}</p>
       </div>
@@ -53,8 +53,15 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
             {leads.map((lead, idx) => (
               <tr key={idx}>
                 <td className="font-semibold text-white">
-                  <div>{lead.company_name}</div>
-                  {lead.nit && <span className="text-xs text-slate-400">NIT: {lead.nit}</span>}
+                  <div className="flex items-center gap-2">
+                    <span>{lead.company_name}</span>
+                    {lead.is_guarantee_replacement && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-semibold">
+                        Garantía 2x1
+                      </span>
+                    )}
+                  </div>
+                  {lead.nit && <span className="text-xs text-slate-400 font-mono">NIT: {lead.nit}</span>}
                 </td>
                 <td>
                   <div>{lead.decision_maker_name || "Contacto Institucional"}</div>

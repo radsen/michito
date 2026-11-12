@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Text,
     JSON,
+    Boolean,
     ForeignKey,
     UniqueConstraint,
 )
@@ -117,11 +118,15 @@ class OrderModel(Base):
     campaign_id: Any = Column(String(128), nullable=False, index=True)
     country: Any = Column(String(8), default="CO")
     country_allocations: Any = Column(JSON, nullable=True)
+    location_allocations: Any = Column(JSON, nullable=True)
     city: Any = Column(String(128), default="Medellín")
     requested_limit: Any = Column(Integer, default=10)
     tier: Any = Column(Integer, default=2)
     segment: Any = Column(String(64), nullable=True)
     sector: Any = Column(String(128), nullable=True)
+    offer_description: Any = Column(Text, nullable=True)
+    target_roles: Any = Column(JSON, nullable=True)
+    target_ciiu_codes: Any = Column(JSON, nullable=True)
     keywords_include: Any = Column(JSON, nullable=True)
     keywords_exclude: Any = Column(JSON, nullable=True)
 
@@ -149,6 +154,7 @@ class OrderModel(Base):
     # Benchmark & Errors
     metrics: Any = Column(JSON, nullable=True)
     error_message: Any = Column(Text, nullable=True)
+    replacement_claims: Any = Column(JSON, nullable=True, default=list)
 
     # Reliability & DLQ Retries
     retry_count: Any = Column(Integer, default=0, nullable=False)
@@ -179,11 +185,15 @@ class OrderModel(Base):
                 "campaign_id": self.campaign_id,
                 "country": self.country,
                 "country_allocations": self.country_allocations,
+                "location_allocations": self.location_allocations,
                 "city": self.city,
                 "limit": self.requested_limit,
                 "tier": self.tier or 2,
                 "segment": self.segment,
                 "sector": self.sector,
+                "offer_description": self.offer_description,
+                "target_roles": self.target_roles,
+                "target_ciiu_codes": self.target_ciiu_codes,
                 "keywords_include": self.keywords_include,
                 "keywords_exclude": self.keywords_exclude,
                 "exclusions": self.keywords_exclude,
@@ -209,6 +219,7 @@ class OrderModel(Base):
             },
             "metrics": self.metrics or {},
             "error_message": self.error_message,
+            "replacement_claims": self.replacement_claims or [],
             "retry_count": self.retry_count or 0,
             "max_retries": self.max_retries or 3,
             "last_retried_at": self.last_retried_at.isoformat() if self.last_retried_at else None,
@@ -257,3 +268,123 @@ class OrderLeadModel(Base):
 
     order: Any = relationship("OrderModel", back_populates="manifest_leads")
     lead: Any = relationship("LeadModel", back_populates="orders_assigned")
+
+
+class TaxonomyLocationModel(Base):
+    """
+    Supported Administrative Territory & Registry Hierarchy.
+    Houses all active departments, provinces, and metropolitan clusters for 🇨🇴, 🇩🇴, and 🇪🇨.
+    """
+    __tablename__ = "taxonomy_locations"
+
+    location_id: Any = Column(String(64), primary_key=True, index=True)
+    country_code: Any = Column(String(4), nullable=False, index=True)  # CO, DO, EC
+    country_name: Any = Column(String(64), nullable=False)
+    region_name: Any = Column(String(128), nullable=False, index=True)  # Department / Province / State
+    city_name: Any = Column(String(128), nullable=False, index=True)    # City / Metro center
+    aliases: Any = Column(JSON, nullable=True)  # List of municipalities, metropolitan areas, vernacular names
+    registry_sources: Any = Column(JSON, nullable=True)  # Sources: ["rues", "camara_medellin", "secop", "dgcp", "sercop"]
+    is_active: Any = Column(Boolean, default=True, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "location_id": self.location_id,
+            "country_code": self.country_code,
+            "country_name": self.country_name,
+            "region_name": self.region_name,
+            "city_name": self.city_name,
+            "aliases": self.aliases or [],
+            "registry_sources": self.registry_sources or [],
+            "is_active": bool(self.is_active),
+        }
+
+
+class TaxonomyRoleModel(Base):
+    """
+    Executive Decision Maker Hierarchy & Cross-Country Professional Synonyms.
+    """
+    __tablename__ = "taxonomy_roles"
+
+    role_id: Any = Column(String(64), primary_key=True, index=True)
+    canonical_title: Any = Column(String(128), nullable=False, index=True)  # Standardized Spanish title
+    seniority_level: Any = Column(String(32), nullable=False, index=True)   # c_level, vp, director, gerente, jefe, coordinador
+    functional_domain: Any = Column(String(64), nullable=False, index=True) # operations, procurement, finance, tech, commercial, hr, legal
+    country_code: Any = Column(String(4), default="ALL", index=True)        # CO, DO, EC, or ALL
+    aliases: Any = Column(JSON, nullable=True)                              # Synonyms, cross-border titles, English equivalents
+    applicable_sectors: Any = Column(JSON, nullable=True)                   # Applicable industries: ["logistics", "manufacturing", "all"]
+    usage_count: Any = Column(Integer, default=0, index=True)              # Incremented on selections/searches to rank autocomplete
+    is_active: Any = Column(Boolean, default=True, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "role_id": self.role_id,
+            "canonical_title": self.canonical_title,
+            "role_title": self.canonical_title,
+            "seniority_level": self.seniority_level,
+            "functional_domain": self.functional_domain,
+            "country_code": self.country_code,
+            "aliases": self.aliases or [],
+            "applicable_sectors": self.applicable_sectors or ["all"],
+            "usage_count": self.usage_count or 0,
+            "is_active": bool(self.is_active),
+        }
+
+
+class TaxonomySectorModel(Base):
+    """
+    Universal Economic Sectors, CIIU Classifications & Positive/Negative Keyword Sets.
+    """
+    __tablename__ = "taxonomy_sectors"
+
+    sector_id: Any = Column(String(64), primary_key=True, index=True)
+    sector_name: Any = Column(String(128), nullable=False)                  # Display title e.g. "Alimentos & Agroindustria"
+    country_code: Any = Column(String(4), default="ALL", index=True)        # CO, DO, EC, or ALL
+    ciiu_codes: Any = Column(JSON, nullable=True)                           # Official 4-digit CIIU codes e.g. ["C1011", "C1012"]
+    keywords_include: Any = Column(JSON, nullable=True)                     # Positive high-intent keyword matches
+    keywords_exclude_defaults: Any = Column(JSON, nullable=True)            # Default negative filters to avoid junk leads
+    is_active: Any = Column(Boolean, default=True, index=True)
+    usage_count: Any = Column(Integer, default=0, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "sector_id": self.sector_id,
+            "sector_name": self.sector_name,
+            "country_code": self.country_code,
+            "ciiu_codes": self.ciiu_codes or [],
+            "keywords_include": self.keywords_include or [],
+            "keywords_exclude_defaults": self.keywords_exclude_defaults or [],
+            "is_active": bool(self.is_active),
+            "usage_count": self.usage_count or 0,
+        }
+
+
+class SearchIntentQueryModel(Base):
+    """
+    AI Agent Search Intent Memory Bank & Agent Training Log.
+    Records natural language briefs, parsed parameters, and user modifications.
+    """
+    __tablename__ = "search_intent_queries"
+
+    query_id: Any = Column(String(64), primary_key=True, index=True)
+    client_id: Any = Column(String(64), ForeignKey("clients.client_id"), nullable=True, index=True)
+    raw_prompt: Any = Column(Text, nullable=False)
+    parsed_criteria: Any = Column(JSON, nullable=False)
+    user_modifications: Any = Column(JSON, nullable=True)
+    discovered_tokens: Any = Column(JSON, nullable=True)
+    session_id: Any = Column(String(128), nullable=True, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query_id": self.query_id,
+            "client_id": self.client_id,
+            "raw_prompt": self.raw_prompt,
+            "parsed_criteria": self.parsed_criteria or {},
+            "user_modifications": self.user_modifications or {},
+            "discovered_tokens": self.discovered_tokens or {},
+            "session_id": self.session_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

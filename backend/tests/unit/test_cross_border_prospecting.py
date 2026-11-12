@@ -19,6 +19,13 @@ class TestCrossBorderProspecting(unittest.TestCase):
     Test suite for Phase 3 (Cross-Border Multi-Country Quotas) and Phase 4 (Ecuador SERCOP Integration).
     """
 
+    def setUp(self):
+        from src.adapters.storage.deduplication_ledger import DeduplicationLedger
+        self.ledger_path = "/tmp/test_xb_prospecting_ledger.json"
+        if os.path.exists(self.ledger_path):
+            os.remove(self.ledger_path)
+        self.ledger = DeduplicationLedger(ledger_path=self.ledger_path)
+
     def test_calculate_lead_pricing_usd(self):
         """Verify USD lead pricing in cents for cross-border and Ecuador orders"""
         # 10 leads, Tier 2: 10 * 750 cents = 7500 cents ($75.00 USD)
@@ -75,6 +82,7 @@ class TestCrossBorderProspecting(unittest.TestCase):
         use_case = GenerateProspectsUseCase(
             harvester_ec=mock_harvester,
             verify_mx_fn=mock_verify_mx,
+            ledger=self.ledger,
         )
 
         res = use_case.execute(
@@ -188,6 +196,7 @@ class TestCrossBorderProspecting(unittest.TestCase):
             harvester_dr=mock_dr,
             harvester_ec=mock_ec,
             verify_mx_fn=mock_verify_mx,
+            ledger=self.ledger,
         )
 
         res = use_case.execute(

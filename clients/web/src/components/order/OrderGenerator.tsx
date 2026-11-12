@@ -3,10 +3,32 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { selectCampaign, selectCity } from "../../store/slices/campaignSlice";
 import { setTier, setVolume, setCurrency } from "../../store/slices/pricingSlice";
-import { setBuyerInfo, startOrderSubmission, orderCreatedSuccess, orderFailed, restoreOrder, resetOrder } from "../../store/slices/orderSlice";
-import { useGetCampaignsQuery, useCreateOrderMutation, useProfileIntentMutation } from "../../store/api/michitoApi";
+import {
+  setBuyerInfo,
+  startOrderSubmission,
+  orderCreatedSuccess,
+  orderFailed,
+  resetOrder,
+} from "../../store/slices/orderSlice";
+import {
+  useCreateOrderMutation,
+  useProfileIntentMutation,
+  useSearchRolesQuery,
+  useRecordRoleUsageMutation,
+  useGetCampaignPresetsQuery,
+  LocationAllocationPayload,
+  CreateOrderPayload,
+} from "../../store/api/michitoApi";
 import { LiveStatusTracker } from "../tracker/LiveStatusTracker";
-import { SUPPORTED_CURRENCIES, formatCurrencyAmount, formatUnitCurrency, SupportedCurrency } from "../../config/currencies";
+import { TagPillInput } from "../common/TagPillInput";
+import { GeoQuotaAllocator } from "../common/GeoQuotaAllocator";
+import { SectorSelector } from "../common/SectorSelector";
+import {
+  SUPPORTED_CURRENCIES,
+  formatCurrencyAmount,
+  formatUnitCurrency,
+  SupportedCurrency,
+} from "../../config/currencies";
 import {
   Zap,
   Loader2,
@@ -19,13 +41,224 @@ import {
   User,
   Mail,
   Phone,
-  Search,
-  X,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
   ArrowRight,
+  Target,
+  SlidersHorizontal,
+  Compass,
+  FileText,
+  RotateCcw,
+  Share2,
+  Copy,
+  Check,
 } from "lucide-react";
+
+interface PresetTemplate {
+  id: string;
+  name: string;
+  country: string;
+  currency: SupportedCurrency;
+  defaultCity: string;
+  isMultiCountry: boolean;
+  offerDescription: string;
+  sectors: string[];
+  roles: string[];
+  keywords: string[];
+  locations: LocationAllocationPayload[];
+}
+
+const PRESET_TEMPLATES: PresetTemplate[] = [
+  {
+    id: "tinkko_enterprise_offices",
+    name: "🇨🇴 Espacios & Sedes Corporativas (Medellín / Bogotá)",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Suministro de oficinas corporativas amobladas, sedes satélite y espacios de coworking llave en mano para empresas en expansión.",
+    sectors: ["real_estate_coworking", "services_consulting"],
+    roles: ["Gerente General", "Director de Operaciones", "Director de Recursos Humanos", "Gerente Administrativo"],
+    keywords: ["oficinas corporativas", "coworking", "espacio de trabajo", "sede comercial"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "chiketto",
+    name: "🇨🇴 Software Empresarial & Facturación DIAN",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Bogotá",
+    isMultiCountry: false,
+    offerDescription:
+      "Software ERP en la nube, APIs de facturación y nómina electrónica DIAN y sincronización contable automatizada.",
+    sectors: ["tech_software", "finance_fintech"],
+    roles: ["Gerente General", "Gerente Financiero (CFO)", "Director de Tecnología (CTO)", "Contador General"],
+    keywords: ["facturación electrónica", "nómina", "software ERP", "DIAN"],
+    locations: [
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 15 },
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "blueoil",
+    name: "🇨🇴 Combustibles & Flotas Pesadas",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Suministro mayorista de combustible diésel, lubricantes industriales y abastecimiento directo en patio para empresas de transporte pesado y logística.",
+    sectors: ["energy_fuel", "logistics_transport"],
+    roles: ["Director de Operaciones", "Jefe de Compras", "Jefe de Flota", "Gerente de Logística"],
+    keywords: ["transporte pesado", "flota de camiones", "combustible diésel", "logística"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Valle del Cauca", city: "Cali", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "facility_services_b2b",
+    name: "🇨🇴 Facility Services & Aseo Corporativo",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Servicios integrales de aseo institucional, desinfección, mantenimiento locativo, vigilancia privada y seguridad física corporativa.",
+    sectors: ["facilities_security", "services_consulting"],
+    roles: ["Gerente de Operaciones", "Gerente Administrativo", "Director de Facilities", "Jefe de Mantenimiento"],
+    keywords: ["aseo corporativo", "seguridad privada", "facility management", "mantenimiento"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "warehouse_aburra_norte",
+    name: "🇨🇴 Parques Industriales & Bodegas",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Arriendo y comercialización de bodegas industriales, centros de distribución logística y lotes empresariales de alto metraje.",
+    sectors: ["real_estate_coworking", "logistics_transport"],
+    roles: ["Gerente de Logística", "Director de Operaciones", "Gerente General", "Jefe de Almacén"],
+    keywords: ["bodegas industriales", "parque empresarial", "centro de distribución"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Antioquia", city: "Bello", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "hebi",
+    name: "🇨🇴 Gestión de Cartera B2B & Cobranza",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Bogotá",
+    isMultiCountry: false,
+    offerDescription:
+      "Recuperación de cartera vencida B2B, gestión de cobranza prejudicial y auditoría de riesgo crediticio para contratistas y distribuidores.",
+    sectors: ["finance_fintech", "legal_compliance"],
+    roles: ["Gerente Financiero (CFO)", "Director Jurídico", "Jefe de Cartera", "Gerente General"],
+    keywords: ["cobranza", "cartera vencida", "debida diligencia", "riesgo crediticio"],
+    locations: [
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 15 },
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "eventos_ferias_b2b",
+    name: "🌎 Cross-Border / Ferias Comerciales & Misiones B2B",
+    country: "MULTI",
+    currency: "USD",
+    defaultCity: "Medellín, Santo Domingo, Quito",
+    isMultiCountry: true,
+    offerDescription:
+      "Prospección internacional para eventos feriales, misiones comerciales y compradores corporativos en Colombia, República Dominicana y Ecuador.",
+    sectors: ["services_consulting", "logistics_transport"],
+    roles: ["Director Comercial", "Gerente de Exportaciones", "Director de Mercadeo", "Gerente General"],
+    keywords: ["ferias comerciales", "misiones comerciales", "compradores internacionales"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 10 },
+      { country: "DO", region: "Distrito Nacional", city: "Santo Domingo", allocated_leads: 8 },
+      { country: "EC", region: "Pichincha", city: "Quito", allocated_leads: 7 },
+    ],
+  },
+  {
+    id: "tinkko_dr_offices",
+    name: "🇩🇴 Oficinas Corporativas República Dominicana",
+    country: "DO",
+    currency: "DOP",
+    defaultCity: "Santo Domingo",
+    isMultiCountry: false,
+    offerDescription:
+      "Espacios de oficina corporativa y sedes empresariales en Santo Domingo y Santiago de los Caballeros para empresas e instituciones.",
+    sectors: ["real_estate_coworking"],
+    roles: ["Gerente General", "Director de Operaciones", "Gerente Administrativo"],
+    keywords: ["oficinas corporativas", "Santo Domingo", "Santiago"],
+    locations: [
+      { country: "DO", region: "Distrito Nacional", city: "Santo Domingo", allocated_leads: 15 },
+      { country: "DO", region: "Santiago", city: "Santiago", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "tinkko_ec_offices",
+    name: "🇪🇨 Sedes & Oficinas Corporativas Ecuador",
+    country: "EC",
+    currency: "USD",
+    defaultCity: "Quito",
+    isMultiCountry: false,
+    offerDescription:
+      "Oficinas ejecutivas y centros de negocios corporativos en Quito y Guayaquil para compañías en crecimiento.",
+    sectors: ["real_estate_coworking"],
+    roles: ["Gerente General", "Director de Operaciones", "Gerente Administrativo"],
+    keywords: ["oficinas", "coworking", "Quito", "Guayaquil"],
+    locations: [
+      { country: "EC", region: "Pichincha", city: "Quito", allocated_leads: 15 },
+      { country: "EC", region: "Guayas", city: "Guayaquil", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "alimentos_distribucion",
+    name: "🇨🇴 Alimentos & Canal HORECA",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Bogotá",
+    isMultiCountry: false,
+    offerDescription:
+      "Proveeduría mayorista de insumos alimenticios, perecederos, granos y abarrotes para cadenas de restaurantes, hoteles y distribuidores independientes.",
+    sectors: ["retail_commerce", "consumer_goods", "logistics_transport"],
+    roles: ["Jefe de Compras", "Director de Abastecimiento", "Gerente de Alimentos y Bebidas", "Gerente General"],
+    keywords: ["alimentos", "insumos gastronómicos", "HORECA", "abastecimiento"],
+    locations: [
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 15 },
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 10 },
+    ],
+  },
+  {
+    id: "materiales_construccion",
+    name: "🇨🇴 Materiales de Construcción & Obras",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Suministro de aceros, cementos, prefabricados e insumos ferreteros para constructoras, contratistas de obras civiles y desarrolladores inmobiliarios.",
+    sectors: ["construction_realestate", "industrial_manufacturing"],
+    roles: ["Director de Obra", "Gerente de Compras e Insumos", "Gerente de Proyectos", "Gerente General"],
+    keywords: ["materiales construcción", "aceros", "cemento", "obras civiles"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Atlántico", city: "Barranquilla", allocated_leads: 10 },
+    ],
+  },
+];
 
 export const OrderGenerator: React.FC = () => {
   const dispatch = useDispatch();
@@ -36,10 +269,8 @@ export const OrderGenerator: React.FC = () => {
     volume,
     currency,
     unitPrice,
-    unitPriceCop,
     discountPercent,
     subtotal,
-    subtotalCop,
     total,
     totalCop,
   } = useSelector((state: RootState) => state.pricing);
@@ -49,124 +280,46 @@ export const OrderGenerator: React.FC = () => {
 
   const curConfig = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
 
-  // Campaigns catalog matching index.html
-  const CAMPAIGN_OPTIONS = [
-    {
-      id: "tinkko_enterprise_offices",
-      name: "🇨🇴 Espacios & Sedes Corporativas (Medellín / Bogotá)",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Medellín",
-      isMultiCountry: false,
-    },
-    {
-      id: "eventos_ferias_b2b",
-      name: "🌎 Cross-Border / Ferias Comerciales & Misiones B2B (Multi-País)",
-      country: "MULTI",
-      currency: "USD",
-      defaultCity: "Medellín, Santo Domingo, Quito",
-      isMultiCountry: true,
-    },
-    {
-      id: "tinkko_ec_offices",
-      name: "🇪🇨 Sedes & Oficinas Corporativas Ecuador (Quito / Guayaquil)",
-      country: "EC",
-      currency: "USD",
-      defaultCity: "Quito",
-      isMultiCountry: false,
-    },
-    {
-      id: "tinkko_dr_offices",
-      name: "🇩🇴 Oficinas Corporativas República Dominicana (Santo Domingo / Santiago)",
-      country: "DO",
-      currency: "DOP",
-      defaultCity: "Santo Domingo",
-      isMultiCountry: false,
-    },
-    {
-      id: "hebi",
-      name: "🇨🇴 Gestión de Cartera B2B & Debida Diligencia de Contratistas",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Bogotá",
-      isMultiCountry: false,
-    },
-    {
-      id: "chiketto",
-      name: "🇨🇴 Software Empresarial, APIs & Facturación Electrónica DIAN",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Bogotá",
-      isMultiCountry: false,
-    },
-    {
-      id: "blueoil",
-      name: "🇨🇴 Suministro de Combustibles, Lubricantes & Flotas Pesadas",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Medellín",
-      isMultiCountry: false,
-    },
-    {
-      id: "facility_services_b2b",
-      name: "🇨🇴 Facility Management, Aseo Corporativo & Seguridad",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Medellín",
-      isMultiCountry: false,
-    },
-    {
-      id: "warehouse_aburra_norte",
-      name: "🇨🇴 Parques Industriales, Lotes & Bodegas Logísticas",
-      country: "CO",
-      currency: "COP",
-      defaultCity: "Medellín",
-      isMultiCountry: false,
-    },
-  ];
+  // Selected Preset or "custom" Universal Mode
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(
+    selectedCampaignId || "tinkko_enterprise_offices"
+  );
 
-  const SUGGESTED_CITIES_BY_COUNTRY: Record<string, string[]> = {
-    CO: [
-      "🇨🇴 Toda Colombia",
-      "Antioquia",
-      "Bogotá D.C.",
-      "Valle del Cauca",
-      "Santander",
-      "Costa Caribe",
-      "Eje Cafetero",
-      "Medellín",
-      "Cali",
-      "Barranquilla",
-    ],
-    DO: ["🇩🇴 Todo el País", "Santo Domingo", "Santiago", "Punta Cana", "La Romana"],
-    EC: ["🇪🇨 Todo el Ecuador", "Pichincha", "Guayas", "Azuay", "Quito", "Guayaquil", "Cuenca"],
-    MULTI: ["🌎 Cross-Border (CO, DO, EC)", "Medellín, Santo Domingo, Quito", "Bogotá, Guayaquil, Santiago"],
-  };
+  // Universal Prospecting Core Dynamic State
+  const initialPreset =
+    PRESET_TEMPLATES.find((p) => p.id === selectedCampaignId) || PRESET_TEMPLATES[0];
 
-  const currentCamp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId) || CAMPAIGN_OPTIONS[0];
-  const suggestedCities = SUGGESTED_CITIES_BY_COUNTRY[currentCamp.country] || SUGGESTED_CITIES_BY_COUNTRY.CO;
+  const [offerDescription, setOfferDescription] = useState<string>(
+    initialPreset?.offerDescription || ""
+  );
+  const [targetRoles, setTargetRoles] = useState<string[]>(
+    initialPreset?.roles || ["Gerente General", "Director de Operaciones"]
+  );
+  const [selectedSectors, setSelectedSectors] = useState<string[]>(
+    initialPreset?.sectors || ["real_estate_coworking"]
+  );
+  const [positiveKeywords, setPositiveKeywords] = useState<string[]>(
+    initialPreset?.keywords || ["oficinas", "coworking"]
+  );
+  const [locationAllocations, setLocationAllocations] = useState<LocationAllocationPayload[]>(
+    initialPreset?.locations || [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 10 },
+    ]
+  );
 
-  const [targetCity, setTargetCity] = useState(currentCamp.defaultCity);
+  // Buyer Info State
   const [buyerName, setLocalName] = useState("Demo Lead Buyer");
   const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
   const [buyerPhone, setLocalPhone] = useState("+573001234567");
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Cross-Border Multi-Country Quota Allocations (%)
-  const [quotaCO, setQuotaCO] = useState(50);
-  const [quotaDO, setQuotaDO] = useState(30);
-  const [quotaEC, setQuotaEC] = useState(20);
-
-  // Exclusions State
+  // Exclusions Drawer & Tag State
   const [isExclusionsOpen, setIsExclusionsOpen] = useState(false);
   const [exclusionsText, setExclusionsText] = useState("");
+  const [negativeExclusions, setNegativeExclusions] = useState<string[]>([]);
 
-  const parsedExclusions = exclusionsText
-    .split(/[\n,;]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-
-  // 2-Step Guided Stepper States
+  // 2-Step Stepper & Mode Switcher
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [searchMode, setSearchMode] = useState<"direct" | "ai">("direct");
 
@@ -174,6 +327,127 @@ export const OrderGenerator: React.FC = () => {
   const [aiQuery, setAiQuery] = useState("");
   const [discoveryResult, setDiscoveryResult] = useState<any>(null);
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
+
+  // Phase 4: Shareable Quote & Remote Presets State
+  const [quoteSharedToast, setQuoteSharedToast] = useState<string | null>(null);
+  const [isSharingQuote, setIsSharingQuote] = useState(false);
+  const { data: remotePresetsData } = useGetCampaignPresetsQuery();
+
+  const availablePresets: PresetTemplate[] = React.useMemo<PresetTemplate[]>(() => {
+    const list: PresetTemplate[] = [...PRESET_TEMPLATES];
+    if (remotePresetsData?.presets) {
+      for (const rp of remotePresetsData.presets) {
+        if (!list.some((p) => p.id === rp.id)) {
+          list.push({
+            id: rp.id,
+            name: rp.name,
+            country: rp.country || "CO",
+            currency: (rp.currency as SupportedCurrency) || "COP",
+            defaultCity: rp.cities?.[0] || "Medellín",
+            isMultiCountry: rp.country === "MULTI",
+            offerDescription: rp.description || "",
+            sectors: rp.sectors || [],
+            roles: rp.roles || [],
+            keywords: [],
+            locations: (rp.cities || ["Medellín"]).map((c: string) => ({
+              country: rp.country || "CO",
+              city: c,
+              allocated_leads: 10,
+            })),
+          });
+        }
+      }
+    }
+    return list;
+  }, [remotePresetsData]);
+
+  // Roles Autocomplete Data
+  const { data: rolesData } = useSearchRolesQuery({ limit: 15 });
+  const [recordRoleUsage] = useRecordRoleUsageMutation();
+  const apiRoles = rolesData?.roles
+    ?.map((r: any) => r.canonical_title || r.role_title || r.name)
+    .filter((title: any): title is string => typeof title === "string" && Boolean(title.trim()));
+  const suggestedRoles =
+    apiRoles && apiRoles.length > 0
+      ? apiRoles
+      : [
+          "Gerente General",
+          "Director de Operaciones",
+          "Director de Compras / Abastecimiento",
+          "Director Comercial / Ventas",
+          "Gerente Financiero (CFO)",
+          "Director de Tecnología (CTO)",
+          "Gerente de Logística",
+          "Director de Recursos Humanos",
+        ];
+
+  // API Order Mutation
+  const [createOrderMutation, { isLoading: isSubmitting }] = useCreateOrderMutation();
+
+  // Sync with selectedCampaignId from outside (e.g. VerticalProfiles click)
+  useEffect(() => {
+    if (selectedCampaignId && selectedCampaignId !== selectedPresetId) {
+      handlePresetChange(selectedCampaignId);
+    }
+  }, [selectedCampaignId]);
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    dispatch(selectCampaign(presetId));
+
+    if (presetId === "custom") {
+      setOfferDescription("");
+      setSelectedSectors([]);
+      setTargetRoles(["Gerente General", "Director Comercial"]);
+      setPositiveKeywords([]);
+      setLocationAllocations([
+        { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 10 },
+      ]);
+      dispatch(selectCity("Medellín"));
+      return;
+    }
+
+    const preset = PRESET_TEMPLATES.find((p) => p.id === presetId);
+    if (preset) {
+      setOfferDescription(preset.offerDescription);
+      setSelectedSectors(preset.sectors);
+      setTargetRoles(preset.roles);
+      setPositiveKeywords(preset.keywords);
+      setLocationAllocations(preset.locations);
+      dispatch(selectCity(preset.defaultCity));
+      if (preset.currency && preset.currency !== currency) {
+        dispatch(setCurrency(preset.currency));
+      }
+      const sum = preset.locations.reduce((acc, curr) => acc + curr.allocated_leads, 0);
+      dispatch(setVolume(sum));
+    }
+  };
+
+  const handleRolesChange = (newRoles: string[]) => {
+    setTargetRoles(newRoles);
+    // Auto-record newly added roles in taxonomy usage stats
+    const addedRole = newRoles.find((r) => !targetRoles.includes(r));
+    if (addedRole) {
+      recordRoleUsage({ role_title: addedRole }).catch(() => {});
+    }
+  };
+
+  const handleKeywordsSuggested = (keywords: string[]) => {
+    const merged = Array.from(new Set([...positiveKeywords, ...keywords]));
+    setPositiveKeywords(merged);
+  };
+
+  const handleLocationsChange = (newLocations: LocationAllocationPayload[]) => {
+    setLocationAllocations(newLocations);
+    const sum = newLocations.reduce((acc, curr) => acc + curr.allocated_leads, 0);
+    if (sum > 0 && sum !== volume) {
+      dispatch(setVolume(sum));
+    }
+  };
+
+  const handleTotalVolumeChange = (newTotal: number) => {
+    dispatch(setVolume(newTotal));
+  };
 
   const handleProfileIntent = async (overrideQuery?: string) => {
     const q = (overrideQuery || aiQuery).trim();
@@ -183,12 +457,26 @@ export const OrderGenerator: React.FC = () => {
       const res = await profileIntentMutation({ query: q }).unwrap();
       if (res && res.status === "success") {
         setDiscoveryResult(res);
-        dispatch(selectCampaign(res.campaign_id));
-        setTargetCity(res.city);
-        dispatch(selectCity(res.city));
-        const safeTier = (res.recommended_tier === 1 || res.recommended_tier === 3 ? res.recommended_tier : 2) as (1 | 2 | 3);
+        setOfferDescription(q);
+        if (res.matched_keywords && res.matched_keywords.length > 0) {
+          setPositiveKeywords(res.matched_keywords);
+        }
+        if (res.city) {
+          dispatch(selectCity(res.city));
+          setLocationAllocations([
+            {
+              country: res.country || "CO",
+              region: res.city,
+              city: res.city,
+              allocated_leads: res.recommended_limit || 25,
+            },
+          ]);
+        }
+        const safeTier = (res.recommended_tier === 1 || res.recommended_tier === 3
+          ? res.recommended_tier
+          : 2) as 1 | 2 | 3;
         dispatch(setTier(safeTier));
-        dispatch(setVolume(res.recommended_limit));
+        dispatch(setVolume(res.recommended_limit || 25));
       }
     } catch (err: any) {
       console.warn("AI Intent discovery error:", err);
@@ -196,38 +484,16 @@ export const OrderGenerator: React.FC = () => {
   };
 
   const handleProceedToStep2 = () => {
-    if (!targetCity.trim()) {
-      setFormError("Por favor ingresa la ciudad o territorio objetivo.");
+    if (!offerDescription.trim() && selectedPresetId === "custom") {
+      setFormError("Por favor ingresa una breve descripción de tu oferta comercial o producto.");
+      return;
+    }
+    if (locationAllocations.length === 0) {
+      setFormError("Por favor asigna al menos un territorio o ciudad con cuota de prospectos.");
       return;
     }
     setFormError(null);
     setCurrentStep(2);
-  };
-
-  useEffect(() => {
-    const camp = CAMPAIGN_OPTIONS.find((c) => c.id === selectedCampaignId);
-    if (camp) {
-      setTargetCity(camp.defaultCity);
-    }
-  }, [selectedCampaignId]);
-
-  const [createOrderMutation, { isLoading: isSubmitting }] = useCreateOrderMutation();
-
-  const handleCampaignChange = (newId: string) => {
-    dispatch(selectCampaign(newId));
-    const camp = CAMPAIGN_OPTIONS.find((c) => c.id === newId);
-    if (camp) {
-      setTargetCity(camp.defaultCity);
-      dispatch(selectCity(camp.defaultCity));
-      if (camp.currency && camp.currency !== currency) {
-        dispatch(setCurrency(camp.currency as SupportedCurrency));
-      }
-    }
-  };
-
-  const handleCityChange = (newCity: string) => {
-    setTargetCity(newCity);
-    dispatch(selectCity(newCity));
   };
 
   const formatCop = (val: number) => {
@@ -238,12 +504,19 @@ export const OrderGenerator: React.FC = () => {
     }).format(val);
   };
 
+  const parsedBulkExclusions = exclusionsText
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const allExclusions = Array.from(new Set([...negativeExclusions, ...parsedBulkExclusions]));
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!buyerName.trim() || !buyerEmail.trim() || !targetCity.trim()) {
-      setFormError("Por favor completa la ciudad, nombre y correo corporativo.");
+    if (!buyerName.trim() || !buyerEmail.trim()) {
+      setFormError("Por favor completa tu nombre y correo corporativo.");
       return;
     }
 
@@ -251,16 +524,11 @@ export const OrderGenerator: React.FC = () => {
     dispatch(startOrderSubmission());
 
     try {
-      const isMulti = currentCamp.isMultiCountry || currentCamp.country === "MULTI";
-      const totalPct = quotaCO + quotaDO + quotaEC;
-      const normCO = totalPct > 0 ? quotaCO / totalPct : 0.5;
-      const normDO = totalPct > 0 ? quotaDO / totalPct : 0.3;
-      const leadCO = Math.max(1, Math.round(volume * normCO));
-      const leadDO = Math.max(1, Math.round(volume * normDO));
-      const leadEC = Math.max(1, volume - leadCO - leadDO);
-      const countryAllocations = isMulti ? { CO: leadCO, DO: leadDO, EC: leadEC } : undefined;
+      const isMulti = locationAllocations.some((l) => l.country !== locationAllocations[0]?.country);
+      const primaryCountry = isMulti ? "MULTI" : (locationAllocations[0]?.country || "CO");
+      const primaryCity = locationAllocations.map((a) => a.city).join(", ") || "Medellín";
 
-      const payload = {
+      const payload: CreateOrderPayload = {
         client: {
           name: buyerName,
           email: buyerEmail,
@@ -269,14 +537,19 @@ export const OrderGenerator: React.FC = () => {
           referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
         request: {
-          campaign_id: selectedCampaignId,
-          country: isMulti ? "MULTI" : currentCamp.country,
-          country_allocations: countryAllocations,
-          city: targetCity,
+          campaign_id: selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting",
+          country: primaryCountry,
+          city: primaryCity,
           limit: volume,
           tier: tier,
-          exclusions: parsedExclusions.length > 0 ? parsedExclusions : undefined,
-          keywords_exclude: parsedExclusions.length > 0 ? parsedExclusions : undefined,
+          offer_description: offerDescription || undefined,
+          target_roles: targetRoles.length > 0 ? targetRoles : undefined,
+          target_ciiu_codes: undefined,
+          sector: selectedSectors.length > 0 ? selectedSectors.join(", ") : undefined,
+          location_allocations: locationAllocations.length > 0 ? locationAllocations : undefined,
+          keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
+          keywords_exclude: allExclusions.length > 0 ? allExclusions : undefined,
+          exclusions: allExclusions.length > 0 ? allExclusions : undefined,
         },
       };
 
@@ -300,6 +573,79 @@ export const OrderGenerator: React.FC = () => {
     }
   };
 
+  const handleShareQuote = async () => {
+    setFormError(null);
+    setQuoteSharedToast(null);
+
+    if (!buyerName.trim() || !buyerEmail.trim()) {
+      setFormError("Por favor completa tu nombre y correo corporativo antes de compartir la cotización.");
+      return;
+    }
+
+    setIsSharingQuote(true);
+    dispatch(setBuyerInfo({ name: buyerName, email: buyerEmail, phone: buyerPhone }));
+    dispatch(startOrderSubmission());
+
+    try {
+      const isMulti = locationAllocations.some((l) => l.country !== locationAllocations[0]?.country);
+      const primaryCountry = isMulti ? "MULTI" : (locationAllocations[0]?.country || "CO");
+      const primaryCity = locationAllocations.map((a) => a.city).join(", ") || "Medellín";
+
+      const payload: CreateOrderPayload = {
+        client: {
+          name: buyerName,
+          email: buyerEmail,
+          phone: buyerPhone || "+573000000000",
+          channel: "web_portal",
+          referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
+        },
+        request: {
+          campaign_id: selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting",
+          country: primaryCountry,
+          city: primaryCity,
+          limit: volume,
+          tier: tier,
+          offer_description: offerDescription || undefined,
+          target_roles: targetRoles.length > 0 ? targetRoles : undefined,
+          target_ciiu_codes: undefined,
+          sector: selectedSectors.length > 0 ? selectedSectors.join(", ") : undefined,
+          location_allocations: locationAllocations.length > 0 ? locationAllocations : undefined,
+          keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
+          keywords_exclude: allExclusions.length > 0 ? allExclusions : undefined,
+          exclusions: allExclusions.length > 0 ? allExclusions : undefined,
+        },
+      };
+
+      const res = await createOrderMutation(payload).unwrap();
+      if (res.status === "success") {
+        dispatch(
+          orderCreatedSuccess({
+            orderId: res.order_id,
+            status: res.order_status,
+            totalAmountInCents: res.amount_in_cents || totalCop * 100,
+            totalLeadsTarget: volume,
+          })
+        );
+        const shareUrl = `${window.location.origin}/rastrear?order_id=${res.order_id}`;
+        if (navigator?.clipboard) {
+          navigator.clipboard.writeText(shareUrl);
+        }
+        setQuoteSharedToast("¡Cotización generada y guardada! Enlace copiado al portapapeles para aprobación interna.");
+        setTimeout(() => {
+          document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
+        }, 300);
+      } else {
+        dispatch(orderFailed(res.message || "No se pudo crear la cotización."));
+      }
+    } catch (err: any) {
+      const msg = err?.data?.detail || "Error al generar la cotización.";
+      setFormError(msg);
+      dispatch(orderFailed(msg));
+    } finally {
+      setIsSharingQuote(false);
+    }
+  };
+
   return (
     <section id="generador" className="generator-section">
       <div className="section-container">
@@ -314,17 +660,29 @@ export const OrderGenerator: React.FC = () => {
           <div className="generator-card">
             {activeOrderId && (
               <div className="active-order-floating-banner" data-testid="active-order-banner">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs sm:text-sm font-semibold text-white">
-                    Prospección activa: <strong className="font-mono text-sky-400">{activeOrderId}</strong>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      backgroundColor: "#34d399",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff" }}>
+                    Prospección activa:{" "}
+                    <strong style={{ fontFamily: "monospace", color: "#38bdf8" }}>
+                      {activeOrderId}
+                    </strong>
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
                     type="button"
                     onClick={() => {
-                      document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
+                      document
+                        .querySelector(".generator-tracker-area")
+                        ?.scrollIntoView({ behavior: "smooth" });
                     }}
                     className="active-order-action-link"
                   >
@@ -333,7 +691,11 @@ export const OrderGenerator: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm("¿Deseas iniciar una nueva búsqueda? Tu orden anterior no se borrará.")) {
+                      if (
+                        window.confirm(
+                          "¿Deseas iniciar una nueva búsqueda? Tu orden anterior no se borrará."
+                        )
+                      ) {
                         dispatch(resetOrder());
                       }
                     }}
@@ -374,7 +736,9 @@ export const OrderGenerator: React.FC = () => {
 
                   {partner.isAffiliate && (
                     <div className="partner-attribution-notice" data-testid="partner-order-notice">
-                      <span className="partner-notice-text">Alianza Oficial: <strong>{partner.name}</strong></span>
+                      <span className="partner-notice-text">
+                        Alianza Oficial: <strong>{partner.name}</strong>
+                      </span>
                       {partner.discountRate > 0 && (
                         <span className="partner-notice-discount">
                           • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
@@ -391,14 +755,15 @@ export const OrderGenerator: React.FC = () => {
                     onClick={() => setSearchMode("direct")}
                     className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
                   >
-                    <span>📋 Selección Directa</span>
+                    <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                    <span>Configuración Avanzada del Lote</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setSearchMode("ai")}
                     className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
                     <span>Búsqueda con IA (Michito Engine™)</span>
                   </button>
                 </div>
@@ -408,12 +773,13 @@ export const OrderGenerator: React.FC = () => {
                   <div className="ai-intent-hero">
                     <div className="ai-intent-header">
                       <span className="ai-intent-badge">
-                        <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                        <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
                         Michito Intent Engine™
                       </span>
                       <h3 className="ai-intent-title">¿A qué empresas le quieres vender hoy?</h3>
                       <p className="ai-intent-subtitle">
-                        Describe tu oferta o tu cliente ideal en una frase. Nuestra IA configurará el lote óptimo en tiempo real.
+                        Describe tu oferta o cliente ideal en lenguaje natural. Nuestra IA extraerá
+                        sectores, cargos y configurará el lote óptimo en tiempo real.
                       </p>
                     </div>
 
@@ -428,7 +794,7 @@ export const OrderGenerator: React.FC = () => {
                             handleProfileIntent();
                           }
                         }}
-                        placeholder="Ej: Vendo software y busco firmas de abogados en Bogotá con más de 10 empleados..."
+                        placeholder="Ej: Vendo software contable a clínicas y firmas de consultoría en Bogotá y Cali..."
                         className="ai-intent-input"
                         disabled={isProfiling}
                       />
@@ -445,7 +811,7 @@ export const OrderGenerator: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles style={{ width: 16, height: 16 }} />
                             <span>Descubrir con IA</span>
                           </>
                         )}
@@ -457,11 +823,26 @@ export const OrderGenerator: React.FC = () => {
                       <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
                       <div className="ai-pills-grid">
                         {[
-                          { label: "Oficinas & Sedes Corporativas (Medellín)", query: "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín" },
-                          { label: "Logística y Flotas Pesadas (Bogotá)", query: "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible" },
-                          { label: "Ferias Comerciales B2B (Medellín)", query: "Expositores de ferias comerciales y compradores internacionales en Medellín" },
-                          { label: "Software & Facturación DIAN (Bogotá)", query: "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN" },
-                          { label: "Bodegas y Parques Industriales (Cali)", query: "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali" },
+                          {
+                            label: "Oficinas & Sedes Corporativas (Medellín)",
+                            query:
+                              "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín",
+                          },
+                          {
+                            label: "Logística y Flotas Pesadas (Bogotá)",
+                            query:
+                              "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible",
+                          },
+                          {
+                            label: "Software & Facturación DIAN (Bogotá)",
+                            query:
+                              "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN",
+                          },
+                          {
+                            label: "Bodegas y Parques Industriales (Cali)",
+                            query:
+                              "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali",
+                          },
                         ].map((pill, idx) => (
                           <button
                             key={idx}
@@ -484,182 +865,223 @@ export const OrderGenerator: React.FC = () => {
                         <div className="discovery-match-header">
                           <div>
                             <span className="discovery-match-badge">
-                              <CheckCircle2 className="w-4 h-4" />
-                              {discoveryResult.estimated_matches} Empresas Encontradas en {discoveryResult.city}
+                              <CheckCircle2 style={{ width: 16, height: 16 }} />
+                              {discoveryResult.estimated_matches} Empresas Encontradas en{" "}
+                              {discoveryResult.city}
                             </span>
-                            <p className="text-xs text-slate-300 mt-1 font-medium">
+                            <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
                               {discoveryResult.summary_message}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <span className="text-xs text-slate-400 block">Lote Sugerido:</span>
-                            <strong className="text-sm font-bold text-emerald-400">
-                              {discoveryResult.recommended_limit} Contactos Directos ({formatCop(discoveryResult.pricing.total_cop)} COP)
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
+                              Lote Sugerido:
+                            </span>
+                            <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
+                              {discoveryResult.recommended_limit} Contactos Directos (
+                              {formatCop(discoveryResult.pricing?.total_cop || 0)} COP)
                             </strong>
                           </div>
                         </div>
 
                         {discoveryResult.sample_preview && (
                           <div className="discovery-sample-preview">
-                            <div className="discovery-sample-title">Ejemplo de cuenta calificada en este lote:</div>
-                            <div className="discovery-sample-company">{discoveryResult.sample_preview.company_name}</div>
+                            <div className="discovery-sample-title">
+                              Ejemplo de cuenta calificada en este lote:
+                            </div>
+                            <div className="discovery-sample-company">
+                              {discoveryResult.sample_preview.company_name}
+                            </div>
                             <div className="discovery-sample-person">
-                              {discoveryResult.sample_preview.masked_decision_maker}
+                              {discoveryResult.sample_preview.masked_decision_maker} (
+                              {discoveryResult.sample_preview.title})
                             </div>
                             <div className="discovery-sample-badges">
                               <span className="discovery-sample-badge">✓ NIT Vigente en Cámara de Comercio</span>
                               <span className="discovery-sample-badge">✓ Mailbox MX Corporativo Verificado</span>
                               <span className="discovery-sample-badge">✓ Huella HTTP y Dominio Activo</span>
-                              <span className="discovery-sample-badge">✓ Solvencia Financiera Aprobada</span>
                             </div>
-                            {discoveryResult.sample_preview.signals && (
-                              <div className="discovery-sample-signals">
-                                <strong>Señal de Compra:</strong> {discoveryResult.sample_preview.signals}
-                              </div>
-                            )}
                           </div>
                         )}
+
+                        <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setSearchMode("direct")}
+                            className="preset-chip-btn"
+                            style={{ flex: 1, justifyContent: "center", padding: "10px" }}
+                          >
+                            <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                            <span>Personalizar y Ajustar Filtros en Modo Avanzado →</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  /* Direct Selection Configuration */
+                  /* Advanced Direct Selection Configuration */
                   <div className="direct-selection-wrapper">
-                    {/* Campaign Picker */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <Building2 className="form-label-icon text-sky-400" />
-                        <span>{g.campaignLabel}</span>
-                      </label>
-                      <select
-                        value={selectedCampaignId}
-                        onChange={(e) => handleCampaignChange(e.target.value)}
-                        className="form-select"
-                      >
-                        {CAMPAIGN_OPTIONS.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
+                    {/* Preset Catalog / Template Selector Bar */}
+                    <div className="preset-catalog-bar">
+                      <div className="preset-catalog-header">
+                        <span className="preset-catalog-title">
+                          <Compass style={{ width: 15, height: 15, color: "#38bdf8" }} />
+                          <span>Plantillas Rápidas o Búsqueda Libre:</span>
+                        </span>
+                        {selectedPresetId !== "custom" && (
+                          <button
+                            type="button"
+                            onClick={() => handlePresetChange("custom")}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "var(--accent-blue)",
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <RotateCcw style={{ width: 12, height: 12 }} />
+                            <span>Búsqueda Libre desde Cero</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="preset-pills-row">
+                        <button
+                          type="button"
+                          onClick={() => handlePresetChange("custom")}
+                          className={`preset-chip-btn universal-btn ${
+                            selectedPresetId === "custom" ? "active" : ""
+                          }`}
+                        >
+                          <Sparkles style={{ width: 14, height: 14 }} />
+                          <span>Búsqueda Universal Libre</span>
+                        </button>
+                        {availablePresets.map((p: PresetTemplate) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handlePresetChange(p.id)}
+                            className={`preset-chip-btn ${
+                              selectedPresetId === p.id ? "active" : ""
+                            }`}
+                          >
+                            <span>{p.name}</span>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
 
-                    {/* Cross-Border Country Quota Allocator */}
-                    {(currentCamp.isMultiCountry || currentCamp.country === "MULTI") && (
-                      <div className="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-4 mb-4 shadow-lg backdrop-blur">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-base">🌎</span>
-                            <span className="text-sm font-semibold text-slate-100">Distribución de Cuota Multi-País</span>
-                          </div>
-                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                            Total: {volume} prospectos
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 mb-3">
-                          Asigna el porcentaje de prospectos calificados que deseas cosechar de cada jurisdicción:
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-medium text-slate-300">🇨🇴 Colombia</span>
-                              <span className="text-emerald-400 font-bold">{Math.max(1, Math.round(volume * (quotaCO / 100)))} leads</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="range"
-                                min="10"
-                                max="80"
-                                step="5"
-                                value={quotaCO}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  setQuotaCO(val);
-                                  const rem = 100 - val;
-                                  setQuotaDO(Math.round(rem * 0.6));
-                                  setQuotaEC(rem - Math.round(rem * 0.6));
-                                }}
-                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                              />
-                              <span className="text-xs font-mono text-slate-300 w-8">{quotaCO}%</span>
-                            </div>
-                          </div>
-                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-medium text-slate-300">🇩🇴 Rep. Dom.</span>
-                              <span className="text-emerald-400 font-bold">{Math.max(1, Math.round(volume * (quotaDO / 100)))} leads</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="range"
-                                min="10"
-                                max="80"
-                                step="5"
-                                value={quotaDO}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  setQuotaDO(val);
-                                  const rem = 100 - val;
-                                  setQuotaCO(Math.round(rem * 0.7));
-                                  setQuotaEC(rem - Math.round(rem * 0.7));
-                                }}
-                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                              />
-                              <span className="text-xs font-mono text-slate-300 w-8">{quotaDO}%</span>
-                            </div>
-                          </div>
-                          <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-medium text-slate-300">🇪🇨 Ecuador</span>
-                              <span className="text-emerald-400 font-bold">{Math.max(1, volume - Math.round(volume * (quotaCO / 100)) - Math.round(volume * (quotaDO / 100)))} leads</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="range"
-                                min="10"
-                                max="80"
-                                step="5"
-                                value={quotaEC}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  setQuotaEC(val);
-                                  const rem = 100 - val;
-                                  setQuotaCO(Math.round(rem * 0.6));
-                                  setQuotaDO(rem - Math.round(rem * 0.6));
-                                }}
-                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                              />
-                              <span className="text-xs font-mono text-slate-300 w-8">{quotaEC}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Quick Presets */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-slate-500 font-medium">Presets:</span>
+                    {/* Offer Description Field */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <FileText className="form-label-icon text-sky-400" />
+                        <span>Propuesta de Valor u Oferta Comercial B2B</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={offerDescription}
+                        onChange={(e) => setOfferDescription(e.target.value)}
+                        placeholder="Describe el producto o servicio que vendes (ej: Distribución mayorista de insumos médicos para clínicas, suministro de combustible diésel para flotas pesadas, o software de facturación)..."
+                        className="form-textarea"
+                      />
+                      <span className="form-hint">
+                        Esta propuesta personaliza automáticamente las 5 cadencias de contacto
+                        (correos y notas de LinkedIn) que genera el motor para cada prospecto.
+                      </span>
+                    </div>
+
+                    {/* Macro-Sector & CIIU Code Selector */}
+                    <div className="form-group">
+                      <SectorSelector
+                        selectedSectors={selectedSectors}
+                        onChange={setSelectedSectors}
+                        onKeywordsSuggested={handleKeywordsSuggested}
+                      />
+                    </div>
+
+                    {/* Target Roles & Decision Makers */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <Target className="form-label-icon text-indigo-400" />
+                        <span>Cargos y Tomadores de Decisión Objetivo</span>
+                      </label>
+                      <TagPillInput
+                        tags={targetRoles}
+                        onChange={handleRolesChange}
+                        suggestions={suggestedRoles}
+                        color="indigo"
+                        placeholder="Ej: Gerente General, Director de Compras, CFO..."
+                        helperText="Escribe un cargo y presiona Enter o haz clic en las sugerencias frecuentes."
+                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "6px",
+                          marginTop: "6px",
+                        }}
+                      >
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", alignSelf: "center" }}>
+                          Sugerencias populares:
+                        </span>
+                        {[
+                          "Gerente General",
+                          "Director de Operaciones",
+                          "Director de Compras",
+                          "Director Comercial",
+                          "Gerente Financiero (CFO)",
+                          "Director de Tecnología (CTO)",
+                        ].map((role) => (
                           <button
+                            key={role}
                             type="button"
-                            onClick={() => { setQuotaCO(34); setQuotaDO(33); setQuotaEC(33); }}
-                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                            onClick={() => {
+                              if (!targetRoles.includes(role)) {
+                                handleRolesChange([...targetRoles, role]);
+                              }
+                            }}
+                            className="tag-pill-add-action-btn"
+                            style={{ opacity: targetRoles.includes(role) ? 0.4 : 1 }}
+                            disabled={targetRoles.includes(role)}
                           >
-                            Equitativo (34/33/33)
+                            + {role}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => { setQuotaCO(50); setQuotaDO(20); setQuotaEC(30); }}
-                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                          >
-                            Andino (50 CO / 30 EC / 20 DO)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setQuotaCO(30); setQuotaDO(50); setQuotaEC(20); }}
-                            className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                          >
-                            Caribe (50 DO / 30 CO / 20 EC)
-                          </button>
-                        </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Multi-Territory Geo-Quota Allocator */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <MapPin className="form-label-icon text-emerald-400" />
+                        <span>Distribución Geográfica y Cuota de Leads</span>
+                      </label>
+                      <GeoQuotaAllocator
+                        allocations={locationAllocations}
+                        onChange={handleLocationsChange}
+                        totalVolume={volume}
+                        onTotalVolumeChange={handleTotalVolumeChange}
+                      />
+                    </div>
+
+                    {/* Positive Keywords / Target Signals */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <Sparkles className="form-label-icon text-emerald-400" />
+                        <span>Palabras Clave y Señales de Compra (Inclusiones)</span>
+                      </label>
+                      <TagPillInput
+                        tags={positiveKeywords}
+                        onChange={setPositiveKeywords}
+                        color="emerald"
+                        placeholder="Ej: facturación electrónica, cadena de frío, transporte pesado..."
+                        helperText="Señales técnicas o de actividad comercial que deben estar presentes en los registros o el sitio web."
+                      />
+                    </div>
 
                     {/* Enrichment Tier Selector */}
                     <div className="form-group">
@@ -677,7 +1099,9 @@ export const OrderGenerator: React.FC = () => {
                             <span className="tier-pill-name">Directorio Base</span>
                           </div>
                           <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[1], currency)}</span>
+                            <span className="tier-pill-price">
+                              {formatUnitCurrency(curConfig.tierPrices[1], currency)}
+                            </span>
                             <span className="tier-pill-unit">/ cta</span>
                           </div>
                         </button>
@@ -691,7 +1115,9 @@ export const OrderGenerator: React.FC = () => {
                             <span className="tier-pill-badge">Rec.</span>
                           </div>
                           <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[2], currency)}</span>
+                            <span className="tier-pill-price">
+                              {formatUnitCurrency(curConfig.tierPrices[2], currency)}
+                            </span>
                             <span className="tier-pill-unit">/ cta</span>
                           </div>
                         </button>
@@ -704,134 +1130,55 @@ export const OrderGenerator: React.FC = () => {
                             <span className="tier-pill-name">Auditoría Completa</span>
                           </div>
                           <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">{formatUnitCurrency(curConfig.tierPrices[3], currency)}</span>
+                            <span className="tier-pill-price">
+                              {formatUnitCurrency(curConfig.tierPrices[3], currency)}
+                            </span>
                             <span className="tier-pill-unit">/ cta</span>
                           </div>
                         </button>
                       </div>
                     </div>
 
-                    {/* Target City & Account Volume Row */}
-                    <div className="form-row-2">
-                      <div className="form-group">
-                        <label className="form-label">
-                          <MapPin className="form-label-icon text-emerald-400" />
-                          <span>{g.cityLabel}</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={targetCity}
-                          onChange={(e) => handleCityChange(e.target.value)}
-                          placeholder={g.cityPlaceholder}
-                          className="form-input"
-                        />
-                        <div className="city-quick-pills">
-                          {suggestedCities.map((city) => (
-                            <button
-                              key={city}
-                              type="button"
-                              onClick={() => handleCityChange(city)}
-                              className={`city-pill ${targetCity.toLowerCase() === city.toLowerCase() ? "active" : ""}`}
-                            >
-                              {city}
-                            </button>
-                          ))}
-                        </div>
-                        <span className="form-hint">
-                          Ingresa cualquier ciudad o territorio de cobertura comercial.
+                    {/* Volume Presets & Slider */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        <Hash className="form-label-icon text-purple-400" />
+                        <span>
+                          {g.volumeLabel}{" "}
+                          <strong className="text-sky-400">{volume} cuentas</strong>
                         </span>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">
-                          <Hash className="form-label-icon text-purple-400" />
-                          <span>{g.volumeLabel} <strong className="text-sky-400">{volume} cuentas</strong></span>
-                        </label>
-                        <div className="volume-presets-grid">
+                      </label>
+                      <div className="volume-presets-grid">
+                        {[10, 25, 50, 100, 250, 500, 1000].map((v) => (
                           <button
+                            key={v}
                             type="button"
-                            onClick={() => dispatch(setVolume(10))}
-                            className={`preset-btn ${volume === 10 ? "active" : ""}`}
+                            onClick={() => {
+                              dispatch(setVolume(v));
+                              if (locationAllocations.length > 0) {
+                                const perCity = Math.max(1, Math.round(v / locationAllocations.length));
+                                const updated = locationAllocations.map((a, idx) => ({
+                                  ...a,
+                                  allocated_leads:
+                                    idx === locationAllocations.length - 1
+                                      ? Math.max(1, v - perCity * (locationAllocations.length - 1))
+                                      : perCity,
+                                }));
+                                setLocationAllocations(updated);
+                              }
+                            }}
+                            className={`preset-btn ${volume === v ? "active" : ""}`}
                           >
-                            10
+                            {v >= 1000 ? "1.000+" : v}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(25))}
-                            className={`preset-btn ${volume === 25 ? "active" : ""}`}
-                          >
-                            25 <span className="discount-tag">-6%</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(50))}
-                            className={`preset-btn ${volume === 50 ? "active" : ""}`}
-                          >
-                            50 <span className="discount-tag">-12%</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(100))}
-                            className={`preset-btn ${volume === 100 ? "active" : ""}`}
-                          >
-                            100 <span className="discount-tag">-20%</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(250))}
-                            className={`preset-btn ${volume === 250 ? "active" : ""}`}
-                          >
-                            250 <span className="discount-tag">-28%</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(500))}
-                            className={`preset-btn ${volume === 500 ? "active" : ""}`}
-                          >
-                            500 <span className="discount-tag">-35%</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => dispatch(setVolume(1000))}
-                            className={`preset-btn ${volume >= 1000 ? "active" : ""}`}
-                          >
-                            1.000+ <span className="discount-tag">-42%</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Volume Slider for Custom Quantities */}
-                    <div className="form-group slider-group">
-                      <div className="slider-header">
-                        <span className="text-xs text-slate-400">Ajuste fino de volumen:</span>
-                        <span className="slider-value-badge">{volume} cuentas</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="1000"
-                        step="5"
-                        value={volume}
-                        onChange={(e) => dispatch(setVolume(parseInt(e.target.value, 10)))}
-                        className="volume-slider"
-                      />
-                      <div className="slider-ticks">
-                        <span>10 (Piloto)</span>
-                        <span>25 (-6%)</span>
-                        <span>50 (-12%)</span>
-                        <span>100 (-20%)</span>
-                        <span>250 (-28%)</span>
-                        <span>500 (-35%)</span>
-                        <span>1.000+ (-42%)</span>
+                        ))}
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Collapsible Customer & Domain Exclusion Drawer */}
-                <div className="exclusions-section">
+                <div className="exclusions-section" style={{ marginTop: "16px" }}>
                   <button
                     type="button"
                     onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
@@ -841,9 +1188,12 @@ export const OrderGenerator: React.FC = () => {
                     <div className="exclusions-toggle-title">
                       <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Excluir Clientes Actuales o Competidores (Opcional)</span>
-                      {parsedExclusions.length > 0 && (
+                      {allExclusions.length > 0 && (
                         <span className="exclusions-count-badge">
-                          {parsedExclusions.length} {parsedExclusions.length === 1 ? "exclusión activa" : "exclusiones activas"}
+                          {allExclusions.length}{" "}
+                          {allExclusions.length === 1
+                            ? "exclusión activa"
+                            : "exclusiones activas"}
                         </span>
                       )}
                     </div>
@@ -857,27 +1207,29 @@ export const OrderGenerator: React.FC = () => {
                   {isExclusionsOpen && (
                     <div className="exclusions-drawer">
                       <p className="exclusions-hint">
-                        Ingresa dominios web o NITs que ya sean tus clientes o desees omitir (ej: hebisend.com, tinkko.com, 900123456). Se excluirán automáticamente del lote con costo cero.
+                        Ingresa dominios web o NITs que desees omitir (ej: cliente1.com, 900123456).
+                        Se excluirán automáticamente del lote sin costo alguno.
                       </p>
-                      <textarea
-                        value={exclusionsText}
-                        onChange={(e) => setExclusionsText(e.target.value)}
-                        placeholder="Pega dominios o NITs separados por coma o salto de línea (ej: cliente1.com, 901234567, empresa.co)..."
-                        className="exclusions-textarea"
-                        rows={3}
+
+                      <TagPillInput
+                        tags={negativeExclusions}
+                        onChange={setNegativeExclusions}
+                        color="rose"
+                        placeholder="Escribe dominio o NIT y presiona Enter..."
                       />
-                      {parsedExclusions.length > 0 && (
-                        <div className="exclusions-preview-tags">
-                          {parsedExclusions.slice(0, 6).map((item, idx) => (
-                            <span key={idx} className="exclusion-tag">
-                              {item}
-                            </span>
-                          ))}
-                          {parsedExclusions.length > 6 && (
-                            <span className="exclusion-tag-more">+{parsedExclusions.length - 6} más</span>
-                          )}
-                        </div>
-                      )}
+
+                      <div style={{ marginTop: "10px" }}>
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
+                          O pega una lista en bloque (separada por comas o saltos de línea):
+                        </span>
+                        <textarea
+                          value={exclusionsText}
+                          onChange={(e) => setExclusionsText(e.target.value)}
+                          placeholder="cliente1.com, 901234567, empresa.co..."
+                          className="exclusions-textarea"
+                          rows={2}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -902,8 +1254,9 @@ export const OrderGenerator: React.FC = () => {
                   </div>
                   {discountPercent > 0 && (
                     <div className="calc-row text-emerald-400">
-                      <span className="flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" /> Descuento por volumen (-{discountPercent}%):
+                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <Sparkles style={{ width: 14, height: 14 }} /> Descuento por volumen (-
+                        {discountPercent}%):
                       </span>
                       <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
                     </div>
@@ -913,7 +1266,7 @@ export const OrderGenerator: React.FC = () => {
                     <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
                   </div>
                   {currency !== "COP" && (
-                    <div className="text-xs text-slate-400 mt-1 text-right">
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px", textAlign: "right" }}>
                       Equivalente en liquidación segura Wompi: {formatCop(totalCop)} COP
                     </div>
                   )}
@@ -940,40 +1293,66 @@ export const OrderGenerator: React.FC = () => {
                 </button>
               </div>
             ) : (
-              /* Step 2: Buyer Delivery Info & Validation */
+              /* Step 2: Buyer Delivery Info & Comprehensive Validation Recap */
               <form onSubmit={handleSubmitOrder} className="generator-step-2">
                 <div className="card-header-box">
                   <h3 className="generator-card-title">2. {g.buyerSection}</h3>
                   <p className="generator-card-sub">{g.buyerSectionSub}</p>
                 </div>
 
-                {/* Selected Order Recap */}
+                {/* Selected Order Comprehensive Recap */}
                 <div className="generator-recap-box">
                   <div className="recap-item">
-                    <span className="recap-label">Vertical / Perfil</span>
-                    <span className="recap-value">{currentCamp.name}</span>
-                  </div>
-                  <div className="recap-item">
-                    <span className="recap-label">Ciudad / Territorio</span>
-                    <span className="recap-value">{targetCity}</span>
-                  </div>
-                  <div className="recap-item">
-                    <span className="recap-label">Lote Seleccionado</span>
+                    <span className="recap-label">Oferta / Propuesta</span>
                     <span className="recap-value">
-                      {volume} cuentas ({tier === 1 ? "Directorio Base" : tier === 2 ? "Contactos Directos" : "Auditoría Completa"})
+                      {offerDescription ? `"${offerDescription.slice(0, 80)}..."` : "Configuración Universal"}
                     </span>
                   </div>
-                  {parsedExclusions.length > 0 && (
+
+                  <div className="recap-item">
+                    <span className="recap-label">Sectores CIIU</span>
+                    <span className="recap-value">
+                      {selectedSectors.length > 0 ? selectedSectors.join(", ") : "Multi-Sector Abierto"}
+                    </span>
+                  </div>
+
+                  <div className="recap-item">
+                    <span className="recap-label">Cargos Objetivo</span>
+                    <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                      {targetRoles.map((r, i) => (
+                        <span key={i} className="tag-pill-chip indigo" style={{ fontSize: "0.72rem" }}>
+                          {r}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+
+                  <div className="recap-item">
+                    <span className="recap-label">Territorios & Cuota</span>
+                    <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {locationAllocations.map((loc, i) => (
+                        <span key={i} style={{ color: "#34d399", fontWeight: 600 }}>
+                          {loc.city}: {loc.allocated_leads} leads
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+
+                  {allExclusions.length > 0 && (
                     <div className="recap-item">
                       <span className="recap-label">Exclusiones Activas</span>
                       <span className="recap-value text-amber-300 font-medium">
-                        {parsedExclusions.length} {parsedExclusions.length === 1 ? "cuenta excluida" : "cuentas excluidas"}
+                        {allExclusions.length}{" "}
+                        {allExclusions.length === 1 ? "cuenta excluida" : "cuentas excluidas"}
                       </span>
                     </div>
                   )}
+
                   <div className="recap-item">
                     <span className="recap-label">Inversión Estimada</span>
-                    <span className="recap-value text-emerald-400">{formatCurrencyAmount(total, currency)}</span>
+                    <span className="recap-value text-emerald-400">
+                      {formatCurrencyAmount(total, currency)} ({volume} cuentas)
+                    </span>
                   </div>
                 </div>
 
@@ -1045,8 +1424,36 @@ export const OrderGenerator: React.FC = () => {
                     ← Modificar Búsqueda
                   </button>
                   <button
+                    type="button"
+                    onClick={handleShareQuote}
+                    disabled={isSubmitting || isSharingQuote}
+                    className="generator-share-quote-btn"
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(56, 189, 248, 0.4)",
+                      background: "rgba(14, 165, 233, 0.12)",
+                      color: "#38bdf8",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      cursor: isSubmitting || isSharingQuote ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s ease",
+                    }}
+                    title="Guarda la configuración y copia un enlace directo para que tu equipo o CFO pueda revisarla y autorizarla"
+                  >
+                    {isSharingQuote ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                    ) : (
+                      <Share2 className="w-4 h-4 text-sky-400" />
+                    )}
+                    <span>Compartir para Aprobación</span>
+                  </button>
+                  <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSharingQuote}
                     className="generator-submit-btn"
                     style={{ flex: 1 }}
                   >
@@ -1063,6 +1470,13 @@ export const OrderGenerator: React.FC = () => {
                     )}
                   </button>
                 </div>
+
+                {quoteSharedToast && (
+                  <div className="mt-3 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{quoteSharedToast}</span>
+                  </div>
+                )}
 
                 <p className="generator-disclaimer">{g.disclaimer}</p>
               </form>

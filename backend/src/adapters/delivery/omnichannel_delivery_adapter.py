@@ -32,7 +32,11 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         if outputs_dir:
             self.outputs_dir = Path(outputs_dir)
         else:
-            self.outputs_dir = Path(__file__).resolve().parent.parent.parent.parent / "outputs"
+            repo_candidate = Path(__file__).resolve().parent.parent.parent.parent.parent / "outputs"
+            if (Path(__file__).resolve().parent.parent.parent.parent.parent / "backend").exists():
+                self.outputs_dir = repo_candidate
+            else:
+                self.outputs_dir = Path(__file__).resolve().parent.parent.parent.parent / "outputs"
 
         self.dispatched_emails_dir = self.outputs_dir / "dispatched_emails"
         self.dispatched_whatsapp_dir = self.outputs_dir / "dispatched_whatsapp"
@@ -131,7 +135,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         logger.info(email_message)
 
         # 2. Render templates
-        email_subject = f"🎯 Tus prospectos B2B calificados están listos — Orden #{order_id}"
+        email_subject = f"Tus prospectos B2B calificados estan listos — Orden #{order_id}"
         html_content = self._render_email_html(
             buyer_name=buyer_name,
             order_id=order_id,
@@ -211,8 +215,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         xlsx_url: Optional[str] = None,
         pdf_url: Optional[str] = None,
     ) -> str:
-        xlsx_btn = f'<a href="{xlsx_url}" class="btn-primary" style="background:#0F766E;margin-bottom:10px;">📊 Descargar Hoja de Cálculo Formateada (.XLSX)</a><br>' if xlsx_url else ""
-        pdf_btn = f'<a href="{pdf_url}" class="btn-primary" style="background:#0284C7;margin-bottom:10px;">📑 Descargar Dossier Ejecutivo y Guiones (.PDF)</a><br>' if pdf_url else ""
+        xlsx_btn = f'<a href="{xlsx_url}" class="btn-primary" style="background:#0F766E;margin-bottom:10px;">Descargar Hoja de Calculo Formateada (.XLSX)</a><br>' if xlsx_url else ""
+        pdf_btn = f'<a href="{pdf_url}" class="btn-primary" style="background:#0284C7;margin-bottom:10px;">Descargar Dossier Ejecutivo y Guiones (.PDF)</a><br>' if pdf_url else ""
         return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -261,12 +265,12 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
       <div class="actions">
         {xlsx_btn}
         {pdf_btn}
-        <a href="{csv_url}" class="btn-secondary" style="margin-bottom:10px;">📂 Descargar Base para Ingesta CRM (.CSV)</a>
+        <a href="{csv_url}" class="btn-secondary" style="margin-bottom:10px;">Descargar Base para Ingesta CRM (.CSV)</a>
         <br>
-        <a href="{md_url}" class="btn-secondary">📝 Descargar Dossier (.MD)</a>
+        <a href="{md_url}" class="btn-secondary">Descargar Dossier (.MD)</a>
       </div>
       <div class="guarantee-box">
-        <h4>🛡️ Garantía de Calidad Michito (Zero-Bounce Guarantee)</h4>
+        <h4>Garantía de Calidad Michito (Zero-Bounce Guarantee)</h4>
         <p>Cada buzón de correo fue verificado mediante socket SMTP directo contra el registro MX corporativo. Cuentas con garantía de reposición inmediata 100% gratuita si algún contacto presenta rebote duro.</p>
       </div>
     </div>
@@ -321,11 +325,11 @@ Chiketto B2B Operations
         md_url: str,
     ) -> str:
         return (
-            f"🎯 *¡Hola {buyer_name}! Tu lote de inteligencia B2B está listo.* (Orden `{order_id}`)\n\n"
-            f"Hemos extraído y verificado *{total_qualified} cuentas calificadas* para tu campaña en *{city}*.\n\n"
-            f"📊 *Descargar CSV (CRM):*\n{csv_url}\n\n"
-            f"📑 *Dossier y Guiones de Venta:*\n{md_url}\n\n"
-            f"🛡️ *Garantía:* Todos los correos cuentan con validación de socket MX. Reposición 100% garantizada.\n\n"
+            f"*Hola {buyer_name}! Tu lote de inteligencia B2B esta listo.* (Orden `{order_id}`)\n\n"
+            f"Hemos extraido y verificado *{total_qualified} cuentas calificadas* para tu campana en *{city}*.\n\n"
+            f"*Descargar CSV (CRM):*\n{csv_url}\n\n"
+            f"*Dossier y Guiones de Venta:*\n{md_url}\n\n"
+            f"*Garantia:* Todos los correos cuentan con validacion de socket MX. Reposicion 100% garantizada.\n\n"
             f"_Equipo Michito Intent Engine_"
         )
 

@@ -14,7 +14,9 @@ from src.domain.value_objects.company_segment import (
     list_supported_segments,
 )
 from deduplication_ledger import DeduplicationLedger, PERMANENT_EXCLUDED_NITS, PERMANENT_EXCLUDED_KEYWORDS
-from campaign_loader import load_campaign, list_available_campaigns, compile_teaser_html
+from campaign_loader import load_campaign, list_available_campaigns, compile_teaser_html, DEFAULT_ROLES
+from src.domain.entities.universal_prospecting_request import UniversalProspectingRequest, LocationAllocation
+from src.application.services.dynamic_cadence_generator import generate_dynamic_touches
 from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
 from src.adapters.registries.colombia.secop_contracts_adapter import SecopContractsAdapter
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
@@ -25,8 +27,12 @@ from src.adapters.export.pdf_dossier_adapter import PdfDossierAdapter
 from src.domain.value_objects.ciiu_code import CiiuCode
 from src.application.use_cases.underwrite_lead_use_case import UnderwriteLeadUseCase
 
-# Outputs root relative to workspace root
-WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# Outputs root relative to workspace root (canonical repo root outputs/)
+_candidate_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+if os.path.exists(os.path.join(_candidate_root, "backend")):
+    WORKSPACE_ROOT = _candidate_root
+else:
+    WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 GROWTH_OUTPUTS_BASE = os.path.join(WORKSPACE_ROOT, "outputs")
 
 
@@ -120,11 +126,12 @@ def build_targeted_linkedin_xray_url(
     rep_name: str,
     campaign_id: str = "",
     country: str = "CO",
+    target_roles: Optional[List[str]] = None,
 ) -> str:
     """
     Constructs an executive LinkedIn X-Ray query targeting both the statutory signer
     and the domain-specific departmental decision maker (CTO, VP Ops, Facility Manager, CFO)
-    based on the campaign ICP vertical.
+    based on the campaign ICP vertical or explicitly supplied target roles.
     """
     import urllib.parse
     c_up = (country or "CO").upper()
@@ -141,15 +148,19 @@ def build_targeted_linkedin_xray_url(
         flags=re.IGNORECASE
     ).strip().rstrip(" ,.-")
 
-    cid = (campaign_id or "").lower()
-    if any(k in cid for k in ("tinkko", "office", "oficina", "coworking", "facility", "inmueble")):
-        vertical_roles = '("Gerente General" OR "Director Administrativo" OR "Facility Manager" OR "Director de Operaciones" OR "Compras")'
-    elif any(k in cid for k in ("chiketto", "software", "tech", "dev", "ia", "ai", "cloud", "api")):
-        vertical_roles = '("CTO" OR "Director de Tecnología" OR "Líder de TI" OR "VP Engineering" OR "Gerente General")'
-    elif any(k in cid for k in ("hebi", "credit", "cobranza", "cartera", "fintech", "recaudo", "pago")):
-        vertical_roles = '("Director de Cartera" OR "Gerente de Cobranzas" OR "CFO" OR "Director Financiero" OR "Gerente General")'
+    if target_roles and len(target_roles) > 0:
+        roles_quoted = [f'"{r.strip()}"' for r in target_roles if r.strip()]
+        vertical_roles = f"({' OR '.join(roles_quoted)})"
     else:
-        vertical_roles = '("Gerente General" OR "Director Comercial" OR "CEO" OR "Director de Operaciones")'
+        cid = (campaign_id or "").lower()
+        if any(k in cid for k in ("tinkko", "office", "oficina", "coworking", "facility", "inmueble")):
+            vertical_roles = '("Gerente General" OR "Director Administrativo" OR "Facility Manager" OR "Director de Operaciones" OR "Compras")'
+        elif any(k in cid for k in ("chiketto", "software", "tech", "dev", "ia", "ai", "cloud", "api")):
+            vertical_roles = '("CTO" OR "Director de Tecnología" OR "Líder de TI" OR "VP Engineering" OR "Gerente General")'
+        elif any(k in cid for k in ("hebi", "credit", "cobranza", "cartera", "fintech", "recaudo", "pago")):
+            vertical_roles = '("Director de Cartera" OR "Gerente de Cobranzas" OR "CFO" OR "Director Financiero" OR "Gerente General")'
+        else:
+            vertical_roles = '("Gerente General" OR "Director Comercial" OR "CEO" OR "Director de Operaciones")'
 
     valid_rep = (
         rep_name.strip()
@@ -250,53 +261,125 @@ class GenerateProspectsUseCase:
         exclusions: Optional[List[str]] = None,
         country: Optional[str] = None,
         country_allocations: Optional[Dict[str, int]] = None,
+        # Universal dynamic parameters
+        universal_request: Optional[UniversalProspectingRequest] = None,
+        offer_description: Optional[str] = None,
+        target_roles: Optional[List[str]] = None,
+        target_sectors: Optional[List[str]] = None,
+        target_ciiu_codes: Optional[List[str]] = None,
+        location_allocations: Optional[List[Dict[str, Any]]] = None,
+        keywords_include: Optional[List[str]] = None,
+        keywords_exclude: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         print("=" * 80)
-        print("🚀 UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
+        print("[ENGINE] UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
         print(f"   Target Tier: Tier {tier} ({'Underwritten & EBITDA Solvency' if tier == 3 else 'Decision-Maker & Mobile' if tier == 2 else 'Base Directory'})")
         print("=" * 80)
 
         if tier == 3 and not self.underwriter:
             self.underwriter = UnderwriteLeadUseCase()
 
-        # 1. Load Campaign Configuration Profile
-        campaign_cfg = load_campaign(campaign)
-        campaign_id = campaign_cfg["id"]
-        campaign_name = campaign_cfg["name"]
-        target_cfg = campaign_cfg.get("target", {})
-        touches_cfg = campaign_cfg.get("touches", {})
-        
-        # Determine targeting & allocations across countries
-        raw_country = (country or target_cfg.get("country", "CO")).upper()
-        
-        active_allocations: Dict[str, int] = {}
-        if country_allocations and isinstance(country_allocations, dict) and len(country_allocations) > 0:
-            alloc_sum = sum(country_allocations.values())
-            if alloc_sum == 100 and limit != 100:
-                accum = 0
-                items = list(country_allocations.items())
-                for c_k, pct in items[:-1]:
-                    q = max(1, round(limit * (pct / 100.0)))
-                    accum += q
-                    active_allocations[c_k.upper()] = q
-                last_k, _ = items[-1]
-                active_allocations[last_k.upper()] = max(1, limit - accum)
+        # 0. Unpack Universal Prospecting Request if provided
+        if universal_request is not None:
+            if hasattr(universal_request, "to_dict"):
+                u_dict = universal_request.to_dict()
+            elif isinstance(universal_request, dict):
+                u_dict = universal_request
             else:
-                active_allocations = {c_k.upper(): q for c_k, q in country_allocations.items()}
-        elif raw_country in ("MULTI", "CROSS_BORDER", "LATAM"):
-            q_co = max(1, round(limit * 0.50))
-            q_do = max(1, round(limit * 0.30))
-            q_ec = max(1, limit - q_co - q_do)
-            active_allocations = {"CO": q_co, "DO": q_do, "EC": q_ec}
-        else:
-            active_allocations = {raw_country: limit}
+                u_dict = vars(universal_request)
+            offer_description = offer_description or u_dict.get("offer_description")
+            target_roles = target_roles or u_dict.get("roles")
+            target_sectors = target_sectors or u_dict.get("sectors")
+            target_ciiu_codes = target_ciiu_codes or u_dict.get("ciiu_codes")
+            keywords_include = keywords_include or u_dict.get("keywords_include")
+            keywords_exclude = keywords_exclude or u_dict.get("keywords_exclude")
+            tier = u_dict.get("tier", tier)
+            limit = u_dict.get("total_leads", limit)
+            if u_dict.get("preset_id"):
+                campaign = u_dict.get("preset_id")
+            if u_dict.get("locations"):
+                location_allocations = location_allocations or u_dict.get("locations")
+            extra_excl = (u_dict.get("excluded_nits") or []) + (u_dict.get("excluded_domains") or [])
+            if extra_excl:
+                exclusions = list(set((exclusions or []) + extra_excl))
 
-        is_multi_country = len(active_allocations) > 1
-        target_country = "MULTI" if is_multi_country else list(active_allocations.keys())[0]
-        target_currency = "USD" if is_multi_country or target_country == "EC" else ("DOP" if target_country == "DO" else "COP")
-        recommended_angle = campaign_cfg.get("angles", {}).get(
-            "recommended", "Eficiencia Operativa y Soluciones B2B Llave en Mano"
-        )
+        # 1. Load Campaign Configuration Profile or Synthesize Universal Dynamic Profile
+        available_camps = list_available_campaigns()
+        is_dynamic = bool(offer_description) or campaign in ("custom", "universal", "none", None) or campaign not in available_camps
+        loaded_cfg: Optional[Dict[str, Any]] = None
+
+        if not is_dynamic:
+            try:
+                loaded_cfg = load_campaign(campaign)
+            except Exception:
+                is_dynamic = True
+
+        campaign_cfg: Dict[str, Any]
+        target_cfg: Dict[str, Any]
+
+        if is_dynamic or loaded_cfg is None:
+            campaign_id = campaign if (campaign and campaign not in ("custom", "universal", "none") and campaign in available_camps) else "universal_prospecting"
+            campaign_name = offer_description[:45].strip().title() if offer_description else "Prospección Comercial B2B Universal"
+            target_cfg = {
+                "country": country or "CO",
+                "currency": "USD" if country in ("MULTI", "EC") else ("DOP" if country == "DO" else "COP"),
+                "city": city or "all",
+                "cities": [loc.get("city") for loc in (location_allocations or []) if isinstance(loc, dict) and loc.get("city")] or ([city] if city else ["Medellín"]),
+                "segment": segment or "midmarket",
+                "sectors": target_sectors or ([sector] if sector else ["all"]),
+                "ciiu_codes": target_ciiu_codes or [],
+                "keywords_include": keywords_include or [],
+                "keywords_exclude": keywords_exclude or [],
+                "roles": target_roles or DEFAULT_ROLES,
+            }
+            touches_cfg = generate_dynamic_touches(
+                offer_description=offer_description,
+                sectors=target_sectors or ([sector] if sector else None),
+                roles=target_roles,
+            )
+            campaign_cfg = {
+                "id": campaign_id,
+                "name": campaign_name,
+                "client_id": "universal",
+                "description": offer_description or "Campaña B2B de prospección dinámica sobre demanda",
+                "target": target_cfg,
+                "angles": {
+                    "recommended": offer_description or "Eficiencia Operativa y Crecimiento Estratégico B2B",
+                },
+                "specs": {},
+                "teaser": {},
+                "touches": touches_cfg,
+            }
+        else:
+            campaign_cfg = loaded_cfg
+            campaign_id = str(campaign_cfg.get("id", campaign))
+            campaign_name = str(campaign_cfg.get("name", campaign))
+            target_cfg = dict(campaign_cfg.get("target") or {})
+            if keywords_include:
+                target_cfg["keywords_include"] = list(set((target_cfg.get("keywords_include") or []) + keywords_include))
+            if keywords_exclude:
+                target_cfg["keywords_exclude"] = list(set((target_cfg.get("keywords_exclude") or []) + keywords_exclude))
+            if target_roles:
+                target_cfg["roles"] = target_roles
+            if target_sectors:
+                target_cfg["sectors"] = target_sectors
+            if target_ciiu_codes:
+                target_cfg["ciiu_codes"] = target_ciiu_codes
+            if offer_description:
+                touches_cfg = generate_dynamic_touches(
+                    offer_description=offer_description,
+                    sectors=target_sectors or target_cfg.get("sectors"),
+                    roles=target_roles or target_cfg.get("roles"),
+                )
+            else:
+                touches_cfg = dict(campaign_cfg.get("touches") or {})
+
+        # Determine targeting & allocations across countries and territories
+        val_country = country or target_cfg.get("country", "CO")
+        if isinstance(val_country, list):
+            raw_country = (val_country[0] if val_country else "CO").upper()
+        else:
+            raw_country = str(val_country or "CO").upper()
 
         REGIONAL_EXPANSIONS: Dict[str, List[str]] = {
             "costa caribe": ["Barranquilla", "Cartagena", "Santa Marta"],
@@ -311,10 +394,12 @@ class GenerateProspectsUseCase:
             }
             if not raw_city_str:
                 cfg_cities = target_cfg.get("cities")
-                if cfg_cities and not is_multi_country:
-                    return cfg_cities
+                if cfg_cities and raw_country not in ("MULTI", "CROSS_BORDER", "LATAM"):
+                    if isinstance(cfg_cities, list):
+                        return [str(c) for c in cfg_cities]
+                    return [str(cfg_cities)]
                 return c_defaults.get(c_code, ["Medellín"])
-            
+
             tokens = [c.strip() for c in raw_city_str.split(",") if c.strip()]
             matched = []
             for token in tokens:
@@ -331,6 +416,96 @@ class GenerateProspectsUseCase:
                 elif c_code == "CO" and not any(k in norm_token for k in ("quito", "guayaquil", "cuenca", "santo domingo", "santiago", "dominicana", "ecuador")):
                     matched.append(token)
             return matched if matched else c_defaults.get(c_code, ["Medellín"])
+
+        # Build normalized territorial quota fulfillment plan
+        normalized_territories: List[Dict[str, Any]] = []
+        if location_allocations and len(location_allocations) > 0:
+            if isinstance(location_allocations, dict):
+                for loc_key, q_val in location_allocations.items():
+                    c_code = (raw_country or "CO").upper()
+                    c_city = str(loc_key)
+                    if ":" in loc_key:
+                        parts = loc_key.split(":", 1)
+                        c_code = parts[0].upper()
+                        c_city = parts[1]
+                    normalized_territories.append({
+                        "country": c_code,
+                        "region": c_city,
+                        "city": c_city,
+                        "quota": int(q_val),
+                    })
+            else:
+                for loc in location_allocations:
+                    if hasattr(loc, "to_dict"):
+                        loc = loc.to_dict()
+                    if isinstance(loc, str):
+                        c_code = (raw_country or "CO").upper()
+                        c_city = loc
+                        if ":" in loc:
+                            parts = loc.split(":", 1)
+                            c_code = parts[0].upper()
+                            c_city = parts[1]
+                        normalized_territories.append({
+                            "country": c_code,
+                            "region": c_city,
+                            "city": c_city,
+                            "quota": max(1, limit // len(location_allocations)),
+                        })
+                        continue
+                    c_code = (loc.get("country") or loc.get("country_code") or raw_country or "CO").upper()
+                    c_city = loc.get("city") or loc.get("city_name") or "all"
+                    c_region = loc.get("region") or loc.get("region_name") or c_city
+                    q = int(loc.get("allocated_leads") or loc.get("quota") or loc.get("limit") or 1)
+                    normalized_territories.append({
+                        "country": c_code,
+                        "region": c_region,
+                        "city": c_city,
+                        "quota": q,
+                    })
+        else:
+            active_allocations: Dict[str, int] = {}
+            if country_allocations and isinstance(country_allocations, dict) and len(country_allocations) > 0:
+                alloc_sum = sum(country_allocations.values())
+                if alloc_sum == 100 and limit != 100:
+                    accum = 0
+                    items = list(country_allocations.items())
+                    for c_k, pct in items[:-1]:
+                        q = max(1, round(limit * (pct / 100.0)))
+                        accum += q
+                        active_allocations[c_k.upper()] = q
+                    last_k, _ = items[-1]
+                    active_allocations[last_k.upper()] = max(1, limit - accum)
+                else:
+                    active_allocations = {c_k.upper(): q for c_k, q in country_allocations.items()}
+            elif raw_country in ("MULTI", "CROSS_BORDER", "LATAM"):
+                q_co = max(1, round(limit * 0.50))
+                q_do = max(1, round(limit * 0.30))
+                q_ec = max(1, limit - q_co - q_do)
+                active_allocations = {"CO": q_co, "DO": q_do, "EC": q_ec}
+            else:
+                active_allocations = {raw_country: limit}
+
+            for c_code, c_quota in active_allocations.items():
+                c_cities = get_country_cities(c_code, city)
+                per_city_quota = max(1, c_quota // len(c_cities))
+                for idx, c_city in enumerate(c_cities):
+                    alloc_q = c_quota - (per_city_quota * (len(c_cities) - 1)) if idx == len(c_cities) - 1 else per_city_quota
+                    normalized_territories.append({
+                        "country": c_code,
+                        "region": c_city,
+                        "city": c_city,
+                        "quota": alloc_q,
+                    })
+
+        unique_countries = list(dict.fromkeys(t["country"] for t in normalized_territories))
+        is_multi_country = len(unique_countries) > 1
+        target_country = "MULTI" if is_multi_country else (unique_countries[0] if unique_countries else "CO")
+        target_currency = "USD" if is_multi_country or target_country == "EC" else ("DOP" if target_country == "DO" else "COP")
+        angles_obj = campaign_cfg.get("angles")
+        angles_dict = angles_obj if isinstance(angles_obj, dict) else {}
+        recommended_angle = str(angles_dict.get(
+            "recommended", "Eficiencia Operativa y Soluciones B2B Llave en Mano"
+        ))
 
         # Build normalized customer/competitor exclusion sets
         clean_excl_nits: Set[str] = set()
@@ -361,12 +536,13 @@ class GenerateProspectsUseCase:
                 if len(item) >= 3:
                     clean_excl_keywords.add(item)
 
-        print(f"📋 Campaign Profile:  {campaign_name} (`{campaign_id}`)")
-        print(f"🌍 Country Target:     {target_country} ({', '.join(f'{k}:{v}' for k, v in active_allocations.items())})")
-        print(f"🔢 Total Batch Target: {limit} qualified accounts")
-        print(f"🎯 Recommended Angle:  {recommended_angle}")
+        territories_summary = ", ".join(f"{t['country']}:{t['city']}:{t['quota']}" for t in normalized_territories)
+        print(f"[PROFILE] Campaign Profile:  {campaign_name} (`{campaign_id}`)")
+        print(f"[TERRITORY] Country Target:     {target_country} ({territories_summary})")
+        print(f"[BATCH] Total Batch Target: {limit} qualified accounts")
+        print(f"[ANGLE] Recommended Angle:  {recommended_angle}")
         if raw_exclusions:
-            print(f"🛡️ Exclusions Active:  {len(raw_exclusions)} entries ({len(clean_excl_nits)} NITs, {len(clean_excl_domains)} domains, {len(clean_excl_keywords)} keywords)")
+            print(f"[SECURE] Exclusions Active:  {len(raw_exclusions)} entries ({len(clean_excl_nits)} NITs, {len(clean_excl_domains)} domains, {len(clean_excl_keywords)} keywords)")
         print("-" * 80)
 
         # 2. Initialize Deduplication Ledger
@@ -383,244 +559,280 @@ class GenerateProspectsUseCase:
         verify_time_total = 0.0
         total_candidates_scanned = 0
 
-        # 3. Harvest and Qualify Candidates per Country Allocation
+        # 3. Harvest and Qualify Candidates per Territory Allocation
         kw_include = target_cfg.get("keywords_include")
         kw_exclude = target_cfg.get("keywords_exclude")
         scanned_cities: List[str] = []
+        territory_fulfillment: Dict[str, Dict[str, Any]] = {}
 
-        for c_code, c_quota in active_allocations.items():
+        for territory in normalized_territories:
+            c_code = territory["country"]
+            c_region = territory["region"]
+            target_city = territory["city"]
+            t_quota = territory["quota"]
+
+            territory_key = f"{target_city} ({c_region}, {c_code})"
+            if territory_key not in territory_fulfillment:
+                territory_fulfillment[territory_key] = {
+                    "country": c_code,
+                    "region": c_region,
+                    "city": target_city,
+                    "requested_quota": t_quota,
+                    "delivered_count": 0,
+                }
+            else:
+                territory_fulfillment[territory_key]["requested_quota"] += t_quota
+
+            if target_city not in scanned_cities:
+                scanned_cities.append(target_city)
+
+            if len(all_selected) >= limit:
+                break
+
             c_country_name = "Ecuador" if c_code == "EC" else ("República Dominicana" if c_code == "DO" else "Colombia")
             c_currency = "USD" if c_code == "EC" else ("DOP" if c_code == "DO" else "COP")
             c_tax_type = "RUC" if c_code == "EC" else ("RNC" if c_code == "DO" else "NIT")
-            
+
             if c_code == "EC":
                 harvester = self.harvester_ec or SercopEcuadorAdapter(timeout=15)
             elif c_code == "DO":
                 harvester = self.harvester_dr or DgcpDrAdapter(timeout=15)
             else:
                 harvester = self.harvester_co or SecopHarvesterAdapter(timeout=15)
-            
-            c_cities = get_country_cities(c_code, city)
-            country_selected = 0
 
-            for target_city in c_cities:
-                if target_city not in scanned_cities:
-                    scanned_cities.append(target_city)
-                remaining_country = c_quota - country_selected
-                if remaining_country <= 0 or len(all_selected) >= limit:
+            territory_selected = 0
+
+            print(f"\n[Harvester] Querying active corporate providers in {target_city} ({c_country_name})...")
+            raw_multiplier = 10 if c_code in ("DO", "EC") else 12
+            harvester_kwargs: Dict[str, Any] = {
+                "city": target_city,
+                "limit": max(t_quota * raw_multiplier, 100),
+                "corporate_only": True,
+            }
+            if kw_include:
+                harvester_kwargs["include_keywords"] = kw_include
+            if kw_exclude:
+                harvester_kwargs["exclude_keywords"] = kw_exclude
+
+            t_harv_start = time.time()
+            raw_candidates = harvester.fetch_candidates(**harvester_kwargs)
+            t_harv_elapsed = time.time() - t_harv_start
+            harvest_time_total += t_harv_elapsed
+            print(f"   Retrieved {len(raw_candidates)} candidate entities in {target_city} ({t_harv_elapsed:.2f}s).")
+
+            t_verif_city_start = time.time()
+            for item in raw_candidates:
+                total_candidates_scanned += 1
+                if territory_selected >= t_quota or len(all_selected) >= limit:
                     break
 
-                print(f"\n[Harvester] Querying active corporate providers in {target_city} ({c_country_name})...")
-                raw_multiplier = 10 if c_code in ("DO", "EC") else 12
-                harvester_kwargs: Dict[str, Any] = {
-                    "city": target_city,
-                    "limit": max(remaining_country * raw_multiplier, 100),
-                    "corporate_only": True,
-                }
-                if c_code in ("DO", "EC"):
-                    if kw_include:
-                        harvester_kwargs["include_keywords"] = kw_include
-                    if kw_exclude:
-                        harvester_kwargs["exclude_keywords"] = kw_exclude
+                nit = item["nit"]
+                company_name = item["company_name"]
 
-                t_harv_start = time.time()
-                raw_candidates = harvester.fetch_candidates(**harvester_kwargs)
-                t_harv_elapsed = time.time() - t_harv_start
-                harvest_time_total += t_harv_elapsed
-                print(f"   Retrieved {len(raw_candidates)} candidate entities in {target_city} ({t_harv_elapsed:.2f}s).")
+                # Deduplication Check (Against Ledger & Active Batch)
+                if ledger.is_seen(nit, company_name, email=item.get("email", ""), campaign=campaign_id) or any(s["nit"] == nit for s in all_selected):
+                    continue
 
-                t_verif_city_start = time.time()
-                for item in raw_candidates:
-                    total_candidates_scanned += 1
-                    if country_selected >= c_quota or len(all_selected) >= limit:
-                        break
+                # Customer & Competitor Exclusion Filter
+                nit_clean = re.sub(r"\D", "", nit or "")
+                nit_stripped = (nit or "").strip().replace(".", "").replace(" ", "")
+                cand_email = (item.get("email") or "").strip().lower()
+                cand_website = (item.get("website") or "").strip().lower()
+                cand_email_domain = cand_email.split("@")[1].strip().lower() if "@" in cand_email else ""
+                cand_url_domain = re.sub(r"^https?://(www\.)?", "", cand_website).split("/")[0].strip()
 
-                    nit = item["nit"]
-                    company_name = item["company_name"]
+                if (
+                    nit_clean in clean_excl_nits
+                    or nit_stripped in clean_excl_nits
+                    or (cand_email_domain and any(d in cand_email_domain for d in clean_excl_domains))
+                    or (cand_url_domain and any(d in cand_url_domain for d in clean_excl_domains))
+                    or any(kw in company_name.lower() for kw in clean_excl_keywords)
+                ):
+                    print(f"   [Exclusion Gate] Skipping excluded account: {company_name} ({c_tax_type}: {nit})")
+                    continue
 
-                    # Deduplication Check (Against Ledger & Active Batch)
-                    if ledger.is_seen(nit, company_name) or any(s["nit"] == nit for s in all_selected):
+                email = item["email"]
+                phone = item["phone"]
+
+                # Phone Gate: Tier-adaptive validation
+                digits_phone = re.sub(r"\D", "", phone or "")
+                if tier == 1:
+                    if len(digits_phone) < 7:
                         continue
-
-                    # Customer & Competitor Exclusion Filter
-                    nit_clean = re.sub(r"\D", "", nit or "")
-                    nit_stripped = (nit or "").strip().replace(".", "").replace(" ", "")
-                    cand_email = (item.get("email") or "").strip().lower()
-                    cand_website = (item.get("website") or "").strip().lower()
-                    cand_email_domain = cand_email.split("@")[1].strip().lower() if "@" in cand_email else ""
-                    cand_url_domain = re.sub(r"^https?://(www\.)?", "", cand_website).split("/")[0].strip()
-
-                    if (
-                        nit_clean in clean_excl_nits
-                        or nit_stripped in clean_excl_nits
-                        or (cand_email_domain and any(d in cand_email_domain for d in clean_excl_domains))
-                        or (cand_url_domain and any(d in cand_url_domain for d in clean_excl_domains))
-                        or any(kw in company_name.lower() for kw in clean_excl_keywords)
-                    ):
-                        print(f"   [Exclusion Gate] Skipping excluded account: {company_name} ({c_tax_type}: {nit})")
-                        continue
-
-                    email = item["email"]
-                    phone = item["phone"]
-
-                    # Phone Gate: Tier-adaptive validation
-                    digits_phone = re.sub(r"\D", "", phone or "")
-                    if tier == 1:
-                        if len(digits_phone) < 7:
-                            continue
-                    else:
-                        if c_code == "DO":
-                            clean_do = digits_phone[1:] if digits_phone.startswith("1") and len(digits_phone) == 11 else digits_phone
-                            if len(clean_do) < 10:
-                                continue
-                        elif c_code == "EC":
-                            clean_ec = digits_phone[3:] if digits_phone.startswith("593") and len(digits_phone) >= 12 else digits_phone
-                            if len(clean_ec) < 9 or not clean_ec.startswith("9"):
-                                continue
-                        else:
-                            clean_co = digits_phone[2:] if digits_phone.startswith("57") and len(digits_phone) == 12 else digits_phone
-                            if not phone or len(clean_co) < 10 or not clean_co.startswith("3"):
-                                continue
-
-                    # Deliverability Gate: DNS MX verification
-                    ok_mx, mx_host = self.verify_mx_fn(email)
-                    if not ok_mx:
-                        continue
-
-                    is_corporate_domain = not any(
-                        pub in email for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")
-                    )
-
-                    # Website Resolution & Quality Audit Gate
-                    candidate_url = item.get("website") or ""
-                    if not candidate_url and is_corporate_domain:
-                        candidate_domain = email.split("@")[1].strip().lower()
-                        candidate_url = f"https://www.{candidate_domain}"
-
-                    if tier == 1:
-                        audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
-                        audit_note = "Validado por Dominio Corporativo & MX"
-                    else:
-                        is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
-                        if not is_active_web:
-                            continue
-
-                    # DANE / Regional Activity Classification
-                    ciiu_obj = CiiuCode.infer_from_text(
-                        company_name=company_name,
-                        email=email,
-                        raw_desc=item.get("sector", "")
-                    )
-
-                    # Trigger 1: Public Contract Awards
+                else:
                     if c_code == "DO":
-                        c_val = float(item.get("contract_val_dop") or 0.0)
-                        contracts_data = {
-                            "has_contracts": c_val > 0,
-                            "contracts_count": 1 if c_val > 0 else 0,
-                            "total_value_cop": c_val,
-                            "total_value_display": item.get("contract_val_display", "$0 DOP"),
-                            "top_contract_entity": item.get("contract_entity", "Estado Dominicano"),
-                            "top_contract_value_cop": c_val,
-                            "top_contract_value_display": item.get("contract_val_display", "$0 DOP"),
-                            "top_contract_object": item.get("contract_object", "Contratista adjudicado DGCP"),
-                            "intent_level": "Alto (Adjudicación DGCP Activa)" if c_val > 0 else "Estándar",
-                        }
-                    elif c_code == "EC":
-                        c_val = float(item.get("contract_val_usd") or 0.0)
-                        contracts_data = {
-                            "has_contracts": c_val > 0,
-                            "contracts_count": 1 if c_val > 0 else 0,
-                            "total_value_cop": c_val,
-                            "total_value_display": item.get("contract_val_display", "$0 USD"),
-                            "top_contract_entity": item.get("contract_entity", "Estado Ecuatoriano (SERCOP)"),
-                            "top_contract_value_cop": c_val,
-                            "top_contract_value_display": item.get("contract_val_display", "$0 USD"),
-                            "top_contract_object": item.get("contract_object", "Contratista adjudicado SERCOP"),
-                            "intent_level": "Alto (Adjudicación SERCOP Activa)" if c_val > 0 else "Estándar",
-                        }
-                    else:
-                        contracts_data = contracts_adapter.fetch_contracts_summary(nit)
-
-                    # Trigger 2: Active Hiring Signals
-                    hiring_xray = build_hiring_xray_url(company_name, target_city, country=c_code)
-
-                    # Trigger 3: Regional Expansion & Satellite Need
-                    reg_city = item.get("city") or target_city
-                    if reg_city.lower() != target_city.lower():
-                        expansion_flag = f"Sede Satélite en Expansión (Registrada en {reg_city})"
-                    elif contracts_data["has_contracts"]:
-                        expansion_flag = f"Ejecutando Contratos Públicos Activos en {c_country_name}"
-                    else:
-                        expansion_flag = "Operación Corporativa en Expansión Local"
-
-                    clean_name = clean_company_name(company_name)
-                    rep_name = (item.get("decision_maker_name") or "").strip()
-                    if tier >= 2:
-                        if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
+                        clean_do = digits_phone[1:] if digits_phone.startswith("1") and len(digits_phone) == 11 else digits_phone
+                        if len(clean_do) < 10:
                             continue
-                    if not rep_name:
-                        rep_name = "Representante Legal"
-                    first_name = get_first_name(rep_name)
-                    seg_name, rev_range, emp_range = get_segment_metrics(
-                        item.get("tama_o_entidad", "Mediana"), country=c_code
-                    )
+                    elif c_code == "EC":
+                        clean_ec = digits_phone[3:] if digits_phone.startswith("593") and len(digits_phone) >= 12 else digits_phone
+                        if len(clean_ec) < 9 or not clean_ec.startswith("9"):
+                            continue
+                    else:
+                        clean_co = digits_phone[2:] if digits_phone.startswith("57") and len(digits_phone) == 12 else digits_phone
+                        if not phone or len(clean_co) < 10 or not clean_co.startswith("3"):
+                            continue
 
-                    default_title = (
-                        "Representante Legal / Gerente General (SuperCias)"
-                        if c_code == "EC"
-                        else ("Titular / Representante Registrado (DGCP)" if c_code == "DO" else "Representante Legal (Firmante Estatutario)")
-                    )
-                    rep_title = item.get("decision_maker_title") or default_title
+                # Deliverability Gate: DNS MX verification
+                ok_mx, mx_host = self.verify_mx_fn(email)
+                if not ok_mx:
+                    continue
 
-                    targeted_xray = build_targeted_linkedin_xray_url(
-                        company_name=company_name,
-                        rep_name=rep_name,
-                        campaign_id=campaign_id,
-                        country=c_code,
-                    )
+                is_corporate_domain = not any(
+                    pub in email for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")
+                )
 
-                    lead_record = {
-                        "company_name": company_name,
-                        "clean_name": clean_name,
-                        "first_name": first_name,
-                        "nit": nit,
-                        "tax_id": nit,
-                        "tax_id_type": c_tax_type,
-                        "country": c_code,
-                        "country_name": c_country_name,
-                        "currency": c_currency,
-                        "city": item.get("city") or target_city,
-                        "department": item.get("department") or "",
-                        "address": item.get("address", ""),
-                        "ciiu": ciiu_obj,
-                        "segment_name": seg_name,
-                        "revenue_bracket": rev_range,
-                        "employees_bracket": emp_range,
-                        "website_url": audited_url,
-                        "website_audit_status": audit_note,
-                        "decision_maker_name": rep_name,
-                        "decision_maker_title": rep_title,
-                        "decision_maker_category": default_title,
-                        "email": email,
-                        "phone": phone,
-                        "mx_host": mx_host,
-                        "linkedin_xray_url": targeted_xray,
-                        "contracts_data": contracts_data,
-                        "hiring_xray_url": hiring_xray,
-                        "expansion_flag": expansion_flag,
+                # Website Resolution & Quality Audit Gate
+                candidate_url = item.get("website") or ""
+                if not candidate_url and is_corporate_domain:
+                    candidate_domain = email.split("@")[1].strip().lower()
+                    candidate_url = f"https://www.{candidate_domain}"
+
+                if tier == 1:
+                    audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
+                    audit_note = "Validado por Dominio Corporativo & MX"
+                else:
+                    is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
+                    if not is_active_web:
+                        continue
+
+                # DANE / Regional Activity Classification
+                ciiu_obj = CiiuCode.infer_from_text(
+                    company_name=company_name,
+                    email=email,
+                    raw_desc=item.get("sector", "")
+                )
+
+                # CIIU Specific Filtering if requested
+                if target_ciiu_codes and len(target_ciiu_codes) > 0:
+                    ciiu_clean = [str(c).upper().strip() for c in target_ciiu_codes]
+                    cand_ciiu = ciiu_obj.code.upper()
+                    if cand_ciiu not in ciiu_clean and not any(cand_ciiu.startswith(prefix) for prefix in ciiu_clean):
+                        if kw_include and not any(kw.lower() in company_name.lower() or kw.lower() in str(item.get("sector", "")).lower() for kw in kw_include):
+                            continue
+
+                # Trigger 1: Public Contract Awards
+                if c_code == "DO":
+                    c_val = float(item.get("contract_val_dop") or 0.0)
+                    contracts_data = {
+                        "has_contracts": c_val > 0,
+                        "contracts_count": 1 if c_val > 0 else 0,
+                        "total_value_cop": c_val,
+                        "total_value_display": item.get("contract_val_display", "$0 DOP"),
+                        "top_contract_entity": item.get("contract_entity", "Estado Dominicano"),
+                        "top_contract_value_cop": c_val,
+                        "top_contract_value_display": item.get("contract_val_display", "$0 DOP"),
+                        "top_contract_object": item.get("contract_object", "Contratista adjudicado DGCP"),
+                        "intent_level": "Alto (Adjudicación DGCP Activa)" if c_val > 0 else "Estándar",
                     }
+                elif c_code == "EC":
+                    c_val = float(item.get("contract_val_usd") or 0.0)
+                    contracts_data = {
+                        "has_contracts": c_val > 0,
+                        "contracts_count": 1 if c_val > 0 else 0,
+                        "total_value_cop": c_val,
+                        "total_value_display": item.get("contract_val_display", "$0 USD"),
+                        "top_contract_entity": item.get("contract_entity", "Estado Ecuatoriano (SERCOP)"),
+                        "top_contract_value_cop": c_val,
+                        "top_contract_value_display": item.get("contract_val_display", "$0 USD"),
+                        "top_contract_object": item.get("contract_object", "Contratista adjudicado SERCOP"),
+                        "intent_level": "Alto (Adjudicación SERCOP Activa)" if c_val > 0 else "Estándar",
+                    }
+                else:
+                    contracts_data = contracts_adapter.fetch_contracts_summary(nit)
 
-                    all_selected.append(lead_record)
-                    country_selected += 1
+                # Trigger 2: Active Hiring Signals
+                hiring_xray = build_hiring_xray_url(company_name, target_city, country=c_code)
 
-                verify_time_total += time.time() - t_verif_city_start
+                # Trigger 3: Regional Expansion & Satellite Need
+                reg_city = item.get("city") or target_city
+                if reg_city.lower() != target_city.lower():
+                    expansion_flag = f"Sede Satélite en Expansión (Registrada en {reg_city})"
+                elif contracts_data["has_contracts"]:
+                    expansion_flag = f"Ejecutando Contratos Públicos Activos en {c_country_name}"
+                else:
+                    expansion_flag = "Operación Corporativa en Expansión Local"
+
+                clean_name = clean_company_name(company_name)
+                rep_name = (item.get("decision_maker_name") or "").strip()
+                if tier >= 2:
+                    if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
+                        continue
+                if not rep_name:
+                    rep_name = "Representante Legal"
+                first_name = get_first_name(rep_name)
+                seg_name, rev_range, emp_range = get_segment_metrics(
+                    item.get("tama_o_entidad", "Mediana"), country=c_code
+                )
+
+                default_title = (
+                    "Representante Legal / Gerente General (SuperCias)"
+                    if c_code == "EC"
+                    else ("Titular / Representante Registrado (DGCP)" if c_code == "DO" else "Representante Legal (Firmante Estatutario)")
+                )
+                rep_title = item.get("decision_maker_title") or default_title
+
+                roles_to_pass: Optional[List[str]] = None
+                if target_roles:
+                    roles_to_pass = target_roles
+                else:
+                    cfg_roles = target_cfg.get("roles")
+                    if isinstance(cfg_roles, list):
+                        roles_to_pass = [str(r) for r in cfg_roles]
+                    elif isinstance(cfg_roles, str):
+                        roles_to_pass = [cfg_roles]
+
+                targeted_xray = build_targeted_linkedin_xray_url(
+                    company_name=company_name,
+                    rep_name=rep_name,
+                    campaign_id=campaign_id,
+                    country=c_code,
+                    target_roles=roles_to_pass,
+                )
+
+                lead_record = {
+                    "company_name": company_name,
+                    "clean_name": clean_name,
+                    "first_name": first_name,
+                    "nit": nit,
+                    "tax_id": nit,
+                    "tax_id_type": c_tax_type,
+                    "country": c_code,
+                    "country_name": c_country_name,
+                    "currency": c_currency,
+                    "city": item.get("city") or target_city,
+                    "department": item.get("department") or c_region,
+                    "territory": territory_key,
+                    "address": item.get("address", ""),
+                    "ciiu": ciiu_obj,
+                    "segment_name": seg_name,
+                    "revenue_bracket": rev_range,
+                    "employees_bracket": emp_range,
+                    "website_url": audited_url,
+                    "website_audit_status": audit_note,
+                    "decision_maker_name": rep_name,
+                    "decision_maker_title": rep_title,
+                    "decision_maker_category": default_title,
+                    "email": email,
+                    "phone": phone,
+                    "mx_host": mx_host,
+                    "linkedin_xray_url": targeted_xray,
+                    "contracts_data": contracts_data,
+                    "hiring_xray_url": hiring_xray,
+                    "expansion_flag": expansion_flag,
+                }
+
+                all_selected.append(lead_record)
+                territory_selected += 1
+                territory_fulfillment[territory_key]["delivered_count"] = territory_selected
+
+            verify_time_total += time.time() - t_verif_city_start
 
         format_start_time = time.time()
 
         if not all_selected:
             total_elapsed = time.time() - overall_start_time
-            print(f"\n⚠️ No fresh companies found matching all quality and deliverability gates ({total_elapsed:.2f}s).")
+            print(f"\n[WARN] No fresh companies found matching all quality and deliverability gates ({total_elapsed:.2f}s).")
             return {
                 "status": "no_leads_found",
                 "tier": tier,
@@ -629,6 +841,8 @@ class GenerateProspectsUseCase:
                 "country": target_country,
                 "currency": target_currency,
                 "target_cities": scanned_cities,
+                "territory_fulfillment": territory_fulfillment,
+                "universal_request": universal_request.to_dict() if (universal_request and hasattr(universal_request, "to_dict")) else None,
                 "batch_dir": None,
                 "csv_path": None,
                 "dossier_path": None,
@@ -649,7 +863,25 @@ class GenerateProspectsUseCase:
                 }
             }
 
-        print(f"\n[Engine] Successfully assembled {len(all_selected)} verified enterprise leads.")
+        # 4. Lead Quality & Intent Ranking (Ensure highest intent & solvency appear first)
+        def compute_lead_rank(lead: Dict[str, Any]) -> int:
+            score = 0
+            contracts = lead.get("contracts_data", {})
+            if contracts.get("has_contracts"):
+                score += 35
+            audit_status = str(lead.get("website_audit_status") or "").lower()
+            if audit_status and "offline" not in audit_status and "fallido" not in audit_status:
+                score += 25
+            dm_name = str(lead.get("decision_maker_name") or "").lower()
+            if dm_name and not any(g in dm_name for g in ("representante legal", "no provisto", "titular", "gerencia")):
+                score += 20
+            email_val = str(lead.get("email") or "").lower()
+            if email_val and not any(pub in email_val for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")):
+                score += 20
+            return score
+
+        all_selected.sort(key=compute_lead_rank, reverse=True)
+        print(f"\n[Engine] Successfully assembled and ranked {len(all_selected)} verified enterprise leads.")
 
         # 5. Format 5-Touch Outreach Cadence
         csv_rows = []
@@ -686,17 +918,25 @@ class GenerateProspectsUseCase:
             lead_curr = lead.get("currency", target_currency)
             lead_tax = lead.get("tax_id_type", "NIT")
 
-            # Format touches from YAML
-            t1 = touches_cfg.get("touch1_linkedin_invite", "").format(
-                salutation=salutation, clean_name=clean_name, city=city
-            ).strip().replace("\n", " ")
+            # Format touches safely across both YAML and dynamic templates
+            def safe_format(tmpl: str) -> str:
+                if not tmpl:
+                    return ""
+                res = tmpl
+                replacements = {
+                    "{salutation}": salutation,
+                    "{clean_name}": clean_name,
+                    "{company_name}": lead["company_name"],
+                    "{city}": city,
+                    "{contact_title}": contact_title,
+                }
+                for k, v in replacements.items():
+                    res = res.replace(k, str(v))
+                return res.strip()
 
-            t2_sub = touches_cfg.get("touch2_email_subject", "").format(
-                clean_name=clean_name, city=city
-            ).strip()
-            t2_body = touches_cfg.get("touch2_email_body", "").format(
-                contact_title=contact_title, clean_name=clean_name, city=city
-            ).strip()
+            t1 = safe_format(touches_cfg.get("touch1_linkedin_invite", "")).replace("\n", " ")
+            t2_sub = safe_format(touches_cfg.get("touch2_email_subject", ""))
+            t2_body = safe_format(touches_cfg.get("touch2_email_body", ""))
 
             # If Trigger 1 is active, tailor Touch 2 with contract award mention
             contract_raw_val = contracts.get("total_value_cop", 0)
@@ -708,26 +948,14 @@ class GenerateProspectsUseCase:
                 )
                 t2_body += contract_mention
 
-            t3_sub = touches_cfg.get("touch3_email_subject", "").format(
-                clean_name=clean_name, city=city
-            ).strip()
-            t3_body = touches_cfg.get("touch3_email_body", "").format(
-                contact_title=contact_title, clean_name=clean_name, city=city
-            ).strip()
+            t3_sub = safe_format(touches_cfg.get("touch3_email_subject", ""))
+            t3_body = safe_format(touches_cfg.get("touch3_email_body", ""))
 
-            t4_sub = touches_cfg.get("touch4_email_subject", "").format(
-                clean_name=clean_name, city=city
-            ).strip()
-            t4_body = touches_cfg.get("touch4_email_body", "").format(
-                contact_title=contact_title, clean_name=clean_name, city=city
-            ).strip()
+            t4_sub = safe_format(touches_cfg.get("touch4_email_subject", ""))
+            t4_body = safe_format(touches_cfg.get("touch4_email_body", ""))
 
-            t5_sub = touches_cfg.get("touch5_email_subject", "").format(
-                clean_name=clean_name, city=city
-            ).strip()
-            t5_body = touches_cfg.get("touch5_email_body", "").format(
-                contact_title=contact_title, clean_name=clean_name, city=city
-            ).strip()
+            t5_sub = safe_format(touches_cfg.get("touch5_email_subject", ""))
+            t5_body = safe_format(touches_cfg.get("touch5_email_body", ""))
 
             row = {
                 "Index": idx,
@@ -893,7 +1121,7 @@ class GenerateProspectsUseCase:
                 writer = csv.DictWriter(f, fieldnames=list(crm_rows[0].keys()))
                 writer.writeheader()
                 writer.writerows(crm_rows)
-            print(f"✅ Generated CRM CSV Batch: {csv_filename}")
+            print(f"[OK] Generated CRM CSV Batch: {csv_filename}")
 
             try:
                 excel_adapter = ExcelDossierAdapter()
@@ -902,9 +1130,9 @@ class GenerateProspectsUseCase:
                     output_path=xlsx_filename,
                     campaign_title=campaign_name
                 )
-                print(f"✅ Generated Styled CRM XLSX Spreadsheet: {xlsx_filename}")
+                print(f"[OK] Generated Styled CRM XLSX Spreadsheet: {xlsx_filename}")
             except Exception as e:
-                print(f"⚠️ Warning: Could not generate XLSX spreadsheet: {e}")
+                print(f"[WARN] Warning: Could not generate XLSX spreadsheet: {e}")
 
         # 7. Export Markdown Executive Dossier
         if output_format in ("markdown", "both", "all", "pdf"):
@@ -937,7 +1165,7 @@ class GenerateProspectsUseCase:
             md_content.append(f"**Total Qualified Accounts:** {len(csv_rows)} | **Batch Directory:** `{batch_dir}`")
             md_content.append(f"*{ground_truth_desc}*\n")
             md_content.append("---")
-            md_content.append("\n## 📋 Master Qualification Table with Expansion Intent Triggers\n")
+            md_content.append("\n## [PROFILE] Master Qualification Table with Expansion Intent Triggers\n")
             md_content.append(
                 f"| # | Country | Company Name | Activity & Macro Sector | City | Decision Maker | Email & Phone | Website | Contracts Won (Trigger 1) | Expansion Flag (Trigger 3) |"
             )
@@ -958,7 +1186,7 @@ class GenerateProspectsUseCase:
                 )
 
             md_content.append("\n---\n")
-            md_content.append("## 🎯 Detailed Profiles & 5-Touch Cadence\n")
+            md_content.append("## [ANGLE] Detailed Profiles & 5-Touch Cadence\n")
 
             for r in csv_rows:
                 c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
@@ -973,35 +1201,35 @@ class GenerateProspectsUseCase:
                 md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r['Trigger 1: Total Contracts Won']}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
                 if r['Trigger 1: Top Contract Object']:
                     md_content.append(f"  * *Objeto*: {r['Trigger 1: Top Contract Object']}")
-                md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [🔍 Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
+                md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [ Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
                 md_content.append(f"* **Trigger 3 (Expansión)**: {r['Trigger 3: Regional Expansion Flag']}")
-                md_content.append(f"* [🔍 Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
+                md_content.append(f"* [ Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
 
-                md_content.append("#### 🔹 Touch 1: LinkedIn Connection Note (<300 chars)")
+                md_content.append("####  Touch 1: LinkedIn Connection Note (<300 chars)")
                 md_content.append(f"> \"{r['Touch 1: LinkedIn Connection Note']}\"\n")
 
-                md_content.append(f"#### 🔹 Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
+                md_content.append(f"####  Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 2: Cold Email Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"#### 🔹 Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
+                md_content.append(f"####  Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 3: Operational Follow-up Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"#### 🔹 Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
+                md_content.append(f"####  Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 4: Social Proof / VIP Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"#### 🔹 Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
+                md_content.append(f"####  Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 5: Breakup / Catalog Body"])
                 md_content.append("```\n")
 
                 if tier == 3 and "Underwriting Grade" in r:
-                    md_content.append("#### 🏛️ Suscripción Financiera y Riesgo Legal (Tier 3)")
+                    md_content.append("####  Suscripción Financiera y Riesgo Legal (Tier 3)")
                     md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
                     md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {r['Trigger 1: Currency']}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
                     md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
@@ -1012,11 +1240,12 @@ class GenerateProspectsUseCase:
 
             with open(md_filename, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_content))
-            print(f"✅ Generated Executive Dossier: {md_filename}")
+            print(f"[OK] Generated Executive Dossier: {md_filename}")
 
             try:
                 pdf_adapter = PdfDossierAdapter()
                 pass_rate_pct = (len(csv_rows) / max(1, total_candidates_scanned)) * 100
+                assert campaign_cfg is not None
                 pdf_adapter.generate_dossier_pdf(
                     campaign_cfg=campaign_cfg,
                     leads=csv_rows,
@@ -1028,21 +1257,22 @@ class GenerateProspectsUseCase:
                         "pipeline_pass_rate": f"{pass_rate_pct:.1f}%",
                     }
                 )
-                print(f"✅ Generated Executive PDF Dossier: {pdf_filename}")
+                print(f"[OK] Generated Executive PDF Dossier: {pdf_filename}")
             except Exception as e:
-                print(f"⚠️ Warning: Could not generate PDF dossier: {e}")
+                print(f"[WARN] Warning: Could not generate PDF dossier: {e}")
 
         # 8. Compile Teaser if enabled
+        assert campaign_cfg is not None
         compiled_teaser = compile_teaser_html(campaign_cfg, teaser_filename)
         if compiled_teaser:
-            print(f"📄 Compiled 1-Page Institutional Teaser: {teaser_filename}")
+            print(f" Compiled 1-Page Institutional Teaser: {teaser_filename}")
 
         # 9. Save Deduplication Ledger
         if not dry_run:
             ledger.save_batch()
-            print(f"💾 Persistent Deduplication Ledger Updated: {len(csv_rows)} accounts recorded.")
+            print(f"[SAVED] Persistent Deduplication Ledger Updated: {len(csv_rows)} accounts recorded.")
         else:
-            print("🔍 Dry run active: Master ledger was NOT modified.")
+            print(" Dry run active: Master ledger was NOT modified.")
 
         # 10. Performance & Execution Benchmark
         total_elapsed = time.time() - overall_start_time
@@ -1053,7 +1283,7 @@ class GenerateProspectsUseCase:
         qual_rate = (qualified_count / max(1, total_candidates_scanned)) * 100
 
         print("\n" + "=" * 80)
-        print("⏱️  PERFORMANCE & HARVEST BENCHMARK")
+        print("[BENCHMARK]  PERFORMANCE & HARVEST BENCHMARK")
         print("=" * 80)
         print(f" • Total Execution Time:         {total_elapsed:.2f} s ({total_elapsed / 60:.2f} min)")
         print(f" • Registry Harvester API Time:  {harvest_time_total:.2f} s ({harvest_time_total / max(0.01, total_elapsed) * 100:.1f}%)")
@@ -1066,7 +1296,7 @@ class GenerateProspectsUseCase:
         print(f" • Effective Throughput:         {throughput_cpm:.1f} leads / minute")
         print("=" * 80)
 
-        print(f"\n🎉 Batch Execution Complete! Deliverables saved to:\n   📂 {batch_dir}")
+        print(f"\n[COMPLETE] Batch Execution Complete! Deliverables saved to:\n   [DIR] {batch_dir}")
         print("=" * 80)
 
         teaser_selected = []
@@ -1126,6 +1356,8 @@ class GenerateProspectsUseCase:
             "country": target_country,
             "currency": target_currency,
             "target_cities": scanned_cities,
+            "territory_fulfillment": territory_fulfillment,
+            "universal_request": universal_request.to_dict() if (universal_request and hasattr(universal_request, "to_dict")) else None,
             "batch_dir": batch_dir,
             "csv_path": csv_filename if output_format in ("csv", "both", "all") else None,
             "xlsx_path": xlsx_filename if (output_format in ("csv", "both", "all", "xlsx") and os.path.exists(xlsx_filename)) else None,

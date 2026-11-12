@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./store";
 import { setPartner } from "./store/slices/partnerSlice";
@@ -12,6 +12,7 @@ import { HowItWorks } from "./components/landing/HowItWorks";
 import { DeliverablesStandards } from "./components/landing/DeliverablesStandards";
 import { PricingMatrix } from "./components/pricing/PricingMatrix";
 import { OrderGenerator } from "./components/order/OrderGenerator";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { TrackOrderPage } from "./components/tracker/TrackOrderPage";
 import { TermsPage } from "./components/legal/TermsPage";
 import { WompiCheckoutModal } from "./components/payment/WompiCheckoutModal";
@@ -23,12 +24,21 @@ export const App: React.FC = () => {
   const partner = useSelector((state: RootState) => state.partner);
   const [triggerGetPartner] = useLazyGetPartnerQuery();
 
+  const queryOrderId = useMemo(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get("order_id") || p.get("quote") || p.get("approval") || undefined;
+    } catch {
+      return undefined;
+    }
+  }, []);
+
   const [currentPath, setCurrentPath] = useState<string>(() => {
     try {
       const p = window.location.pathname;
       if (p === "/rastrear" || p === "/terminos") return p;
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("order_id")) return "/rastrear";
+      if (urlParams.get("order_id") || urlParams.get("quote") || urlParams.get("approval")) return "/rastrear";
     } catch {
       // fallback
     }
@@ -124,7 +134,7 @@ export const App: React.FC = () => {
         {currentPath === "/rastrear" ? (
           <TrackOrderPage
             onBack={() => navigate("/")}
-            initialOrderId={new URLSearchParams(window.location.search).get("order_id") || undefined}
+            initialOrderId={queryOrderId}
           />
         ) : currentPath === "/terminos" ? (
           <TermsPage onBack={() => navigate("/")} />
@@ -135,7 +145,9 @@ export const App: React.FC = () => {
             <ComparisonTable />
             <DeliverablesStandards onNavigateTerms={() => navigate("/terminos")} />
             <PricingMatrix />
-            <OrderGenerator />
+            <ErrorBoundary fallbackTitle="Error al inicializar el Generador Universal de Leads">
+              <OrderGenerator />
+            </ErrorBoundary>
           </>
         )}
       </main>

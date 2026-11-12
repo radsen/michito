@@ -38,6 +38,8 @@ class DeduplicationLedger:
                         }
                     if "prospects" not in loaded:
                         loaded["prospects"] = {}
+                    if "bounced_emails" not in loaded:
+                        loaded["bounced_emails"] = {}
 
                     # Filter out any permanent exclusions
                     cleaned_prospects = {}
@@ -70,13 +72,46 @@ class DeduplicationLedger:
         with open(self.ledger_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2, ensure_ascii=False)
 
-    def is_seen(self, nit: str, company_name: str = "") -> bool:
+    def is_bounced(self, email: str) -> bool:
+        """Checks if an email has been reported as bounced in the ledger."""
+        if not email:
+            return False
+        clean_email = email.strip().lower()
+        return clean_email in self.data.get("bounced_emails", {})
+
+    def record_bounce(self, email: str, nit: Optional[str] = None, reason: str = "hard_bounce") -> None:
+        """Records an invalid or hard-bounced email into permanent exclusion blacklist."""
+        if not email:
+            return
+        clean_email = email.strip().lower()
+        if "bounced_emails" not in self.data:
+            self.data["bounced_emails"] = {}
+        self.data["bounced_emails"][clean_email] = {
+            "email": clean_email,
+            "nit": self._clean_nit(nit) if nit else "",
+            "reason": reason,
+            "bounced_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if nit:
+            c_nit = self._clean_nit(nit)
+            if c_nit in self.data.get("prospects", {}):
+                self.data["prospects"][c_nit]["status"] = "bounced"
+                self.data["prospects"][c_nit]["notes"] = f"Bounced: {reason}"
+
+    def is_seen(self, nit: str, company_name: str = "", email: str = "", campaign: Optional[str] = None) -> bool:
         clean_nit = self._clean_nit(nit)
         if clean_nit in PERMANENT_EXCLUDED_NITS:
             return True
         if company_name and any(k in company_name.lower() for k in PERMANENT_EXCLUDED_KEYWORDS):
             return True
-        return clean_nit in self.data["prospects"]
+        if email and self.is_bounced(email):
+            return True
+        if clean_nit not in self.data["prospects"]:
+            return False
+        if campaign:
+            p_data = self.data["prospects"][clean_nit]
+            return p_data.get("target_product") == campaign
+        return True
 
     def get_seen_nits(self, campaign: Optional[str] = None) -> Set[str]:
         if campaign:

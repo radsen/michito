@@ -127,6 +127,25 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
         self.assertGreater(len(fallbacks), 0)
         self.assertEqual(fallbacks[0]["departamento"], "Valle del Cauca")
 
+    @patch("urllib.request.urlopen")
+    def test_fetch_candidates_with_keywords_filter(self, mock_urlopen):
+        mock_urlopen.side_effect = Exception("Simulated offline")
+        # Should filter fallback candidates by include_keywords and exclude_keywords
+        res_food = self.adapter.fetch_candidates(
+            city="Medellín",
+            limit=5,
+            include_keywords=["alimentos", "catering"]
+        )
+        self.assertGreater(len(res_food), 0)
+        self.assertTrue(any("Alimentos" in c["company_name"] or "Catering" in c["company_name"] or "Alimentos" in c["sector"] for c in res_food))
+
+        res_exclude = self.adapter.fetch_candidates(
+            city="Medellín",
+            limit=5,
+            exclude_keywords=["Tecnología"]
+        )
+        self.assertFalse(any("Tecnología" in c["company_name"] for c in res_exclude))
+
 if __name__ == "__main__":
     unittest.main()
 

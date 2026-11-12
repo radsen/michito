@@ -1,5 +1,12 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
+export interface LocationAllocationPayload {
+  country: string;
+  region: string;
+  city: string;
+  allocated_leads: number;
+}
+
 export interface CreateOrderPayload {
   client: {
     name: string;
@@ -9,14 +16,21 @@ export interface CreateOrderPayload {
     referral_partner?: string;
   };
   request: {
-    campaign_id: string;
+    campaign_id?: string;
     country?: string;
+    country_allocations?: Record<string, number>;
+    location_allocations?: LocationAllocationPayload[];
     city?: string;
     limit: number;
     tier: number;
     segment?: string;
-    exclusions?: string[];
+    sector?: string;
+    offer_description?: string;
+    target_roles?: string[];
+    target_ciiu_codes?: string[];
+    keywords_include?: string[];
     keywords_exclude?: string[];
+    exclusions?: string[];
   };
 }
 
@@ -53,6 +67,16 @@ export interface OrderStatusResponse {
     intent_trigger?: string;
     solvency_tier?: string;
     underwriting_grade?: string;
+    is_guarantee_replacement?: boolean;
+  }>;
+  replacement_claims?: Array<{
+    claim_id: string;
+    bounced_email: string;
+    company_name?: string;
+    reason?: string;
+    claimed_at: string;
+    replacement_count: number;
+    replacement_leads: any[];
   }>;
   csv_download_url?: string;
   xlsx_download_url?: string;
@@ -83,6 +107,57 @@ export interface PartnerProfile {
 export interface PartnerResponse {
   status: string;
   partner: PartnerProfile;
+}
+
+export interface ReplacementClaimPayload {
+  orderId: string;
+  bounced_email: string;
+  company_name?: string;
+  reason?: string;
+}
+
+export interface ReplacementClaimResponse {
+  status: string;
+  message: string;
+  claim_id: string;
+  bounced_email: string;
+  replacement_leads: any[];
+  updated_total_leads: number;
+}
+
+export interface OrderQuoteResponse {
+  status: string;
+  order_id: string;
+  shareable_url: string;
+  order_status: string;
+  created_at: string;
+  client: {
+    name: string;
+    email: string;
+    phone: string;
+    channel: string;
+  };
+  scope: {
+    campaign_id: string;
+    offer_description: string;
+    sectors: string;
+    target_roles: string[];
+    locations: Array<{ country?: string; region?: string; city: string; allocated_leads: number }>;
+    total_leads: number;
+    tier: number;
+    tier_description: string;
+    exclusions_count: number;
+  };
+  financials: {
+    currency: string;
+    amount_in_cents: number;
+    total_price: number;
+    unit_price: number;
+    payment_status: string;
+    guarantee: string;
+  };
+  is_approved_and_paid: boolean;
+  sample_preview_count: number;
 }
 
 export interface IntentProfileResponse {
@@ -151,12 +226,64 @@ export const michitoApi = createApi({
       query: (orderId) => `/orders/${orderId}`,
       providesTags: (_result, _error, orderId) => [{ type: "Order", id: orderId }],
     }),
+    getOrderQuote: builder.query<OrderQuoteResponse, string>({
+      query: (orderId) => `/orders/${orderId}/quote`,
+      providesTags: (_result, _error, orderId) => [{ type: "Order", id: orderId }],
+    }),
     payOrder: builder.mutation<{ status: string; order: any }, string>({
       query: (orderId) => ({
         url: `/orders/${orderId}/pay`,
         method: "POST",
       }),
       invalidatesTags: (_result, _error, orderId) => [{ type: "Order", id: orderId }],
+    }),
+    claimLeadReplacement: builder.mutation<ReplacementClaimResponse, ReplacementClaimPayload>({
+      query: ({ orderId, ...body }) => ({
+        url: `/orders/${orderId}/claim-replacement`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { orderId }) => [{ type: "Order", id: orderId }],
+    }),
+    getCampaignPresets: builder.query<{ status: string; total: number; presets: any[] }, void>({
+      query: () => "/campaigns/presets",
+    }),
+    searchLocations: builder.query<{ status: string; total: number; locations: any[] }, { q?: string; country?: string; limit?: number }>({
+      query: ({ q = "", country, limit = 20 }) => {
+        const params = new URLSearchParams();
+        if (q) params.append("q", q);
+        if (country) params.append("country", country);
+        if (limit) params.append("limit", limit.toString());
+        return `/taxonomy/locations?${params.toString()}`;
+      },
+    }),
+    validateLocation: builder.query<{ status: string; is_supported: boolean; location?: any; message: string }, string>({
+      query: (name) => `/taxonomy/locations/validate?name=${encodeURIComponent(name)}`,
+    }),
+    searchRoles: builder.query<{ status: string; total: number; roles: any[] }, { q?: string; domain?: string; country?: string; limit?: number }>({
+      query: ({ q = "", domain, country, limit = 20 }) => {
+        const params = new URLSearchParams();
+        if (q) params.append("q", q);
+        if (domain) params.append("domain", domain);
+        if (country) params.append("country", country);
+        if (limit) params.append("limit", limit.toString());
+        return `/taxonomy/roles?${params.toString()}`;
+      },
+    }),
+    recordRoleUsage: builder.mutation<{ status: string; message: string }, { role_title: string }>({
+      query: (body) => ({
+        url: "/taxonomy/roles/usage",
+        method: "POST",
+        body,
+      }),
+    }),
+    searchSectors: builder.query<{ status: string; total: number; sectors: any[] }, { q?: string; limit?: number }>({
+      query: ({ q = "", limit = 30 }) => {
+        const params = new URLSearchParams();
+        if (q) params.append("q", q);
+        if (limit) params.append("limit", limit.toString());
+        return `/taxonomy/sectors?${params.toString()}`;
+      },
     }),
   }),
 });
@@ -168,6 +295,19 @@ export const {
   useProfileIntentMutation,
   useCreateOrderMutation,
   useGetOrderQuery,
+  useGetOrderQuoteQuery,
+  useLazyGetOrderQuoteQuery,
   usePayOrderMutation,
+  useClaimLeadReplacementMutation,
+  useGetCampaignPresetsQuery,
+  useSearchLocationsQuery,
+  useLazySearchLocationsQuery,
+  useValidateLocationQuery,
+  useLazyValidateLocationQuery,
+  useSearchRolesQuery,
+  useLazySearchRolesQuery,
+  useRecordRoleUsageMutation,
+  useSearchSectorsQuery,
+  useLazySearchSectorsQuery,
 } = michitoApi;
 

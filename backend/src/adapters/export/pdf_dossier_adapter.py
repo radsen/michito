@@ -315,23 +315,32 @@ class PdfDossierAdapter:
             tax_val = lead.get("nit", "")
             contracts = lead.get("contracts_data", {})
 
-            # Format touches
+            # Format touches safely
             touches = campaign_cfg.get("touches", {})
             salutation = f"Hola {lead.get('first_name', 'Líder')}"
-            t1 = touches.get("touch1_linkedin_invite", "").format(salutation=salutation, clean_name=clean_name, city=city).strip()
-            t2_sub = touches.get("touch2_email_subject", "").format(clean_name=clean_name, city=city).strip()
-            t2_body = touches.get("touch2_email_body", "").format(contact_title=rep_title, clean_name=clean_name, city=city).strip()
+
+            def _safe_format(tmpl: str) -> str:
+                res = str(tmpl or "")
+                res = res.replace("{salutation}", salutation)
+                res = res.replace("{clean_name}", clean_name)
+                res = res.replace("{city}", city)
+                res = res.replace("{contact_title}", rep_title)
+                return res.strip()
+
+            t1 = _safe_format(touches.get("touch1_linkedin_invite", ""))
+            t2_sub = _safe_format(touches.get("touch2_email_subject", ""))
+            t2_body = _safe_format(touches.get("touch2_email_body", ""))
 
             # Contract mention inject
             if contracts.get("has_contracts") and contracts.get("total_value_cop", 0) > 0:
                 t2_body += f"\n\n[Trigger: Adjudicación de contrato con {contracts.get('top_contract_entity')} por {contracts.get('total_value_display')}]."
 
-            t3_sub = touches.get("touch3_email_subject", "").format(clean_name=clean_name, city=city).strip()
-            t3_body = touches.get("touch3_email_body", "").format(contact_title=rep_title, clean_name=clean_name, city=city).strip()
-            t4_sub = touches.get("touch4_email_subject", "").format(clean_name=clean_name, city=city).strip()
-            t4_body = touches.get("touch4_email_body", "").format(contact_title=rep_title, clean_name=clean_name, city=city).strip()
-            t5_sub = touches.get("touch5_email_subject", "").format(clean_name=clean_name, city=city).strip()
-            t5_body = touches.get("touch5_email_body", "").format(contact_title=rep_title, clean_name=clean_name, city=city).strip()
+            t3_sub = _safe_format(touches.get("touch3_email_subject", ""))
+            t3_body = _safe_format(touches.get("touch3_email_body", ""))
+            t4_sub = _safe_format(touches.get("touch4_email_subject", ""))
+            t4_body = _safe_format(touches.get("touch4_email_body", ""))
+            t5_sub = _safe_format(touches.get("touch5_email_subject", ""))
+            t5_body = _safe_format(touches.get("touch5_email_body", ""))
 
             profile_elements = []
 
