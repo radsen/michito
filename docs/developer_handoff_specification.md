@@ -268,49 +268,49 @@ Below is the verbatim script and UX sequence the Dev Team must implement in the 
 
 ### Touch 1: Intake & Parameter Confirmation
 > **Bot**:  
-> "👋 ¡Hola! Bienvenido al motor de Inteligencia B2B de **Michito**.  
+> "¡Hola! Bienvenido al motor de Inteligencia B2B de **Michito**.  
 > ¿Qué tipo de empresas necesitas prospectar hoy?  
 >  
-> 1️⃣ Oficinas Corporativas / Coworking (Tinkko)  
-> 2️⃣ Logística & Envíos E-Commerce (Hebisend)  
-> 3️⃣ Desarrollo de Software & Apps (Chiketto)  
-> 4️⃣ Combustible & Lubricantes para Flotas (Blue Oil)  
-> 5️⃣ Aseo & Mantenimiento Corporativo (Facility Services)  
-> 6️⃣ Bodegas & Parques Industriales (Aburrá Norte)"
+> [1] Oficinas Corporativas / Coworking (Tinkko)  
+> [2] Logística & Envíos E-Commerce (Hebisend)  
+> [3] Desarrollo de Software & Apps (Chiketto)  
+> [4] Combustible & Lubricantes para Flotas (Blue Oil)  
+> [5] Aseo & Mantenimiento Corporativo (Facility Services)  
+> [6] Bodegas & Parques Industriales (Aburrá Norte)"
 
 ### Touch 2: Offloading Notification (Instant Asynchronous Handoff)
 > *(User selects 1, City: Medellín, Quantity: 25)*  
 >  
 > **Bot**:  
-> "⚡ **Recibido.** Hemos puesto a trabajar nuestros bots de búsqueda en SECOP II y registros mercantiles de Medellín.  
+> "**Recibido.** Hemos puesto a trabajar nuestros bots de búsqueda en SECOP II y registros mercantiles de Medellín.  
 >  
-> 🔍 *Validando sitios web activos, teléfonos de representantes y servidores de correo corporativo...*  
+> *Validando sitios web activos, teléfonos de representantes y servidores de correo corporativo...*  
 > Te avisaremos en **~30 segundos** con una muestra de tus cuentas listas."
 
 ### Touch 3: Teaser Presentation & Price Quote (Awaiting Payment)
 > **Bot**:  
-> "🎯 **¡Tus 25 cuentas B2B han sido identificadas y verificadas!**  
+> "**¡Tus 25 cuentas B2B han sido identificadas y verificadas!**  
 >  
 > Aquí tienes una vista previa confidencial:  
 > • **Soluciones Digitales Avanzadas** (Medellín) — *Contrato público reciente de $450M adjudicado*  
 > • **Consultoría Financiera Andina** (Medellín) — *Gerente General verificado, MX activo*  
 > • **Ingeniería & Proyectos del Café** (Medellín) — *Búsqueda activa de vacantes en LinkedIn*  
 >  
-> 📦 **Paquete Completo:**  
+> **Paquete Completo:**  
 > • 25 Contactos C-Level (Nombre, Celular directo, Email corporativo validado)  
 > • Reporte de Contratos Públicos ganados  
 > • Cadencia de 5 mensajes listos para copiar y enviar  
 >  
-> 💰 **Inversión:** $500.000 COP  
-> 💳 **Paga seguro por PSE / Tarjeta aquí:** [https://checkout.wompi.co/l/ord_20261106_a89f3e](https://checkout.wompi.co/l/ord_20261106_a89f3e)"
+> **Inversión:** $500.000 COP  
+> **Paga seguro por PSE / Tarjeta aquí:** [https://checkout.wompi.co/l/ord_20261106_a89f3e](https://checkout.wompi.co/l/ord_20261106_a89f3e)"
 
 ### Touch 4: Deliverable Dispatch (Upon Wompi Webhook)
 > **Bot**:  
-> "✅ **¡Pago confirmado! Gracias por tu compra.**  
+> "**¡Pago confirmado! Gracias por tu compra.**  
 >  
 > Aquí tienes tus archivos listos para importar a tu CRM o outreach masivo:  
-> 📥 [Descargar CSV para CRM (25 Leads)](https://storage.googleapis.com/michito-deliverables/prospects.csv)  
-> 📄 [Descargar Dossier Ejecutivo y Cadencia de 5 Pasos (Markdown/PDF)](https://storage.googleapis.com/michito-deliverables/dossier.md)  
+> [Descargar CSV para CRM (25 Leads)](https://storage.googleapis.com/michito-deliverables/prospects.csv)  
+> [Descargar Dossier Ejecutivo y Cadencia de 5 Pasos (Markdown/PDF)](https://storage.googleapis.com/michito-deliverables/dossier.md)  
 >  
 > ¿Deseas solicitar otro lote para otra ciudad o industria?"
 

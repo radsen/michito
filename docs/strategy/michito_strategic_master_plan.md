@@ -1,11 +1,11 @@
-# 🎯 Michito (導人) — Strategic Architecture & Master Engineering Plan
+# Michito (導人) — Strategic Architecture & Master Engineering Plan
 ## The High-Precision B2B Lead Intelligence, Risk Screening & Verification Platform
 *Version 2.5 • Clean & Onion Architecture • Cloud-Agnostic Core • Multi-Country Expansion • Corporate Solvency & Litigation Intelligence*  
 *Chiketto Technologies S.A.S. • October 2026*
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 1. [Executive Summary & Strategic Vision](#1-executive-summary--strategic-vision)
 2. [API Architecture: Clean & Onion Architecture (Cloud-Agnostic Core)](#2-api-architecture-clean--onion-architecture-cloud-agnostic-core)
    - [2.1 The Dependency Inversion Principle & Concentric Rings](#21-the-dependency-inversion-principle--concentric-rings)
@@ -319,22 +319,22 @@ flowchart TD
 • Contraloría (BDME)
 • Procuraduría (SIRI)"]
     
-    PORT_REG -.-> ADAPTER_MX["🇲🇽 Mexico Registry Adapter (Future)
+    PORT_REG -.-> ADAPTER_MX["[MX] Mexico Registry Adapter (Future)
 • SAT RFC Status
 • Secretaría de Economía (SIGER)
 • SAT Art. 69-B Blacklist"]
     
-    PORT_REG -.-> ADAPTER_CL["🇨🇱 Chile Registry Adapter (Future)
+    PORT_REG -.-> ADAPTER_CL["[CL] Chile Registry Adapter (Future)
 • SII RUT Status
 • Registro Empresas y Sociedades
 • Poder Judicial (Pjud)"]
     
-    PORT_REG -.-> ADAPTER_PE["🇵🇪 Peru Registry Adapter (Future)
+    PORT_REG -.-> ADAPTER_PE["[PE] Peru Registry Adapter (Future)
 • SUNAT RUC Status
 • SUNARP Personas Jurídicas
 • OSCE Bidders"]
     
-    PORT_REG -.-> ADAPTER_US["🇺🇸 United States Adapter (Future)
+    PORT_REG -.-> ADAPTER_US["[US] United States Adapter (Future)
 • SEC EDGAR (10-K / 10-Q)
 • Secretary of State LLC/Corp
 • OFAC SDN Sanctions List"]
@@ -747,7 +747,7 @@ sequenceDiagram
   > *2. Carga Rápida Antioquia Ltda. (NIT 890.902.114, Ingresos: $16.100M, EBITDA: 12.4%, 0 Demandas)*
   > 
   > *Desbloquea los 10 contactos con correo verificado por $500.000 COP:*
-  > 👉 [Pagar con Nequi / PSE en Wompi]*"
+  > [Pagar con Nequi / PSE en Wompi]*"
 * **Instant Delivery**: Upon payment webhook approval, the bot attaches the formatted `.xlsx` file right into the chat.
 
 ### Channel 2: Self-Serve Web Portal (`michito.co`)
@@ -764,57 +764,114 @@ sequenceDiagram
 
 ## 10. Detailed Phase-by-Phase Implementation Roadmap
 
+```text
+MICHITO ENGINEERING ROADMAP & PRODUCTION STATUS
+┌───────────────────────────────┬───────────────────────────────┐
+│ COMPLETED FOUNDATION (PHASES 1-7)                             │
+│ [x] Clean Architecture Core, Domain & Strict Fail-Fast DB    │
+│ [x] Socket SMTP Ping (0-Bounce Gate) & Catch-All Detector     │
+│ [x] SECOP II, DGCP Dominican Rep. 🇩🇴 & SERCOP Ecuador 🇪🇨      │
+│ [x] Tier 3 Underwriting (Audited EBITDA + Rama + BDME)        │
+│ [x] Multi-Key Customer Deduplication Ledger                   │
+│ [x] Automated 2x1 Replacement Guarantee Portal                │
+│ [x] Decoupled React 18 + Redux Web SPA with Bilingual i18n   │
+│ [x] Reusable UI Suite & Live Order Status Polling             │
+│ [x] 14 Multi-Scenario End-to-End Test Suite (206 Tests Pass)  │
+├───────────────────────────────┼───────────────────────────────┤
+│ REMAINING PRODUCTION RUNWAY TRACKS                            │
+│ [ ] Track A: Lightweight AI Agent Intelligence Suite (Gemini) │
+│ [ ] Track B: Statutory Footprint Harvesters (Fuel/Goods/Obras)│
+│ [ ] Track C: Production Containerization & Docker Compose     │
+│ [ ] Track D: Cloud SQL Provisioning & GSM Secrets (GCP)       │
+└───────────────────────────────┴───────────────────────────────┘
 ```
-MICHITO ENGINEERING ROADMAP
-┌───────────────────────┬───────────────────────┬───────────────────────┬───────────────────────┐
-│ PHASE 1 (COMPLETED)   │ PHASE 2 (COMPLETED)   │ PHASE 3 (IN PROGRESS) │ PHASE 4 (EXPANSION)   │
-│ Clean Core & Domain   │ Verification & Wompi  │ Tinkko Pilot & Leads  │ Regional & Automation │
-├───────────────────────┼───────────────────────┼───────────────────────┼───────────────────────┤
-│ [x] Clean Architecture│ [x] Socket SMTP Ping  │ [ ] SECOP II Contacts │ [ ] Full Rama Judicial│
-│ [x] Domain & Ports    │ [x] Catch-All detector│ [ ] SODA 25k Ingestion│ [ ] Mexico SAT Adapter│
-│ [x] TaxId Math (NIT)  │ [x] Wompi Checkout    │ [ ] UMBID Deduplication│[ ] Chile SII Adapter │
-│ [x] SODA basic client │ [x] Excel Exporter    │ [ ] Tinkko 10-Lead Run│ [ ] Meta WA Dialogflow│
-│ [x] FastAPI skeleton  │ [x] Webhook Integrity │ [ ] Tinkko Reseller UI│ [ ] Cloud Run Deploy  │
-└───────────────────────┴───────────────────────┴───────────────────────┴───────────────────────┘
-```
 
-### Phase 1: Clean Architecture Core & Local Development (COMPLETED)
-- [x] Scaffold folder hierarchy (`domain/`, `application/`, `adapters/`, `entrypoints/`).
-- [x] Implement `TaxId` Value Object with Colombia NIT modulo 11 checksum algorithm.
-- [x] Configure `firebase.json` for local Firestore and Auth emulator development.
-- [x] Implement `ColombiaSupersociedadesAdapter` consuming SODA API from `datos.gov.co`.
-- [x] Write unit tests for domain entities and use cases (77 tests passed, 91% coverage).
+### Completed Foundation (Phases 1 through 7) — 100% DONE
 
-### Phase 2: Verification Engine & Wompi Checkout (COMPLETED)
-- [x] Build `SocketSmtpVerifierAdapter` with raw asynchronous TCP socket handshake (`RCPT TO`).
-- [x] Implement random-probe Catch-All server detection.
-- [x] Implement `WompiPaymentGatewayAdapter` with signature generation and timing-attack-safe webhook verification.
-- [x] Implement `OpenPyXLExcelAdapter` generating branded commercial spreadsheets.
-- [x] Wire FastAPI endpoints for search, verification, order creation, and webhooks (`src/entrypoints/api/main.py`).
+- [x] **Phase 1: Clean Core & Universal Data Contracts**:
+  - Implemented domain entities (`Company`, `TaxId`, `FinancialReport`, `LeadOrder`).
+  - Created universal decoupled contracts (`UniversalProspectingRequest`, `LocationAllocation`).
+  - Added taxonomy normalization tables (`taxonomy_sectors`, `taxonomy_roles`, `taxonomy_locations`, `search_intent_queries`).
 
-### Phase 3: The Tinkko Pilot Test & Accurate Direct Contact Engine (IMMEDIATE PRIORITY)
-*Objective: Enable Tinkko to purchase a real test batch of 10 qualified enterprise leads for their own private office sales team and verify a high reply/booking rate.*
+- [x] **Phase 2: Verification Engine & Wompi Checkout**:
+  - Direct socket SMTP MX handshake (`RCPT TO`) preventing bounced emails.
+  - Branded multi-format generation (.csv, .xlsx, .pdf, .md).
+  - Wompi payment integration with SHA-256 HMAC timing-attack safe signature validation.
 
-1. **Step 1: SECOP II & Direct Decision-Maker Contact Extraction**
-   - Ingest public procurement supplier records from `SECOP II` (`datos.gov.co`).
-   - Extract real names of legal representatives, verified direct emails, and corporate mobile numbers.
-   - Cross-reference with top-grossing Colombian companies in Medellín & Bogotá.
-2. **Step 2: 0-Bounce Socket SMTP Verification on Enriched Inboxes**
-   - Connect the real extracted inboxes through `SocketSmtpVerifierAdapter` to guarantee 0% bounce rate before delivery.
-3. **Step 3: Multi-Channel Customer Deduplication Ledger (UMBID)**
-   - Implement the `CustomerDeduplicationLedger` indexing by `Phone`, `Email`, and `Company NIT` to ensure Tinkko and future buyers never receive repeated leads on subsequent batch purchases.
-4. **Step 4: Execute Tinkko Enterprise Offices Pilot Batch (10 Leads)**
-   - Run the candidate selection using [`campaigns/tinkko_enterprise_offices.yaml`](file:///Users/radsen/dev/chiketto/michito/campaigns/tinkko_enterprise_offices.yaml) targeting companies in Medellín & Bogotá (revenue >$8.000M COP).
-   - Generate the formatted Excel Dossier and 5-touch email/LinkedIn sequences.
-   - Tinkko commercial team executes the outreach to validate real-world conversion.
+- [x] **Phase 3: Public Registry Harvester & Deduplication Ledger**:
+  - Ingested public contracts from SECOP II Colombia 🇨🇴, DGCP Dominican Republic 🇩🇴, and SERCOP Ecuador 🇪🇨.
+  - Built persistent multi-key deduplication ledger (`deduplication_ledger.py`) indexing by phone, email, and tax ID.
+  - Built self-service 2x1 replacement portal (`/claim-replacement`) issuing instant replacement credits upon verified hard bounce.
 
-### Phase 4: Full Automation, Litigation Scrapers & Tinkko Reseller Rollout
-- [ ] Connect live Rama Judicial (CPN) scraping for automated *procesos ejecutivos de cobro* detection.
-- [ ] Implement Contraloría BDME automated fiscal clearance queries.
-- [ ] Deploy containerized API on Google Cloud Run with VPC connector for Port 25 SMTP outbound.
-- [ ] Build the Tinkko Co-Branded Lead Portal (`michito.co/tinkko`) where Tinkko tenants can buy verified leads with Tinkko's 25%–30% commission automatically tracked.
-- [ ] Regional expansion to Mexico (SAT RFC), Chile (SII RUT), and Peru (SUNAT RUC).
-- [ ] Event & Trade Show Matchmaking Engine (Plaza Mayor / Corferias): Sourcing international exhibitors & hosted buyers across US, Mexico, Spain, Brazil, and Chile.
+- [x] **Phase 4: Automated Solvency Underwriting & Referral Partner Commissions**:
+  - Audited EBITDA profitability scoring from Supersociedades filings.
+  - Real-time litigation screening against Rama Judicial dockets and Contraloría BDME fiscal records.
+  - Built Tinkko co-branded referral accounting engine with 25% revenue share settlement tracking.
+
+- [x] **Phase 5: Reusable Frontend Suite**:
+  - Built `TagPillInput` (smart tag addition, backspace removal, duplicate prevention).
+  - Built `GeoQuotaAllocator` (interactive multi-territory allocation across 🇨🇴, 🇩🇴, 🇪🇨, 🌎).
+  - Built `SectorSelector` (searchable 400+ CIIU economic activities).
+  - Built `ErrorBoundary` preventing screen crashes on unexpected runtime exceptions.
+
+- [x] **Phase 6: Universal Intake Experience**:
+  - Dual-mode intake: Visual Form Mode ⇄ AI Natural Language Agent Mode.
+  - Reactive pricing engine calculating tiered volume discounts across multiple currencies (COP, USD, DOP).
+  - Decoupled React 18 + Redux Toolkit SPA compiled with 0 build errors.
+
+- [x] **Phase 7: End-to-End Enterprise Scenario Walkthrough**:
+  - 14 comprehensive scenario tests verifying national, regional, cross-border, and replacement flows.
+  - Full backend test suite verified: 206 of 206 tests passing.
+  - Consolidated single canonical deliverable directory under `outputs/`.
+  - Replaced silent SQLite fallback with strict Fail-Fast relational database architecture.
+
+---
+
+### Remaining Production Runway Tracks
+
+#### Track A: Lightweight AI Agent Intelligence Suite (Gemini Flash)
+- [ ] **A.1 Brief-to-Criteria Natural Language Parser (`POST /api/v1/prospecting/parse-brief`)**:
+  - Uses Gemini 1.5 Flash to transform natural language customer pitches into structured `UniversalProspectingRequest` criteria.
+  - Auto-selects CIIU codes, target job titles, and negative exclusion keywords.
+  - Logs natural language inputs to `search_intent_queries` table.
+- [ ] **A.2 Conversational WhatsApp Intake Agent**:
+  - Connects `clients/whatsapp/bot_service.py` to `main.py` webhook receiver.
+  - Parses freeform colloquial Colombian queries, creates orders, and delivers interactive teaser previews.
+- [ ] **A.3 Dynamic Hyper-Personalized 5-Touch Copywriter**:
+  - Enhances `dynamic_cadence_generator.py` to craft custom cold outreach referencing each prospect's won contracts or EBITDA profile.
+- [ ] **A.4 Statutory Regulatory NLP Extractor**:
+  - Ingests raw Spanish text and PDF resolutions from public licensing bulletins to extract designated operational directors and procurement managers.
+
+#### Track B: Statutory Operational Footprint Harvesters (Fuel, Procurement & Real Estate)
+- [ ] **B.1 Fuel & Energy Tender Harvester**:
+  - Targets industrial fuel, diesel (ACPM), and gasoline buyers via SECOP II fuel tenders and MinMinas/ANLA environmental storage filings.
+  - Captures Fleet Operations Heads, Logistics Directors, and Maintenance Chiefs.
+- [ ] **B.2 Goods Procurement & Supply Chain Harvester**:
+  - Ingests Chamber of Commerce Registro Único de Proponentes (RUP) technical staff filings.
+  - Identifies certified procurement heads (*Jefes de Compras*) and maps vendor onboarding channels (`proveedores@`, `compras@`).
+- [ ] **B.3 Commercial Real Estate & Urban Expansion Harvester**:
+  - Parses Curadurías Urbanas licensing bulletins across Bogotá, Medellín, and Cali.
+  - Captures Project Directors (*Directores de Obra*), Corporate Real Estate Heads (*Gerentes de Expansión*), and property owners.
+- [ ] **B.4 Private Commercial Enterprise Harvester**:
+  - Connects to official open data portal `datos.gov.co` dataset `jgik-6c4w` (10,000 largest private commercial companies in Colombia 🇨🇴).
+  - Unlocks commercial enterprises that do not participate in government contracting.
+
+#### Track C: Production Containerization & Local Dev Parity (DevOps)
+- [ ] **C.1 Multi-Stage Backend Dockerfile**:
+  - Minimal Python 3.13 slim container with non-root user (`michito`) and cached dependencies.
+- [ ] **C.2 Production Web Client Dockerfile**:
+  - Multi-stage build with Node 20 builder and Nginx Alpine runtime with `/api` reverse proxying.
+- [ ] **C.3 Canonical `docker-compose.yml`**:
+  - Orchestrates PostgreSQL 16 (persistent volume), FastAPI backend, Order Worker Daemon, and Nginx frontend.
+
+#### Track D: Cloud SQL & Secrets Infrastructure (Google Cloud Platform)
+- [ ] **D.1 Cloud SQL Provisioning & Migration**:
+  - Provisioning manifests for PostgreSQL 16 on Google Cloud SQL with automated backups.
+  - Cloud SQL Auth Proxy configuration for secure Unix socket access.
+- [ ] **D.2 Google Secret Manager (GSM) Integration**:
+  - Secret bindings for live production keys (Wompi, Meta WhatsApp, Gemini API, database URL).
+- [ ] **D.3 Cloud Run Automated Deployment**:
+  - Automated deployment script (`deploy-cloud-run.sh`) with dedicated VPC connector for Port 25 outbound SMTP verification.
 
 ---
 
