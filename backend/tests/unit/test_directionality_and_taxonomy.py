@@ -106,3 +106,4 @@ def test_dynamic_custom_taxonomy_api(client):
     assert search_role.status_code == 200
     role_results = search_role.json()["roles"]
     assert any("Mobiliario" in r["canonical_title"] for r in role_results)
+

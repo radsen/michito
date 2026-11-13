@@ -623,6 +623,10 @@ class GenerateProspectsUseCase:
                 harvester_kwargs["include_keywords"] = kw_include
             if kw_exclude:
                 harvester_kwargs["exclude_keywords"] = kw_exclude
+            if target_ciiu_codes:
+                harvester_kwargs["ciiu_codes"] = target_ciiu_codes
+            if target_sectors:
+                harvester_kwargs["sectors"] = target_sectors
 
             t_harv_start = time.time()
             raw_candidates = harvester.fetch_candidates(**harvester_kwargs)

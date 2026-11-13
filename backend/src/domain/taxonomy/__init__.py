@@ -8,3 +8,4 @@ from .isic_catalog import UNIVERSAL_ISIC_CATALOG, IsicEntry
 from .isic_index import IsicIndex, get_isic_index
 
 __all__ = ["UNIVERSAL_ISIC_CATALOG", "IsicEntry", "IsicIndex", "get_isic_index"]
+
