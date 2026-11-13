@@ -208,10 +208,14 @@ class SecopHarvesterAdapter:
         - Tier 3: Metropolitan Cluster & Departmental Expansion (e.g. Valle de Aburrá / Sabana)
         - Tier 4: Enriched Statutory Fallback Pool Guarantee (Zero 0-Lead Dropouts)
         """
-        is_educational = bool(include_keywords and any(
-            re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet", kw.lower())
-            for kw in include_keywords
-        ))
+        is_educational = bool(
+            (include_keywords and any(
+                re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet|zebra", kw.lower())
+                for kw in include_keywords
+            ))
+            or (ciiu_codes and any(str(c).startswith(("85", "1811")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"educa|colegio|school", str(s).lower()) for s in sectors))
+        )
 
         params: Dict[str, str] = {
             "esta_activa": "Si",
@@ -275,7 +279,10 @@ class SecopHarvesterAdapter:
                     tokens = [w for inc in include_keywords for w in re.split(r"\W+", inc.lower()) if len(w) >= 4]
                     matched_kw = any(t in full_text for t in tokens)
                 if not matched_kw:
-                    return None
+                    if is_educational and any(term in full_text for term in ("educa", "colegio", "liceo", "escuela", "gimnasio", "academ", "universidad", "carnet")):
+                        matched_kw = True
+                    else:
+                        return None
 
             clean_rep_title = item.get("decision_maker_title") or self._determine_representative_role(rep_name)
             clean_rep_name = self._clean_representative_name(rep_name)
@@ -327,7 +334,10 @@ class SecopHarvesterAdapter:
             ladder_keywords: List[str] = []
             if ciiu_codes:
                 try:
-                    from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    try:
+                        from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    except ImportError:
+                        from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
                     for c_code in ciiu_codes:
                         entry = GLOBAL_ISIC_INDEX.get_by_code(c_code)
                         if entry and entry.keywords:
@@ -374,6 +384,7 @@ class SecopHarvesterAdapter:
                 city=city,
                 include_keywords=include_keywords,
                 ciiu_codes=ciiu_codes,
+                sectors=sectors,
                 limit=limit
             )
             for item in fallback_items:
@@ -410,10 +421,11 @@ class SecopHarvesterAdapter:
 
         is_educational = bool(
             (include_keywords and any(
-                re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet", kw.lower())
+                re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet|zebra", kw.lower())
                 for kw in include_keywords
             ))
-            or (ciiu_codes and any(c.startswith("85") for c in ciiu_codes))
+            or (ciiu_codes and any(str(c).startswith(("85", "1811")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"educa|colegio|school", str(s).lower()) for s in sectors))
         )
 
         is_furniture = bool(

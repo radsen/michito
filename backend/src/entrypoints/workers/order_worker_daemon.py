@@ -153,6 +153,12 @@ class OrderWorkerDaemon:
                 exec_kwargs["location_allocations"] = req.get("location_allocations")
             if req.get("keywords_include"):
                 exec_kwargs["keywords_include"] = req.get("keywords_include")
+            if req.get("keywords_exclude"):
+                exec_kwargs["keywords_exclude"] = req.get("keywords_exclude")
+            if req.get("directionality"):
+                exec_kwargs["directionality"] = req.get("directionality")
+            if req.get("rfq_specifications"):
+                exec_kwargs["rfq_specifications"] = req.get("rfq_specifications")
 
             job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0

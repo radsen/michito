@@ -321,6 +321,7 @@ export const OrderGenerator: React.FC = () => {
   const [positiveKeywords, setPositiveKeywords] = useState<string[]>(
     initialPreset?.keywords || ["oficinas", "coworking"]
   );
+  const [targetCiiuCodes, setTargetCiiuCodes] = useState<string[]>([]);
   const [locationAllocations, setLocationAllocations] = useState<LocationAllocationPayload[]>(
     initialPreset?.locations || [
       { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
@@ -422,6 +423,7 @@ export const OrderGenerator: React.FC = () => {
     if (presetId === "custom") {
       setOfferDescription("");
       setSelectedSectors([]);
+      setTargetCiiuCodes([]);
       setTargetRoles(["Gerente General", "Director Comercial"]);
       setPositiveKeywords([]);
       setLocationAllocations([
@@ -435,6 +437,7 @@ export const OrderGenerator: React.FC = () => {
     if (preset) {
       setOfferDescription(preset.offerDescription);
       setSelectedSectors(preset.sectors);
+      setTargetCiiuCodes([]);
       setTargetRoles(preset.roles);
       setPositiveKeywords(preset.keywords);
       setLocationAllocations(preset.locations);
@@ -485,8 +488,18 @@ export const OrderGenerator: React.FC = () => {
       if (res && res.status === "success") {
         setDiscoveryResult(res);
         setOfferDescription(q);
-        if (res.matched_keywords && res.matched_keywords.length > 0) {
-          setPositiveKeywords(res.matched_keywords);
+        setSelectedPresetId("custom");
+        if (res.ciiu_codes && res.ciiu_codes.length > 0) {
+          setTargetCiiuCodes(res.ciiu_codes);
+        }
+        const aiKeywords = (res.keywords_include && res.keywords_include.length > 0)
+          ? res.keywords_include
+          : (res.matched_keywords || []);
+        if (aiKeywords.length > 0) {
+          setPositiveKeywords(aiKeywords);
+        }
+        if (res.keywords_exclude && res.keywords_exclude.length > 0) {
+          setNegativeExclusions(res.keywords_exclude);
         }
         if (res.directionality) {
           setDirectionality(res.directionality);
@@ -585,7 +598,7 @@ export const OrderGenerator: React.FC = () => {
           tier: tier,
           offer_description: offerDescription || undefined,
           target_roles: targetRoles.length > 0 ? targetRoles : undefined,
-          target_ciiu_codes: undefined,
+          target_ciiu_codes: targetCiiuCodes.length > 0 ? targetCiiuCodes : (discoveryResult?.ciiu_codes && discoveryResult.ciiu_codes.length > 0 ? discoveryResult.ciiu_codes : undefined),
           sector: selectedSectors.length > 0 ? selectedSectors.join(", ") : undefined,
           location_allocations: locationAllocations.length > 0 ? locationAllocations : undefined,
           keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
@@ -650,7 +663,7 @@ export const OrderGenerator: React.FC = () => {
           tier: tier,
           offer_description: offerDescription || undefined,
           target_roles: targetRoles.length > 0 ? targetRoles : undefined,
-          target_ciiu_codes: undefined,
+          target_ciiu_codes: targetCiiuCodes.length > 0 ? targetCiiuCodes : (discoveryResult?.ciiu_codes && discoveryResult.ciiu_codes.length > 0 ? discoveryResult.ciiu_codes : undefined),
           sector: selectedSectors.length > 0 ? selectedSectors.join(", ") : undefined,
           location_allocations: locationAllocations.length > 0 ? locationAllocations : undefined,
           keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
@@ -1133,6 +1146,20 @@ export const OrderGenerator: React.FC = () => {
                         onChange={setSelectedSectors}
                         onKeywordsSuggested={handleKeywordsSuggested}
                       />
+                      {targetCiiuCodes.length > 0 && (
+                        <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: "8px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#60a5fa", display: "block", marginBottom: "4px" }}>
+                            Códigos CIIU / ISIC Identificados por IA:
+                          </span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                            {targetCiiuCodes.map((code) => (
+                              <span key={code} style={{ fontSize: "0.72rem", padding: "2px 8px", background: "rgba(59, 130, 246, 0.2)", borderRadius: "4px", color: "#93c5fd" }}>
+                                CIIU {code}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Target Roles & Decision Makers */}

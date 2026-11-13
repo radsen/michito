@@ -249,7 +249,10 @@ class CiiuCode:
             )
         # Check universal ISIC index
         try:
-            from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            try:
+                from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            except ImportError:
+                from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
             entry = GLOBAL_ISIC_INDEX.get_by_code(clean_code)
             if entry:
                 return cls(

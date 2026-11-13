@@ -57,6 +57,12 @@ SECTOR_KEYWORDS = {
         "api", "apis", "tecnologia", "tecnología", "saas", "desarrollo", "cloud",
         "automatizacion", "automatización", "contable", "contabilidad"
     ],
+    "chiketto_school_ids": [
+        "colegio", "colegios", "escuela", "escuelas", "carnet", "carnets", "carnetizacion",
+        "carnetización", "zebra", "credencial", "credenciales", "estudiantil", "estudiantiles",
+        "rector", "rectora", "rectoria", "rectoría", "pvc", "liceo", "gimnasio escolar",
+        "identificacion escolar", "identificaciones escolares", "impresora zebra"
+    ],
     "blueoil": [
         "combustible", "combustibles", "gasolina", "diesel", "acpm", "lubricante",
         "lubricantes", "flota", "flotas", "camiones", "transporte pesado", "estacion"
@@ -115,6 +121,16 @@ SAMPLE_PREVIEWS = {
         "masked_email": "valeria.h****@saludintegralips.com",
         "annual_revenue_range": "$5.000M - $14.000M COP",
         "signals": "Obligado DIAN a facturación electrónica masiva + Software ERP en proceso de modernización",
+    },
+    "chiketto_school_ids": {
+        "company_name": "Colegio San José de las Vegas",
+        "masked_nit": "890.901.***-5",
+        "masked_decision_maker": "Gloria F**** (Rectora / Directora General)",
+        "title": "Rector / Rectora de Institución Educativa",
+        "masked_phone": "+57 312 345 ****",
+        "masked_email": "rectoria****@sanjosevegas.edu.co",
+        "annual_revenue_range": "$8.000M - $18.000M COP",
+        "signals": "Institución Educativa con más de 1.200 estudiantes + Renovación anual de carnets PVC",
     },
     "blueoil": {
         "company_name": "Transportes & Carga del Magdalena S.A.S.",

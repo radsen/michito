@@ -206,6 +206,9 @@ export interface IntentProfileResponse {
   roles?: string[];
   locations?: LocationAllocationPayload[];
   rfq_specifications?: string | null;
+  keywords_include?: string[];
+  keywords_exclude?: string[];
+  query_id?: string;
   sample_preview: {
     company_name: string;
     masked_nit: string;
