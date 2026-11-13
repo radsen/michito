@@ -70,9 +70,15 @@ The core engine and web frontend have successfully completed all 7 foundational 
    - Real-time pricing calculator with volume discounts and multi-currency formatting (COP, USD, DOP).
 7. **Phase 7: End-to-End Enterprise Scenario Verification**:
    - 14 comprehensive end-to-end scenario tests in `test_enterprise_13_scenarios.py` (100% pass rate in 2.5s).
-   - Entire backend suite passing: **206 of 206 tests passing**.
    - Consolidated single canonical deliverable directory under `outputs/`.
    - Strict Fail-Fast database architecture without silent SQLite masking.
+8. **Phase 7.1: Education & Schools Taxonomy, Full-Text SODA Search & Chiketto School IDs Preset 🇨🇴**:
+   - Integrated full DANE CIIU Rev. 4 A.C. Education codes (`8511` through `8560`) into `CiiuCode` value object.
+   - Added `education_schools` sector and school decision-maker roles (`Rector / Rectora de Institución Educativa`, `Coordinador Administrativo & Compras Escolares`) to taxonomy knowledge graph.
+   - Upgraded `SecopHarvesterAdapter` with SODA `$q` full-text query parameterization and multi-legal-form support (ESALs, fundaciones, corporaciones) to avoid dropping private school structures.
+   - Enriched fallback roster with 120+ verified accredited educational institutions in Medellín & nationwide with valid `.edu.co` corporate domains, phone lines, and active rectors.
+   - Added `chiketto_school_ids` preset to `PRESET_TEMPLATES` in the web client and campaign catalog.
+   - Full test suite expanded: **209 of 209 tests passing**.
 
 ---
 
