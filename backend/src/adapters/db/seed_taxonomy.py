@@ -386,6 +386,36 @@ ROLE_SEEDS: List[Dict[str, Any]] = [
         "usage_count": 170,
         "is_active": True,
     },
+    {
+        "role_id": "school_rector_director",
+        "canonical_title": "Rector / Rectora de Institución Educativa",
+        "seniority_level": "c_level",
+        "functional_domain": "executive",
+        "country_code": "ALL",
+        "aliases": [
+            "Rector", "Rectora", "Director de Colegio", "Directora de Colegio",
+            "Principal", "Head of School", "Director Académico", "Directora Académica",
+            "Representante Legal", "Gerente Educativo"
+        ],
+        "applicable_sectors": ["education_schools", "all"],
+        "usage_count": 290,
+        "is_active": True,
+    },
+    {
+        "role_id": "school_admin_procurement",
+        "canonical_title": "Coordinador Administrativo & Compras Escolares",
+        "seniority_level": "director",
+        "functional_domain": "procurement",
+        "country_code": "ALL",
+        "aliases": [
+            "Coordinador Administrativo", "Coordinadora Administrativa", "Director Administrativo",
+            "Jefe de Compras", "Director de Admisiones y Registro", "Coordinador de Recursos",
+            "Secretario General", "Secretaria General", "Administrador Escolar"
+        ],
+        "applicable_sectors": ["education_schools", "all"],
+        "usage_count": 240,
+        "is_active": True,
+    },
 ]
 
 
@@ -520,6 +550,20 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
         "usage_count": 110,
         "is_active": True,
     },
+    {
+        "sector_id": "education_schools",
+        "sector_name": "Educación, Colegios & Instituciones Académicas",
+        "country_code": "ALL",
+        "ciiu_codes": ["P8511", "P8512", "P8513", "P8521", "P8522", "P8530", "P8541", "P8543", "P8560"],
+        "keywords_include": [
+            "colegio", "colegios", "escuela", "escuelas", "institucion educativa", "educacion",
+            "liceo", "gimnasio", "academico", "bachillerato", "preescolar", "universidad", "carnets",
+            "identificaciones escolares"
+        ],
+        "keywords_exclude_defaults": ["jardin infantil domiciliario", "clases particulares"],
+        "usage_count": 220,
+        "is_active": True,
+    },
 ]
 
 
@@ -577,7 +621,7 @@ if __name__ == "__main__":
     adapter = SqlOrderAdapter()
     with adapter._get_session() as s:
         counts = seed_all_taxonomy(s)
-        print("✅ Taxonomy seeding complete:")
+        print("[SEED] Taxonomy seeding complete:")
         print(f"• Locations: {counts['locations']}")
         print(f"• Roles:     {counts['roles']}")
         print(f"• Sectors:   {counts['sectors']}")

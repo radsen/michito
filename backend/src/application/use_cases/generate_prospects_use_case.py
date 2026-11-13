@@ -155,6 +155,8 @@ def build_targeted_linkedin_xray_url(
         cid = (campaign_id or "").lower()
         if any(k in cid for k in ("tinkko", "office", "oficina", "coworking", "facility", "inmueble")):
             vertical_roles = '("Gerente General" OR "Director Administrativo" OR "Facility Manager" OR "Director de Operaciones" OR "Compras")'
+        elif any(k in cid for k in ("chiketto_school", "colegio", "escuela", "educa", "carnet", "school")):
+            vertical_roles = '("Rector" OR "Rectora" OR "Director de Colegio" OR "Coordinador Administrativo" OR "Jefe de Compras")'
         elif any(k in cid for k in ("chiketto", "software", "tech", "dev", "ia", "ai", "cloud", "api")):
             vertical_roles = '("CTO" OR "Director de Tecnología" OR "Líder de TI" OR "VP Engineering" OR "Gerente General")'
         elif any(k in cid for k in ("hebi", "credit", "cobranza", "cartera", "fintech", "recaudo", "pago")):

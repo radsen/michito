@@ -105,6 +105,23 @@ const PRESET_TEMPLATES: PresetTemplate[] = [
     ],
   },
   {
+    id: "chiketto_school_ids",
+    name: "🇨🇴 Colegios, Carnets & Identificaciones Escolares (Chiketto)",
+    country: "CO",
+    currency: "COP",
+    defaultCity: "Medellín",
+    isMultiCountry: false,
+    offerDescription:
+      "Servicio especializado de impresión y suministro de carnets estudiantiles en PVC de alta durabilidad, identificaciones escolares, cordones institucionales y sistemas de carnetización para colegios y academias.",
+    sectors: ["education_schools"],
+    roles: ["Rector / Rectora de Institución Educativa", "Coordinador Administrativo & Compras Escolares", "Director de Colegio", "Jefe de Compras"],
+    keywords: ["colegios", "carnets estudiantiles", "identificaciones escolares", "institucion educativa"],
+    locations: [
+      { country: "CO", region: "Antioquia", city: "Medellín", allocated_leads: 15 },
+      { country: "CO", region: "Bogotá D.C.", city: "Bogotá", allocated_leads: 10 },
+    ],
+  },
+  {
     id: "blueoil",
     name: "🇨🇴 Combustibles & Flotas Pesadas",
     country: "CO",

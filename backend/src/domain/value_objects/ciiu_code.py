@@ -157,6 +157,74 @@ OFFICIAL_CIIU_CATALOG: Dict[str, Dict[str, str]] = {
         "description": "Otros trabajos de edición y publicaciones",
         "sector_macro": "Editorial & Comunicaciones",
         "tinkko_fit": "Medio-Alto"
+    },
+
+    # --- EDUCACIÓN & INSTITUCIONES ACADÉMICAS ---
+    "8511": {
+        "code": "8511",
+        "description": "Educación de la primera infancia (Preescolar y Jardines Infantiles)",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Medio (Instituciones de primera infancia)"
+    },
+    "8512": {
+        "code": "8512",
+        "description": "Educación básica primaria",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Medio (Colegios y sedes de primaria)"
+    },
+    "8513": {
+        "code": "8513",
+        "description": "Educación básica secundaria",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Alto (Colegios de bachillerato y sedes académicas)"
+    },
+    "8521": {
+        "code": "8521",
+        "description": "Educación media académica (Bachillerato Clásico y Bilingüe)",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Alto (Instituciones educativas privadas)"
+    },
+    "8522": {
+        "code": "8522",
+        "description": "Educación media técnica y vocacional",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Alto (Instituciones técnicas y vocacionales)"
+    },
+    "8530": {
+        "code": "8530",
+        "description": "Establecimientos que combinan diferentes niveles de educación (Colegios Bilingües y Privados)",
+        "sector_macro": "Educación, Colegios & Academias",
+        "tinkko_fit": "Muy Alto (Colegios que demandan carnets, identificaciones escolares, dotaciones y tecnología)"
+    },
+    "8541": {
+        "code": "8541",
+        "description": "Educación técnica profesional",
+        "sector_macro": "Educación Superior & Formación Técnica",
+        "tinkko_fit": "Alto (Institutos y academias técnicas)"
+    },
+    "8542": {
+        "code": "8542",
+        "description": "Educación tecnológica",
+        "sector_macro": "Educación Superior & Formación Técnica",
+        "tinkko_fit": "Alto (Instituciones tecnológicas)"
+    },
+    "8543": {
+        "code": "8543",
+        "description": "Educación de instituciones universitarias o de escuelas tecnológicas",
+        "sector_macro": "Educación Superior & Formación Técnica",
+        "tinkko_fit": "Muy Alto (Universidades e instituciones universitarias)"
+    },
+    "8544": {
+        "code": "8544",
+        "description": "Educación de universidades",
+        "sector_macro": "Educación Superior & Formación Técnica",
+        "tinkko_fit": "Muy Alto (Sedes universitarias y campus)"
+    },
+    "8560": {
+        "code": "8560",
+        "description": "Actividades de apoyo a la educación (Servicios escolares, admisiones y carnetización)",
+        "sector_macro": "Servicios de Apoyo a la Educación",
+        "tinkko_fit": "Alto (Proveedores de servicios educativos y carnetización)"
     }
 }
 
@@ -209,6 +277,7 @@ class CiiuCode:
             (r"comput|hardware|redes|servidores|telecom", "4651"),
             (r"logist|transport|carga|aduan|fletes|almacen", "4923"),
             (r"maquinaria|equipos|repuestos|industrial", "4659"),
+            (r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet", "8530"),
         ]
 
         for pat, code in patterns:

@@ -51,8 +51,8 @@ class WebsiteAuditor:
         clean_company = re.sub(r"[^a-zA-Z0-9]", "", company_name.lower())
         clean_domain = re.sub(r"[^a-zA-Z0-9]", "", domain.split(".")[0].lower())
 
-        # Common company name abbreviations
-        words = [w for w in re.split(r"\W+", company_name.lower()) if len(w) > 3 and w not in ("sas", "ltda", "colombia", "internacional", "grupo")]
+        # Common company name abbreviations & words
+        words = [w for w in re.split(r"\W+", company_name.lower()) if len(w) >= 3 and w not in ("sas", "ltda", "colombia", "internacional", "grupo")]
         
         # If any significant word from company name is in domain, or domain in company
         if any(w in clean_domain for w in words):

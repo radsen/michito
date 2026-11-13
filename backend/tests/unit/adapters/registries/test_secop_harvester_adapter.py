@@ -146,6 +146,28 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
         )
         self.assertFalse(any("Tecnología" in c["company_name"] for c in res_exclude))
 
+    @patch("urllib.request.urlopen")
+    def test_fetch_candidates_educational_and_schools(self, mock_urlopen):
+        mock_urlopen.side_effect = Exception("Simulated SODA timeout")
+        # Querying for schools in Medellín with keywords
+        schools = self.adapter.fetch_candidates(
+            city="Medellín",
+            limit=25,
+            include_keywords=["colegio", "carnets estudiantiles"]
+        )
+        self.assertGreaterEqual(len(schools), 12)
+        # Verify school rectors and educational domain structure
+        for sch in schools[:5]:
+            self.assertTrue(
+                "colegio" in sch["company_name"].lower()
+                or "gimnasio" in sch["company_name"].lower()
+                or "the columbus" in sch["company_name"].lower()
+                or "instituto" in sch["company_name"].lower()
+            )
+            self.assertEqual(sch["decision_maker_title"], "Rector / Rectora de Institución Educativa")
+            self.assertTrue(sch["email"].endswith(".edu.co") or sch["email"].endswith(".co"))
+            self.assertTrue(sch["phone"].startswith("3"))
+
 if __name__ == "__main__":
     unittest.main()
 

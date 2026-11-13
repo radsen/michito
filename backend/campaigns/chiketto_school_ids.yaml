@@ -1,0 +1,84 @@
+id: "chiketto_school_ids"
+name: "Chiketto — Carnets Estudiantiles & Credenciales Escolares en PVC"
+description: "Servicio integral de carnetización estudiantil en PVC de alta durabilidad, diseño institucional, cordones y credenciales escolares para colegios y academias."
+
+target:
+  country: "CO"
+  currency: "COP"
+  city: "Medellín"
+  cities:
+    - "Medellín"
+    - "Bogotá"
+    - "Cali"
+    - "Barranquilla"
+    - "Bucaramanga"
+  segment: "all"
+  min_revenue_cop: "$1.000M COP"
+  sectors:
+    - "education_schools"
+  ciiu_codes:
+    - "8511"
+    - "8512"
+    - "8513"
+    - "8521"
+    - "8522"
+    - "8530"
+    - "8541"
+    - "8560"
+  keywords_include:
+    - "colegio"
+    - "colegios"
+    - "escuela"
+    - "institucion educativa"
+    - "carnets estudiantiles"
+    - "identificaciones escolares"
+    - "bachillerato"
+  keywords_exclude:
+    - "jardin infantil domiciliario"
+    - "clases particulares"
+  roles:
+    - "Rector / Rectora de Institución Educativa"
+    - "Coordinador Administrativo & Compras Escolares"
+    - "Director de Colegio"
+    - "Jefe de Compras"
+    - "Representante Legal"
+
+angles:
+  recommended: "Suministro Confiable de Carnetización Estudiantil en PVC y Control de Acceso Escolar"
+
+touches:
+  touch1_linkedin_invite: >
+    {salutation}, vi que lideras la gestión en {clean_name} en {city}.
+    En Chiketto apoyamos a colegios e instituciones educativas en la emisión y suministro
+    de carnets estudiantiles en PVC de alta durabilidad con entrega ágil antes del inicio de ciclo. ¿Abierto a conectar?
+
+  touch2_email_subject: "Carnets estudiantiles en PVC y carnetización para {clean_name}"
+  touch2_email_body: |
+    Estimado(a) {contact_title},
+
+    Te contacto porque en {clean_name} gestionan la identificación de su comunidad estudiantil y docente en {city}. En Chiketto nos especializamos en la producción y entrega oportuna de carnets estudiantiles en PVC de calibre bancario, con impresión de alta definición, laminado protector de larga vida y cordones personalizados.
+
+    Eliminamos los retrasos de entrega y las reposiciones costosas de mitad de año mediante un flujo digital ágil de carga de fotos y datos.
+
+    ¿Tendrías 10 minutos esta semana para revisar una muestra física sin costo en su sede?
+
+  touch3_email_subject: "Re: {clean_name} — Muestra física de carnets PVC para el nuevo periodo"
+  touch3_email_body: |
+    Estimado(a) {contact_title},
+
+    Quería hacer un breve seguimiento a mi mensaje anterior. Muchos colegios en {city} enfrentan desgastes en febrero y marzo cuando los proveedores tradicionales demoran semanas en entregar las identificaciones escolares.
+
+    En Chiketto garantizamos tiempos de entrega certificados y entregamos reposiciones urgentes en 48 horas.
+
+    ¿Te gustaría recibir un paquete de muestra de carnets impresos para evaluar la calidad?
+
+  touch4_call_script: |
+    Hola, buenos días. ¿Me comunicas por favor con {first_name} de Rectoría o Coordinación Administrativa?
+    ...
+    Hola {first_name}, te llamo muy brevemente de Chiketto. Los contacto porque estamos despachando los kits de muestra de carnets estudiantiles en PVC para colegios en {city}.
+    Queremos enviarle a {clean_name} un set de muestras con acabado mate y brillante para que comparen durabilidad y costos antes del próximo ciclo. ¿A qué dirección de la sede escolar podemos hacérselo llegar?
+
+  touch5_whatsapp_breakaway: >
+    Hola {first_name}, te escribo brevemente de Chiketto respecto a la carnetización estudiantil de {clean_name}.
+    Si ya tienen resuelto el suministro de identificaciones para este periodo, no hay problema.
+    Si en algún momento necesitan reposiciones de emergencia en 48 horas o una cotización comparativa más económica, quedo a su total disposición. Saludos cordiales.
