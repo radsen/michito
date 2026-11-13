@@ -287,8 +287,8 @@ export const LiveStatusTracker: React.FC = () => {
                 : dict.tracker.processingTitle}
             </h3>
             <div className="tracker-ref-row">
-              <span className="text-slate-400 text-xs">Referencia de Orden:</span>
-              <strong className="font-mono text-sky-300 text-sm">{activeOrderId}</strong>
+              <span className="tracker-ref-label">Referencia de Orden:</span>
+              <strong className="tracker-ref-id">{activeOrderId}</strong>
               <button
                 onClick={handleCopyOrderId}
                 className="copy-id-btn"
@@ -303,7 +303,6 @@ export const LiveStatusTracker: React.FC = () => {
                 className="copy-id-btn"
                 title="Copiar enlace compartible para aprobación"
                 type="button"
-                style={{ marginLeft: "4px" }}
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-sky-400" />}
                 <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
@@ -334,29 +333,29 @@ export const LiveStatusTracker: React.FC = () => {
       </div>
 
       {/* Shareable Quote & Approval Banner */}
-      <div className="shareable-quote-box p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 my-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-950/90 border border-sky-500/40 flex items-center justify-center text-sky-400 shrink-0">
+      <div className="shareable-quote-box">
+        <div className="shareable-quote-layout">
+          <div className="shareable-quote-left">
+            <div className="shareable-quote-icon">
               <Share2 className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Enlace Compartible de Aprobación</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-500/30">
+              <div className="shareable-quote-header">
+                <span className="shareable-quote-title">Enlace Compartible de Aprobación</span>
+                <span className="shareable-quote-badge">
                   {isPaid ? "Entrega Aprobada" : isAwaitingPayment ? "Listo para Aprobación" : "En Calificación"}
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="shareable-quote-desc">
                 Comparte este enlace directo con tu líder comercial o equipo para revisar los criterios, verificar la muestra y autorizar el lote.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="shareable-quote-actions">
             <button
               type="button"
               onClick={handleCopyApprovalLink}
-              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+              className="btn-quote-copy"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedLink ? "¡Copiado!" : "Copiar Enlace"}</span>
@@ -365,7 +364,7 @@ export const LiveStatusTracker: React.FC = () => {
               href={`https://wa.me/?text=${encodeURIComponent(`Hola, por favor revisa y aprueba esta cotización de prospección B2B en Michito: ${getShareableApprovalUrl()}`)}`}
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5"
+              className="btn-quote-whatsapp"
               title="Compartir por WhatsApp"
             >
               <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
@@ -455,23 +454,23 @@ export const LiveStatusTracker: React.FC = () => {
       {/* Failed / Incomplete State Alert */}
       {isFailed && (
         <div className="order-failed-card" data-testid="order-failed-card">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-semibold text-rose-300 text-sm">
+          <div className="order-failed-layout">
+            <AlertCircle className="w-5 h-5 order-failed-icon" />
+            <div className="order-failed-content">
+              <h4 className="order-failed-title">
                 No fue posible completar la calificación de prospectos
               </h4>
-              <p className="text-xs text-slate-300 mt-1">
+              <p className="order-failed-desc">
                 {orderData?.error_message ||
                   "No se encontraron cuentas que superaran todos los filtros de validación técnica, presencia web y buzón activo."}
               </p>
-              <div className="mt-3 flex items-center gap-2">
+              <div className="order-failed-actions">
                 <button
                   onClick={handleNewOrder}
-                  className="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-medium text-xs transition-colors flex items-center gap-1.5"
+                  className="order-failed-btn"
                   type="button"
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
+                  <PlusCircle className="w-4 h-4" />
                   <span>Ajustar Parámetros / Nueva Búsqueda</span>
                 </button>
               </div>
@@ -533,22 +532,22 @@ export const LiveStatusTracker: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+          <div className="download-buttons-grid">
             {/* 1. Styled XLSX */}
             {xlsxDownloadUrl || csvDownloadUrl ? (
               <a
                 href={xlsxDownloadUrl || `/api/v1/orders/${activeOrderId}/download/xlsx`}
                 download
-                className="download-btn xlsx-download group p-3.5 rounded-xl bg-teal-950/40 border border-teal-600/40 hover:border-teal-400 hover:bg-teal-900/30 transition-all flex items-center gap-3 text-left shadow-sm"
+                className="download-btn xlsx-download"
                 target="_blank"
                 rel="noreferrer"
               >
-                <div className="w-10 h-10 rounded-lg bg-teal-900/60 border border-teal-500/40 flex items-center justify-center text-teal-300 shrink-0 group-hover:scale-105 transition-transform">
-                  <FileSpreadsheet className="w-5 h-5 text-teal-300" />
+                <div className="download-btn-icon xlsx-icon">
+                  <FileSpreadsheet className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-white text-sm truncate">Hoja de Cálculo (.XLSX)</div>
-                  <div className="text-xs text-teal-300/80 truncate">Excel con filtros y formato</div>
+                <div className="download-btn-info">
+                  <div className="download-btn-title">Hoja de Cálculo (.XLSX)</div>
+                  <div className="download-btn-sub">Excel con filtros y formato</div>
                 </div>
               </a>
             ) : null}
@@ -558,16 +557,16 @@ export const LiveStatusTracker: React.FC = () => {
               <a
                 href={pdfDownloadUrl || `/api/v1/orders/${activeOrderId}/download/pdf`}
                 download
-                className="download-btn pdf-download group p-3.5 rounded-xl bg-sky-950/40 border border-sky-600/40 hover:border-sky-400 hover:bg-sky-900/30 transition-all flex items-center gap-3 text-left shadow-sm"
+                className="download-btn pdf-download"
                 target="_blank"
                 rel="noreferrer"
               >
-                <div className="w-10 h-10 rounded-lg bg-sky-900/60 border border-sky-500/40 flex items-center justify-center text-sky-300 shrink-0 group-hover:scale-105 transition-transform">
-                  <FileText className="w-5 h-5 text-sky-300" />
+                <div className="download-btn-icon pdf-icon">
+                  <FileText className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-white text-sm truncate">Dossier Ejecutivo (.PDF)</div>
-                  <div className="text-xs text-sky-300/80 truncate">Reporte C-Level & Guiones</div>
+                <div className="download-btn-info">
+                  <div className="download-btn-title">Dossier Ejecutivo (.PDF)</div>
+                  <div className="download-btn-sub">Reporte C-Level & Guiones</div>
                 </div>
               </a>
             ) : null}
@@ -577,16 +576,16 @@ export const LiveStatusTracker: React.FC = () => {
               <a
                 href={csvDownloadUrl}
                 download
-                className="download-btn csv-download group p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 transition-all flex items-center gap-3 text-left shadow-sm"
+                className="download-btn csv-download"
                 target="_blank"
                 rel="noreferrer"
               >
-                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition-transform">
-                  <Download className="w-5 h-5 text-emerald-400" />
+                <div className="download-btn-icon csv-icon">
+                  <Download className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-white text-sm truncate">Base para CRM (.CSV)</div>
-                  <div className="text-xs text-slate-400 truncate">HubSpot / Salesforce Ready</div>
+                <div className="download-btn-info">
+                  <div className="download-btn-title">Base para CRM (.CSV)</div>
+                  <div className="download-btn-sub">HubSpot / Salesforce Ready</div>
                 </div>
               </a>
             ) : null}
@@ -596,26 +595,26 @@ export const LiveStatusTracker: React.FC = () => {
               <a
                 href={dossierDownloadUrl}
                 download
-                className="download-btn dossier-download group p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 transition-all flex items-center gap-3 text-left shadow-sm"
+                className="download-btn dossier-download"
                 target="_blank"
                 rel="noreferrer"
               >
-                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-300 shrink-0 group-hover:scale-105 transition-transform">
-                  <FileCheck className="w-5 h-5 text-slate-300" />
+                <div className="download-btn-icon dossier-icon">
+                  <FileCheck className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-white text-sm truncate">Playbook Texto (.MD)</div>
-                  <div className="text-xs text-slate-400 truncate">Notion / Obsidian Ready</div>
+                <div className="download-btn-info">
+                  <div className="download-btn-title">Playbook Texto (.MD)</div>
+                  <div className="download-btn-sub">Notion / Obsidian Ready</div>
                 </div>
               </a>
             ) : null}
           </div>
 
           {/* Phase 3: Automated 2x1 Replacement Guarantee Portal */}
-          <div className="mt-4 p-4 rounded-xl bg-slate-900/90 border border-emerald-600/30 shadow-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+          <div className="guarantee-banner-card">
+            <div className="guarantee-banner-layout">
+              <div className="guarantee-banner-left">
+                <div className="guarantee-banner-icon">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
@@ -643,7 +642,7 @@ export const LiveStatusTracker: React.FC = () => {
                   setClaimError(null);
                   setClaimSuccess(null);
                 }}
-                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 shrink-0 shadow-sm"
+                className="btn-guarantee-claim"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reclamar Reemplazo 2x1</span>
@@ -657,26 +656,18 @@ export const LiveStatusTracker: React.FC = () => {
       {(isAwaitingPayment || isPaid) && (
         <div className="space-y-4 mt-6">
           {playbook && playbook.length > 0 && (
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+            <div className="tracker-view-tabs">
               <button
                 type="button"
                 onClick={() => setActiveViewTab("summary")}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  activeViewTab === "summary"
-                    ? "bg-sky-600 text-white shadow-md shadow-sky-950"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
+                className={`tracker-view-tab-btn ${activeViewTab === "summary" ? "active" : ""}`}
               >
                 Resumen & Muestra de Datos
               </button>
               <button
                 type="button"
                 onClick={() => setActiveViewTab("playbook")}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
-                  activeViewTab === "playbook"
-                    ? "bg-sky-600 text-white shadow-md shadow-sky-950"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
+                className={`tracker-view-tab-btn ${activeViewTab === "playbook" ? "active" : ""}`}
               >
                 <span>Playbook de Prospección (1-Click Outreach)</span>
                 <span className="px-1.5 py-0.5 text-xs bg-sky-950 text-sky-300 rounded font-mono">
@@ -704,12 +695,12 @@ export const LiveStatusTracker: React.FC = () => {
 
       {/* 2x1 Guarantee Claim Modal */}
       {showGuaranteeModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-left">
+        <div className="claim-modal-backdrop">
+          <div className="claim-modal-card">
             <button
               type="button"
               onClick={() => setShowGuaranteeModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+              className="claim-modal-close-btn"
             >
               <X className="w-5 h-5" />
             </button>
@@ -745,7 +736,7 @@ export const LiveStatusTracker: React.FC = () => {
 
             <form onSubmit={handleClaimSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="claim-form-label">
                   Correo Electrónico Rebotado *
                 </label>
                 <input
@@ -754,7 +745,7 @@ export const LiveStatusTracker: React.FC = () => {
                   placeholder="ejemplo@empresa.com"
                   value={claimEmail}
                   onChange={(e) => setClaimEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  className="claim-form-input"
                 />
                 {teaserLeads && teaserLeads.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1 items-center">
@@ -777,7 +768,7 @@ export const LiveStatusTracker: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="claim-form-label">
                   Nombre de la Empresa (Opcional)
                 </label>
                 <input
@@ -785,18 +776,18 @@ export const LiveStatusTracker: React.FC = () => {
                   placeholder="Empresa asociada al contacto"
                   value={claimCompany}
                   onChange={(e) => setClaimCompany(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  className="claim-form-input"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="claim-form-label">
                   Motivo del Rechazo
                 </label>
                 <select
                   value={claimReason}
                   onChange={(e) => setClaimReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="claim-form-select"
                 >
                   <option value="hard_bounce">Rebote Duro / Buzón Inexistente (Error 550)</option>
                   <option value="domain_dead">Dominio Inactivo / Sin Registro MX</option>
@@ -809,14 +800,14 @@ export const LiveStatusTracker: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowGuaranteeModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                  className="claim-cancel-btn"
                 >
                   Cerrar
                 </button>
                 <button
                   type="submit"
                   disabled={isClaiming || !claimEmail.trim()}
-                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-sm"
+                  className="claim-submit-btn"
                 >
                   {isClaiming ? (
                     <>
