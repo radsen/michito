@@ -3,7 +3,7 @@ Unit tests for the Universal ISIC / CIIU Rev. 4 In-Memory Search Index.
 """
 
 import pytest
-from backend.src.domain.taxonomy.isic_index import IsicIndex, normalize_text, tokenize, GLOBAL_ISIC_INDEX
+from src.domain.taxonomy.isic_index import IsicIndex, normalize_text, tokenize, GLOBAL_ISIC_INDEX
 
 
 def test_normalize_and_tokenize():

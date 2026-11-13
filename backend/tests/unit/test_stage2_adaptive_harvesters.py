@@ -5,12 +5,12 @@ and SERCOP CPC mapping (Ecuador 🇪🇨) across all economic verticals.
 """
 
 import pytest
-from backend.src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
-from backend.src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
-from backend.src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
-from backend.src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase
-from backend.src.adapters.storage.deduplication_ledger import DeduplicationLedger
-from backend.src.domain.entities.universal_prospecting_request import (
+from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
+from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
+from src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
+from src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase
+from src.adapters.storage.deduplication_ledger import DeduplicationLedger
+from src.domain.entities.universal_prospecting_request import (
     UniversalProspectingRequest,
     SearchDirectionality,
     LocationAllocation,

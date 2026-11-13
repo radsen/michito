@@ -5,12 +5,12 @@ Tests for Bidirectional Commercial Directionality and Dynamic Custom Taxonomy Pe
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.src.domain.entities.universal_prospecting_request import (
+from src.domain.entities.universal_prospecting_request import (
     UniversalProspectingRequest,
     SearchDirectionality,
 )
-from backend.src.application.services.dynamic_cadence_generator import generate_dynamic_touches
-from backend.src.entrypoints.api.main import app, sql_adapter
+from src.application.services.dynamic_cadence_generator import generate_dynamic_touches
+from src.entrypoints.api.main import app, sql_adapter
 
 
 @pytest.fixture
