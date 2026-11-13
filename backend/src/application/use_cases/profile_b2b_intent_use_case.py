@@ -8,6 +8,7 @@ import re
 import hashlib
 from typing import Dict, Any, List, Optional
 from campaign_loader import load_campaign, list_available_campaigns
+from src.application.services.brief_parser_service import BriefParserService
 
 
 CITY_MAPPINGS = {
@@ -163,9 +164,15 @@ class ProfileB2BIntentUseCase:
     Translates free-text business intent into a verified prospecting configuration.
     """
 
+    def __init__(self, brief_parser: Optional[BriefParserService] = None):
+        self.brief_parser = brief_parser or BriefParserService()
+
     def execute(self, query: str, country: Optional[str] = "CO") -> Dict[str, Any]:
         normalized = query.lower().strip()
         country_code = (country or "CO").upper()
+
+        # Parse universal intent parameters via BriefParserService
+        parsed_super_query = self.brief_parser.parse_brief(query)
 
         # 1. Detect City
         target_city = "Medellín" if country_code == "CO" else "Santo Domingo"
@@ -246,6 +253,15 @@ class ProfileB2BIntentUseCase:
             "estimated_matches": estimated_matches,
             "matched_keywords": matched_keywords,
             "sample_preview": sample_copy,
+            "directionality": parsed_super_query.get("directionality", "vendor_to_clients"),
+            "sectors": parsed_super_query.get("sectors", []),
+            "ciiu_codes": parsed_super_query.get("ciiu_codes", []),
+            "roles": parsed_super_query.get("roles", []),
+            "locations": parsed_super_query.get("locations", []),
+            "rfq_specifications": parsed_super_query.get("rfq_specifications"),
+            "keywords_include": parsed_super_query.get("keywords_include", []),
+            "keywords_exclude": parsed_super_query.get("keywords_exclude", []),
+            "query_id": parsed_super_query.get("query_id"),
             "pricing": {
                 "tier": recommended_tier,
                 "tier_name": tier_info["name"],

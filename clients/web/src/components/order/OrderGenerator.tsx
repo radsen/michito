@@ -488,7 +488,21 @@ export const OrderGenerator: React.FC = () => {
         if (res.matched_keywords && res.matched_keywords.length > 0) {
           setPositiveKeywords(res.matched_keywords);
         }
-        if (res.city) {
+        if (res.directionality) {
+          setDirectionality(res.directionality);
+        }
+        if (res.sectors && res.sectors.length > 0) {
+          setSelectedSectors(res.sectors);
+        }
+        if (res.roles && res.roles.length > 0) {
+          setTargetRoles(res.roles);
+        }
+        if (res.rfq_specifications) {
+          setRfqSpecifications(res.rfq_specifications);
+        }
+        if (res.locations && res.locations.length > 0) {
+          setLocationAllocations(res.locations);
+        } else if (res.city) {
           dispatch(selectCity(res.city));
           setLocationAllocations([
             {

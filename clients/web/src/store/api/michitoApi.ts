@@ -162,6 +162,33 @@ export interface OrderQuoteResponse {
   sample_preview_count: number;
 }
 
+export interface ParseBriefPayload {
+  prompt: string;
+  client_id?: string;
+  session_id?: string;
+  force_fallback?: boolean;
+}
+
+export interface ParseBriefResponse {
+  status: string;
+  data: {
+    query_id: string;
+    directionality: "vendor_to_clients" | "client_to_vendors";
+    sectors: string[];
+    ciiu_codes: string[];
+    roles: string[];
+    locations: LocationAllocationPayload[];
+    limit: number;
+    tier: number;
+    rfq_specifications?: string | null;
+    keywords_include: string[];
+    keywords_exclude: string[];
+    discovered_tokens: Record<string, any>;
+    confidence_score: number;
+    source: string;
+  };
+}
+
 export interface IntentProfileResponse {
   status: string;
   query: string;
@@ -173,6 +200,12 @@ export interface IntentProfileResponse {
   recommended_limit: number;
   estimated_matches: number;
   matched_keywords: string[];
+  directionality?: "vendor_to_clients" | "client_to_vendors";
+  sectors?: string[];
+  ciiu_codes?: string[];
+  roles?: string[];
+  locations?: LocationAllocationPayload[];
+  rfq_specifications?: string | null;
   sample_preview: {
     company_name: string;
     masked_nit: string;
@@ -212,6 +245,13 @@ export const michitoApi = createApi({
     profileIntent: builder.mutation<IntentProfileResponse, { query: string; country?: string }>({
       query: (body) => ({
         url: "/intent/profile",
+        method: "POST",
+        body,
+      }),
+    }),
+    parseBrief: builder.mutation<ParseBriefResponse, ParseBriefPayload>({
+      query: (body) => ({
+        url: "/prospecting/parse-brief",
         method: "POST",
         body,
       }),
@@ -317,6 +357,7 @@ export const {
   useGetPartnerQuery,
   useLazyGetPartnerQuery,
   useProfileIntentMutation,
+  useParseBriefMutation,
   useCreateOrderMutation,
   useGetOrderQuery,
   useGetOrderQuoteQuery,

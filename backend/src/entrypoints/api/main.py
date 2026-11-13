@@ -23,6 +23,7 @@ from src.adapters.db.sql_order_adapter import SqlOrderAdapter
 from src.adapters.partners.partner_registry import PartnerRegistry
 from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
 from src.application.use_cases.deliver_order_use_case import DeliverOrderUseCase
+from src.application.services.brief_parser_service import BriefParserService
 from campaign_loader import list_available_campaigns, load_campaign
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,12 @@ class CustomTaxonomyRequest(BaseModel):
 class IntentProfileRequest(BaseModel):
     query: str
     country: Optional[str] = "CO"
+
+class ParseBriefRequest(BaseModel):
+    prompt: str
+    client_id: Optional[str] = None
+    session_id: Optional[str] = None
+    force_fallback: Optional[bool] = False
 
 # Legacy Request Models
 class SearchRequest(BaseModel):
@@ -326,6 +333,32 @@ def profile_b2b_intent(payload: IntentProfileRequest):
     use_case = app_container.profile_b2b_intent_use_case
     result = use_case.execute(query=payload.query, country=payload.country or "CO")
     return result
+
+@app.post("/api/v1/prospecting/parse-brief")
+def parse_prospecting_brief(payload: ParseBriefRequest):
+    """
+    Intelligent Natural Language Brief Parser (Gemini Flash + Local BM25 Index).
+    Translates free-form business briefs into structured Super Query criteria,
+    resolving directionality (Sales vs RFQ), CIIU codes, locations, roles, and quotas.
+    """
+    if not payload.prompt or not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+
+    brief_parser = BriefParserService(sql_adapter=sql_adapter)
+    try:
+        result = brief_parser.parse_brief(
+            prompt=payload.prompt,
+            client_id=payload.client_id,
+            session_id=payload.session_id,
+            force_fallback=payload.force_fallback or False,
+        )
+        return {
+            "status": "success",
+            "data": result,
+        }
+    except Exception as e:
+        logger.error(f"Error parsing prospecting brief: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse brief: {str(e)}")
 
 @app.post("/api/v1/orders", status_code=201)
 def create_prospecting_order(payload: CreateOrderRequest):
@@ -735,12 +768,17 @@ def verify_whatsapp_webhook(request: Request):
 
 @app.post("/api/v1/webhooks/whatsapp")
 def whatsapp_webhook(payload: dict):
+    """
+    Ingests WhatsApp incoming messages and triggers conversational lead generation
+    or auto-RFQ quote generation. Supports Meta Cloud API structure and direct JSON payloads.
+    """
     from clients.whatsapp.bot_service import WhatsAppBotService
     
-    # Very basic parser for Meta Cloud API structure
+    responses = []
     try:
+        # 1. Meta Cloud API Webhook structure
         if "entry" in payload:
-            for entry in payload["entry"]:
+            for entry in payload.get("entry", []):
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
                     if "messages" in value:
@@ -748,11 +786,23 @@ def whatsapp_webhook(payload: dict):
                             from_number = msg.get("from")
                             text = msg.get("text", {}).get("body", "")
                             
-                            bot = WhatsAppBotService()
+                            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter))
                             response = bot.handle_incoming_message(from_number, text)
-                            # In a real system, we'd send 'response' to Meta/Twilio API here
-                            logger.info(f"Bot response: {response}")
+                            logger.info(f"[WhatsAppWebhook] Bot response for {from_number}: {response}")
+                            responses.append(response)
+        # 2. Direct simplified payload: {"from": "+57300...", "text": "..."}
+        elif "from" in payload and "text" in payload:
+            from_number = payload["from"]
+            text = payload["text"]
+            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter))
+            response = bot.handle_incoming_message(from_number, text)
+            logger.info(f"[WhatsAppWebhook] Bot response for {from_number}: {response}")
+            responses.append(response)
     except Exception as e:
         logger.error(f"Error processing WhatsApp Webhook: {e}")
-        
-    return {"status": "ok"}
+        return {"status": "error", "error": str(e)}
+
+    res = {"status": "ok"}
+    if payload.get("echo_responses") or payload.get("debug"):
+        res["responses"] = responses
+    return res
