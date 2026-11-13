@@ -31,6 +31,8 @@ export interface CreateOrderPayload {
     keywords_include?: string[];
     keywords_exclude?: string[];
     exclusions?: string[];
+    directionality?: "vendor_to_clients" | "client_to_vendors";
+    rfq_specifications?: string;
   };
 }
 
@@ -197,7 +199,7 @@ export interface IntentProfileResponse {
 export const michitoApi = createApi({
   reducerPath: "michitoApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
-  tagTypes: ["Campaigns", "Order", "Partner"],
+  tagTypes: ["Campaigns", "Order", "Partner", "TaxonomySectors", "TaxonomyRoles"],
   endpoints: (builder) => ({
     getCampaigns: builder.query<{ status: string; count: number; campaigns: any[] }, void>({
       query: () => "/campaigns",
@@ -269,6 +271,7 @@ export const michitoApi = createApi({
         if (limit) params.append("limit", limit.toString());
         return `/taxonomy/roles?${params.toString()}`;
       },
+      providesTags: ["TaxonomyRoles"],
     }),
     recordRoleUsage: builder.mutation<{ status: string; message: string }, { role_title: string }>({
       query: (body) => ({
@@ -284,6 +287,27 @@ export const michitoApi = createApi({
         if (limit) params.append("limit", limit.toString());
         return `/taxonomy/sectors?${params.toString()}`;
       },
+      providesTags: ["TaxonomySectors"],
+    }),
+    createCustomTaxonomy: builder.mutation<
+      { status: string; type: string; item: any },
+      {
+        type: "sector" | "role";
+        name: string;
+        country_code?: string;
+        ciiu_codes?: string[];
+        keywords?: string[];
+        domain?: string;
+        seniority?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/taxonomy/custom",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, arg) =>
+        arg.type === "sector" ? ["TaxonomySectors"] : ["TaxonomyRoles"],
     }),
   }),
 });
@@ -309,5 +333,6 @@ export const {
   useRecordRoleUsageMutation,
   useSearchSectorsQuery,
   useLazySearchSectorsQuery,
+  useCreateCustomTaxonomyMutation,
 } = michitoApi;
 

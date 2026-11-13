@@ -272,6 +272,8 @@ class GenerateProspectsUseCase:
         location_allocations: Optional[List[Dict[str, Any]]] = None,
         keywords_include: Optional[List[str]] = None,
         keywords_exclude: Optional[List[str]] = None,
+        directionality: str = "vendor_to_clients",
+        rfq_specifications: Optional[str] = None,
     ) -> Dict[str, Any]:
         print("=" * 80)
         print("[ENGINE] UNIVERSAL MULTI-COUNTRY B2B PROSPECTOR & INTENT ENGINE (MICHITO)")
@@ -297,6 +299,8 @@ class GenerateProspectsUseCase:
             keywords_exclude = keywords_exclude or u_dict.get("keywords_exclude")
             tier = u_dict.get("tier", tier)
             limit = u_dict.get("total_leads", limit)
+            directionality = u_dict.get("directionality") or directionality
+            rfq_specifications = u_dict.get("rfq_specifications") or rfq_specifications
             if u_dict.get("preset_id"):
                 campaign = u_dict.get("preset_id")
             if u_dict.get("locations"):
@@ -332,21 +336,23 @@ class GenerateProspectsUseCase:
                 "ciiu_codes": target_ciiu_codes or [],
                 "keywords_include": keywords_include or [],
                 "keywords_exclude": keywords_exclude or [],
-                "roles": target_roles or DEFAULT_ROLES,
+                "roles": target_roles or (["Director Comercial", "Gerente Comercial", "Gerente de Ventas", "Gerente General"] if directionality in ("client_to_vendors", "procurement") else DEFAULT_ROLES),
             }
             touches_cfg = generate_dynamic_touches(
                 offer_description=offer_description,
                 sectors=target_sectors or ([sector] if sector else None),
                 roles=target_roles,
+                directionality=directionality,
+                rfq_specifications=rfq_specifications,
             )
             campaign_cfg = {
                 "id": campaign_id,
                 "name": campaign_name,
                 "client_id": "universal",
-                "description": offer_description or "Campaña B2B de prospección dinámica sobre demanda",
+                "description": offer_description or ("Solicitud y Homologación de Proveedores (Auto-RFQ)" if directionality in ("client_to_vendors", "procurement") else "Campaña B2B de prospección dinámica sobre demanda"),
                 "target": target_cfg,
                 "angles": {
-                    "recommended": offer_description or "Eficiencia Operativa y Crecimiento Estratégico B2B",
+                    "recommended": offer_description or ("Licitación y Cotización de Proveedores B2B" if directionality in ("client_to_vendors", "procurement") else "Eficiencia Operativa y Crecimiento Estratégico B2B"),
                 },
                 "specs": {},
                 "teaser": {},
@@ -372,6 +378,8 @@ class GenerateProspectsUseCase:
                     offer_description=offer_description,
                     sectors=target_sectors or target_cfg.get("sectors"),
                     roles=target_roles or target_cfg.get("roles"),
+                    directionality=directionality,
+                    rfq_specifications=rfq_specifications,
                 )
             else:
                 touches_cfg = dict(campaign_cfg.get("touches") or {})

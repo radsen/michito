@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Building2, Check, ChevronDown, Sparkles } from "lucide-react";
-import { useSearchSectorsQuery } from "../../store/api/michitoApi";
+import { Building2, Check, ChevronDown, Plus, Loader2 } from "lucide-react";
+import { useSearchSectorsQuery, useCreateCustomTaxonomyMutation } from "../../store/api/michitoApi";
 
 export interface SectorSelectorProps {
   selectedSectors: string[];
@@ -21,6 +21,8 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
     limit: 25,
   });
 
+  const [createCustomTaxonomy, { isLoading: isCreating }] = useCreateCustomTaxonomyMutation();
+
   const sectors = sectorsData?.sectors || [];
 
   const toggleSector = (sectorId: string, sectorKeywords: string[] = []) => {
@@ -37,6 +39,26 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
   const getSectorDisplayName = (id: string) => {
     const s = sectors.find((sec: any) => sec.sector_id === id);
     return s ? s.sector_name : id.replace(/_/g, " ");
+  };
+
+  const hasExactMatch = sectors.some(
+    (sec: any) => sec.sector_name.toLowerCase().trim() === searchTerm.toLowerCase().trim()
+  );
+
+  const handleCreateCustomSector = async () => {
+    const clean = searchTerm.trim();
+    if (!clean) return;
+    try {
+      const res = await createCustomTaxonomy({ type: "sector", name: clean }).unwrap();
+      if (res?.item?.sector_id) {
+        if (!selectedSectors.includes(res.item.sector_id)) {
+          onChange([...selectedSectors, res.item.sector_id]);
+        }
+        setSearchTerm("");
+      }
+    } catch (err) {
+      console.error("Failed to create custom sector:", err);
+    }
   };
 
   return (
@@ -86,11 +108,48 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Filtrar por sector o código CIIU..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && searchTerm.trim().length >= 3 && !hasExactMatch) {
+                    e.preventDefault();
+                    handleCreateCustomSector();
+                  }
+                }}
+                placeholder="Filtrar o tipear nuevo nicho (ej. Colegios, Muebles)..."
                 className="geo-search-input"
                 style={{ padding: "6px 10px", fontSize: "0.8rem" }}
               />
             </div>
+
+            {/* Custom On-The-Fly Sector Creation Pill */}
+            {searchTerm.trim().length >= 3 && !hasExactMatch && (
+              <button
+                type="button"
+                onClick={handleCreateCustomSector}
+                disabled={isCreating}
+                className="sector-item-row"
+                style={{
+                  background: "rgba(99, 102, 241, 0.12)",
+                  borderBottom: "1px dashed rgba(99, 102, 241, 0.3)",
+                  color: "#a5b4fc",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {isCreating ? (
+                    <Loader2 className="spinner" style={{ width: 14, height: 14 }} />
+                  ) : (
+                    <Plus style={{ width: 14, height: 14 }} />
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
+                    <span style={{ fontWeight: 600 }}>
+                      + Clasificar y añadir nuevo nicho: "{searchTerm.trim()}"
+                    </span>
+                    <span style={{ fontSize: "0.70rem", color: "#818cf8" }}>
+                      El motor inferirá automáticamente el código CIIU Rev. 4 y lo agregará al catálogo
+                    </span>
+                  </div>
+                </div>
+              </button>
+            )}
 
             {sectors.map((sec: any) => {
               const isSelected = selectedSectors.includes(sec.sector_id);
@@ -114,7 +173,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
               );
             })}
 
-            {sectors.length === 0 && (
+            {sectors.length === 0 && !searchTerm.trim() && (
               <div style={{ padding: "12px", textAlign: "center", fontSize: "0.78rem", color: "var(--text-dim)" }}>
                 No se encontraron sectores que coincidan con la búsqueda.
               </div>
@@ -124,7 +183,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
       </div>
 
       <span style={{ fontSize: "0.72rem", color: "var(--text-dim)" }}>
-        Al seleccionar un sector, el motor consulta automáticamente los códigos CIIU correspondientes en registros oficiales.
+        Al seleccionar o escribir un sector, el motor indexa los códigos CIIU correspondientes en registros oficiales sin costo.
       </span>
     </div>
   );

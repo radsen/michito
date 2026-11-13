@@ -16,6 +16,7 @@ import {
   useSearchRolesQuery,
   useRecordRoleUsageMutation,
   useGetCampaignPresetsQuery,
+  useCreateCustomTaxonomyMutation,
   LocationAllocationPayload,
   CreateOrderPayload,
 } from "../../store/api/michitoApi";
@@ -53,6 +54,8 @@ import {
   Share2,
   Copy,
   Check,
+  ShoppingCart,
+  TrendingUp,
 } from "lucide-react";
 
 interface PresetTemplate {
@@ -325,6 +328,10 @@ export const OrderGenerator: React.FC = () => {
     ]
   );
 
+  // Bidirectional Directionality (Sales vs Procurement/RFQ)
+  const [directionality, setDirectionality] = useState<"vendor_to_clients" | "client_to_vendors">("vendor_to_clients");
+  const [rfqSpecifications, setRfqSpecifications] = useState<string>("");
+
   // Buyer Info State
   const [buyerName, setLocalName] = useState("Demo Lead Buyer");
   const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
@@ -440,12 +447,15 @@ export const OrderGenerator: React.FC = () => {
     }
   };
 
+  const [createCustomTaxonomy] = useCreateCustomTaxonomyMutation();
+
   const handleRolesChange = (newRoles: string[]) => {
     setTargetRoles(newRoles);
-    // Auto-record newly added roles in taxonomy usage stats
+    // Auto-record and persist newly added roles in taxonomy
     const addedRole = newRoles.find((r) => !targetRoles.includes(r));
     if (addedRole) {
       recordRoleUsage({ role_title: addedRole }).catch(() => {});
+      createCustomTaxonomy({ type: "role", name: addedRole }).catch(() => {});
     }
   };
 
@@ -567,6 +577,8 @@ export const OrderGenerator: React.FC = () => {
           keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
           keywords_exclude: allExclusions.length > 0 ? allExclusions : undefined,
           exclusions: allExclusions.length > 0 ? allExclusions : undefined,
+          directionality: directionality,
+          rfq_specifications: directionality === "client_to_vendors" && rfqSpecifications.trim() ? rfqSpecifications.trim() : undefined,
         },
       };
 
@@ -630,6 +642,8 @@ export const OrderGenerator: React.FC = () => {
           keywords_include: positiveKeywords.length > 0 ? positiveKeywords : undefined,
           keywords_exclude: allExclusions.length > 0 ? allExclusions : undefined,
           exclusions: allExclusions.length > 0 ? allExclusions : undefined,
+          directionality: directionality,
+          rfq_specifications: directionality === "client_to_vendors" && rfqSpecifications.trim() ? rfqSpecifications.trim() : undefined,
         },
       };
 
@@ -763,6 +777,63 @@ export const OrderGenerator: React.FC = () => {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Directionality Switcher: Vender vs Comprar / Cotizar */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ display: "flex", gap: "8px", background: "rgba(15, 23, 42, 0.6)", padding: "4px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                    <button
+                      type="button"
+                      onClick={() => setDirectionality("vendor_to_clients")}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        padding: "10px 14px",
+                        borderRadius: "8px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        background: directionality === "vendor_to_clients" ? "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)" : "transparent",
+                        color: directionality === "vendor_to_clients" ? "#ffffff" : "var(--text-muted)",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <TrendingUp style={{ width: 16, height: 16 }} />
+                      <span>Quiero Vender (Captar Clientes B2B)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDirectionality("client_to_vendors");
+                        if (targetRoles.length === 0 || targetRoles.includes("Director de Operaciones")) {
+                          setTargetRoles(["Director Comercial", "Gerente Comercial", "Gerente de Ventas", "Gerente General"]);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        padding: "10px 14px",
+                        borderRadius: "8px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        background: directionality === "client_to_vendors" ? "linear-gradient(135deg, #059669 0%, #10b981 100%)" : "transparent",
+                        color: directionality === "client_to_vendors" ? "#ffffff" : "var(--text-muted)",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <ShoppingCart style={{ width: 16, height: 16 }} />
+                      <span>Quiero Comprar (Cotizar Proveedores / Auto-RFQ)</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Mode Switcher Tabs */}
@@ -995,21 +1066,51 @@ export const OrderGenerator: React.FC = () => {
                     {/* Offer Description Field */}
                     <div className="form-group">
                       <label className="form-label">
-                        <FileText className="form-label-icon text-sky-400" />
-                        <span>Propuesta de Valor u Oferta Comercial B2B</span>
+                        <FileText className={`form-label-icon ${directionality === "client_to_vendors" ? "text-emerald-400" : "text-sky-400"}`} />
+                        <span>
+                          {directionality === "client_to_vendors"
+                            ? "Producto, Insumo o Servicio que Necesitas Cotizar / Contratar"
+                            : "Propuesta de Valor u Oferta Comercial B2B"}
+                        </span>
                       </label>
                       <textarea
                         rows={2}
                         value={offerDescription}
                         onChange={(e) => setOfferDescription(e.target.value)}
-                        placeholder="Describe el producto o servicio que vendes (ej: Distribución mayorista de insumos médicos para clínicas, suministro de combustible diésel para flotas pesadas, o software de facturación)..."
+                        placeholder={
+                          directionality === "client_to_vendors"
+                            ? "Describe lo que deseas cotizar (ej: Reparación y mantenimiento locativo de silletería de oficina, suministro de dotaciones escolares, o compra mayorista de insumos)..."
+                            : "Describe el producto o servicio que vendes (ej: Distribución mayorista de insumos médicos para clínicas, suministro de combustible diésel para flotas pesadas, o software de facturación)..."
+                        }
                         className="form-textarea"
                       />
                       <span className="form-hint">
-                        Esta propuesta personaliza automáticamente las 5 cadencias de contacto
-                        (correos y notas de LinkedIn) que genera el motor para cada prospecto.
+                        {directionality === "client_to_vendors"
+                          ? "El motor identificará los proveedores registrados más sólidos en las cámaras de comercio y generará la solicitud de cotización formal (Auto-RFQ)."
+                          : "Esta propuesta personaliza automáticamente las 5 cadencias de contacto (correos y notas de LinkedIn) que genera el motor para cada prospecto."}
                       </span>
                     </div>
+
+                    {/* RFQ Specifications (Visible only in Procurement / Comprar mode) */}
+                    {directionality === "client_to_vendors" && (
+                      <div className="form-group">
+                        <label className="form-label">
+                          <FileText className="form-label-icon text-emerald-400" />
+                          <span>Especificaciones Técnicas / Pliego del Requerimiento (Auto-RFQ)</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={rfqSpecifications}
+                          onChange={(e) => setRfqSpecifications(e.target.value)}
+                          placeholder="Requerimientos específicos (ej: Requerimos cotizar mantenimiento para 120 puestos de trabajo en Medellín con garantía de 12 meses y ejecución en enero)..."
+                          className="form-textarea"
+                          style={{ borderColor: "rgba(16, 185, 129, 0.4)" }}
+                        />
+                        <span className="form-hint" style={{ color: "#34d399" }}>
+                          Estas especificaciones se insertarán automáticamente en la solicitud formal de cotización enviada a los directores comerciales de los proveedores calificados.
+                        </span>
+                      </div>
+                    )}
 
                     {/* Macro-Sector & CIIU Code Selector */}
                     <div className="form-group">

@@ -247,6 +247,20 @@ class CiiuCode:
                 sector_macro=data["sector_macro"],
                 tinkko_fit=data["tinkko_fit"]
             )
+        # Check universal ISIC index
+        try:
+            from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            entry = GLOBAL_ISIC_INDEX.get_by_code(clean_code)
+            if entry:
+                return cls(
+                    code=entry.code,
+                    description=entry.title,
+                    sector_macro=entry.sector_macro,
+                    tinkko_fit="Relevante (Taxonomía Universal ISIC Rev. 4)"
+                )
+        except Exception:
+            pass
+
         return cls(
             code=clean_code,
             description=f"Actividad Económica CIIU {clean_code}",
@@ -260,6 +274,7 @@ class CiiuCode:
         Infers the 4-digit DANE CIIU Rev. 4 A.C. code and economic activity based
         on corporate registration name, official email domain, and declared activity.
         Corresponds to Box 46 ('Actividad Principal') of the Colombian DIAN RUT.
+        Uses high-speed inverted index over 241 official classes.
         """
         text = f"{company_name} {email} {raw_desc}".lower()
 
@@ -283,6 +298,15 @@ class CiiuCode:
         for pat, code in patterns:
             if re.search(pat, text):
                 return cls.from_code(code)
+
+        # Dynamic semantic search using Universal ISIC Index
+        try:
+            from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            entry = GLOBAL_ISIC_INDEX.resolve_best_match(text)
+            if entry:
+                return cls.from_code(entry.code)
+        except Exception:
+            pass
 
         # Default fallback: Actividades de consultoría de gestión empresarial y servicios B2B
         return cls.from_code("7020")

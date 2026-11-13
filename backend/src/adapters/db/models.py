@@ -130,6 +130,10 @@ class OrderModel(Base):
     keywords_include: Any = Column(JSON, nullable=True)
     keywords_exclude: Any = Column(JSON, nullable=True)
 
+    # Bidirectional Commercial Directionality & RFQ Specs
+    directionality: Any = Column(String(32), default="vendor_to_clients", index=True)
+    rfq_specifications: Any = Column(Text, nullable=True)
+
     # Lifecycle State: queued, processing, awaiting_payment, paid, completed, failed
     status: Any = Column(String(32), default="queued", index=True)
 
@@ -194,6 +198,8 @@ class OrderModel(Base):
                 "offer_description": self.offer_description,
                 "target_roles": self.target_roles,
                 "target_ciiu_codes": self.target_ciiu_codes,
+                "directionality": self.directionality or "vendor_to_clients",
+                "rfq_specifications": self.rfq_specifications,
                 "keywords_include": self.keywords_include,
                 "keywords_exclude": self.keywords_exclude,
                 "exclusions": self.keywords_exclude,

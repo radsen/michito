@@ -32,6 +32,17 @@ class TestCiiuCode(unittest.TestCase):
         self.assertEqual(c_consult.code, "7020")
         self.assertEqual(c_consult.sector_macro, "Consultoría Empresarial & Gestión")
 
+    def test_universal_isic_resolution(self):
+        # 0111 is agriculture/cereals from the Universal ISIC Rev. 4 catalog
+        c_agri = CiiuCode.from_code("0111")
+        self.assertEqual(c_agri.code, "0111")
+        self.assertEqual(c_agri.sector_macro, "Agricultura & Granos")
+
+        # 9524 is furniture repair from the Universal ISIC Rev. 4 catalog
+        c_furn = CiiuCode.from_code("9524")
+        self.assertEqual(c_furn.code, "9524")
+        self.assertIn("muebles", c_furn.description.lower())
+
     def test_unknown_code_fallback(self):
         c = CiiuCode.from_code("9999")
         self.assertEqual(c.code, "9999")

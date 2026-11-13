@@ -5,7 +5,18 @@ supporting on-demand multi-territory quotas, dynamic CIIU sectors, and bespoke t
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List, Dict, Any, Optional
+
+
+class SearchDirectionality(str, Enum):
+    """
+    Defines the commercial intent vector of the search:
+    - VENDOR_TO_CLIENTS: Outbound sales (selling product/service to target buyers)
+    - CLIENT_TO_VENDORS: Procurement & sourcing (sourcing suppliers & issuing Instant RFQs)
+    """
+    VENDOR_TO_CLIENTS = "vendor_to_clients"
+    CLIENT_TO_VENDORS = "client_to_vendors"
 
 
 @dataclass
@@ -63,6 +74,10 @@ class UniversalProspectingRequest:
     tier: int = 2  # Tier 1 (Directory), Tier 2 (Decision Makers), Tier 3 (Full Underwriting)
     total_leads: int = 25
 
+    # Bidirectional Commercial Intent
+    directionality: SearchDirectionality = SearchDirectionality.VENDOR_TO_CLIENTS
+    rfq_specifications: Optional[str] = None
+
     # Optional Preset Linkage (For demonstration case studies / template examples)
     preset_id: Optional[str] = None
     min_revenue_cop: Optional[str] = None
@@ -80,6 +95,8 @@ class UniversalProspectingRequest:
             "excluded_domains": self.excluded_domains,
             "tier": self.tier,
             "total_leads": self.total_leads,
+            "directionality": self.directionality.value if isinstance(self.directionality, SearchDirectionality) else str(self.directionality),
+            "rfq_specifications": self.rfq_specifications,
             "preset_id": self.preset_id,
             "min_revenue_cop": self.min_revenue_cop,
         }
@@ -104,6 +121,12 @@ class UniversalProspectingRequest:
                     )
                 )
 
+        raw_dir = data.get("directionality") or "vendor_to_clients"
+        try:
+            directionality = SearchDirectionality(raw_dir)
+        except ValueError:
+            directionality = SearchDirectionality.VENDOR_TO_CLIENTS
+
         return cls(
             offer_description=data.get("offer_description") or data.get("query") or data.get("offer") or "Búsqueda B2B Personalizada",
             sectors=data.get("sectors") or [],
@@ -116,6 +139,8 @@ class UniversalProspectingRequest:
             excluded_domains=data.get("excluded_domains") or [],
             tier=int(data.get("tier") or 2),
             total_leads=int(data.get("total_leads") or data.get("limit") or 25),
+            directionality=directionality,
+            rfq_specifications=data.get("rfq_specifications"),
             preset_id=data.get("preset_id") or data.get("campaign_id"),
             min_revenue_cop=data.get("min_revenue_cop"),
         )

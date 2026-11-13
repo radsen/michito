@@ -83,10 +83,21 @@ class RequestDto(BaseModel):
     keywords_include: Optional[List[str]] = None
     keywords_exclude: Optional[List[str]] = None
     exclusions: Optional[List[str]] = None
+    directionality: Optional[str] = "vendor_to_clients"
+    rfq_specifications: Optional[str] = None
 
 class CreateOrderRequest(BaseModel):
     client: ClientDto
     request: RequestDto
+
+class CustomTaxonomyRequest(BaseModel):
+    type: str  # "sector" or "role"
+    name: str
+    country_code: Optional[str] = "ALL"
+    ciiu_codes: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
+    domain: Optional[str] = "general"
+    seniority: Optional[str] = "director"
 
 class IntentProfileRequest(BaseModel):
     query: str
@@ -254,6 +265,32 @@ def search_taxonomy_sectors(q: str = "", limit: int = 30):
     results = sql_adapter.search_sectors(query=q, limit=limit)
     return {"status": "success", "total": len(results), "sectors": results}
 
+@app.post("/api/v1/taxonomy/custom")
+def create_custom_taxonomy(payload: CustomTaxonomyRequest):
+    """
+    Dynamically persists user-defined or AI-agent-discovered sectors or roles.
+    Immediately makes them available in the visual form and autocomplete searches.
+    """
+    tax_type = payload.type.strip().lower()
+    if tax_type in ("sector", "sectors", "vertical"):
+        sector = sql_adapter.add_custom_sector(
+            name=payload.name,
+            ciiu_codes=payload.ciiu_codes,
+            keywords=payload.keywords,
+            country_code=payload.country_code or "ALL",
+        )
+        return {"status": "success", "type": "sector", "item": sector}
+    elif tax_type in ("role", "roles", "cargo"):
+        role = sql_adapter.add_custom_role(
+            title=payload.name,
+            domain=payload.domain or "general",
+            seniority=payload.seniority or "director",
+            country_code=payload.country_code or "ALL",
+        )
+        return {"status": "success", "type": "role", "item": role}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid taxonomy type. Expected 'sector' or 'role'.")
+
 @app.get("/api/v1/partners/{partner_id}")
 def get_partner_profile(partner_id: str):
     """
@@ -333,6 +370,8 @@ def create_prospecting_order(payload: CreateOrderRequest):
             target_roles=payload.request.target_roles,
             target_ciiu_codes=payload.request.target_ciiu_codes,
             location_allocations=payload.request.location_allocations,
+            directionality=payload.request.directionality or "vendor_to_clients",
+            rfq_specifications=payload.request.rfq_specifications,
         )
 
         try:

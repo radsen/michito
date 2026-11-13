@@ -25,6 +25,7 @@ from src.adapters.db.models import (
     SearchIntentQueryModel,
 )
 from src.adapters.partners.partner_registry import PartnerRegistry
+import re
 import unicodedata
 
 
@@ -123,6 +124,10 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN target_roles JSON NULL"))
                     if "target_ciiu_codes" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN target_ciiu_codes JSON NULL"))
+                    if "directionality" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN directionality VARCHAR(32) DEFAULT 'vendor_to_clients'"))
+                    if "rfq_specifications" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN rfq_specifications TEXT NULL"))
                     if "retry_count" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN retry_count INTEGER DEFAULT 0"))
                     if "max_retries" not in columns:
@@ -198,6 +203,8 @@ class SqlOrderAdapter:
         target_roles: Optional[List[str]] = None,
         target_ciiu_codes: Optional[List[str]] = None,
         location_allocations: Optional[List[Dict[str, Any]]] = None,
+        directionality: str = "vendor_to_clients",
+        rfq_specifications: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -246,6 +253,8 @@ class SqlOrderAdapter:
             target_ciiu_codes=target_ciiu_codes,
             keywords_include=keywords_include,
             keywords_exclude=keywords_exclude,
+            directionality=directionality,
+            rfq_specifications=rfq_specifications,
             status="queued",
             payment_provider="wompi",
             payment_status="pending",
@@ -1141,3 +1150,106 @@ class SqlOrderAdapter:
             session.add(query_obj)
             session.commit()
             return query_id
+
+    def add_custom_sector(
+        self,
+        name: str,
+        ciiu_codes: Optional[List[str]] = None,
+        keywords: Optional[List[str]] = None,
+        country_code: str = "ALL",
+    ) -> Dict[str, Any]:
+        """
+        Dynamically persists or updates a user-defined economic sector.
+        Infers CIIU codes via Universal ISIC Index if none are supplied.
+        Immediately visible in the visual form and autocomplete searches.
+        """
+        clean_name = name.strip()
+        norm_name = _strip_accents(clean_name)
+        if not clean_name:
+            raise ValueError("Sector name cannot be empty")
+
+        with self._get_session() as session:
+            # Check if sector already exists
+            existing = session.scalars(select(TaxonomySectorModel)).all()
+            for s in existing:
+                if _strip_accents(s.sector_name) == norm_name:
+                    s.usage_count = (s.usage_count or 0) + 1
+                    session.commit()
+                    return s.to_dict()
+
+            resolved_ciiu = list(ciiu_codes or [])
+            if not resolved_ciiu:
+                try:
+                    from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    entry = GLOBAL_ISIC_INDEX.resolve_best_match(clean_name)
+                    if entry:
+                        resolved_ciiu.append(entry.code)
+                except Exception:
+                    pass
+
+            resolved_keywords = list(keywords or [])
+            if not resolved_keywords:
+                resolved_keywords = [w for w in clean_name.lower().split() if len(w) > 3]
+
+            sector_slug = re.sub(r"[^a-z0-9]+", "_", norm_name)[:32].strip("_")
+            sec_id = f"sec_custom_{sector_slug}_{uuid.uuid4().hex[:4]}"
+
+            new_sector = TaxonomySectorModel(
+                sector_id=sec_id,
+                sector_name=clean_name,
+                country_code=country_code.upper(),
+                ciiu_codes=resolved_ciiu,
+                keywords_include=resolved_keywords,
+                keywords_exclude_defaults=[],
+                is_active=True,
+                usage_count=1,
+            )
+            session.add(new_sector)
+            session.commit()
+            session.refresh(new_sector)
+            return new_sector.to_dict()
+
+    def add_custom_role(
+        self,
+        title: str,
+        domain: str = "general",
+        seniority: str = "director",
+        country_code: str = "ALL",
+        aliases: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Dynamically persists or updates a user-defined decision maker role.
+        Immediately visible in the visual form and autocomplete searches.
+        """
+        clean_title = title.strip()
+        norm_title = _strip_accents(clean_title)
+        if not clean_title:
+            raise ValueError("Role title cannot be empty")
+
+        with self._get_session() as session:
+            existing = session.scalars(select(TaxonomyRoleModel)).all()
+            for r in existing:
+                if _strip_accents(r.canonical_title) == norm_title:
+                    r.usage_count = (r.usage_count or 0) + 1
+                    session.commit()
+                    return r.to_dict()
+
+            role_slug = re.sub(r"[^a-z0-9]+", "_", norm_title)[:32].strip("_")
+            r_id = f"role_custom_{role_slug}_{uuid.uuid4().hex[:4]}"
+
+            new_role = TaxonomyRoleModel(
+                role_id=r_id,
+                canonical_title=clean_title,
+                seniority_level=seniority,
+                functional_domain=domain,
+                country_code=country_code.upper(),
+                aliases=aliases or [clean_title],
+                applicable_sectors=["all"],
+                usage_count=1,
+                is_active=True,
+            )
+            session.add(new_role)
+            session.commit()
+            session.refresh(new_role)
+            return new_role.to_dict()
+
