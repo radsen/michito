@@ -6,15 +6,15 @@ services:
     container_name: michito-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: michito_admin
-      POSTGRES_PASSWORD: michito_secure_pass
-      POSTGRES_DB: michito
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-michito}
     ports:
       - "5432:5432"
     volumes:
       - michito_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U michito_admin -d michito"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-michito}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,14 +28,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      ENVIRONMENT: production
-      DATABASE_URL: postgresql+psycopg://michito_admin:michito_secure_pass@postgres:5432/michito
-      PORT: 8000
-      GCS_BUCKET_NAME: michito-deliverables
-      GCP_PROJECT_ID: chiketto-michito
-      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-pub_test_dummy}
-      WOMPI_WEBHOOK_SECRET: ${WOMPI_WEBHOOK_SECRET:-secret_test_dummy}
+    env_file:
+      - .env.local
     ports:
       - "8000:8000"
     volumes:
@@ -47,19 +41,28 @@ services:
       dockerfile: backend/Dockerfile
     container_name: michito-worker
     restart: unless-stopped
-    command: ["python", "-m", "src.entrypoints.workers.order_worker_daemon"]
+    command: ["python", "order_worker.py", "--daemon"]
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      ENVIRONMENT: production
-      DATABASE_URL: postgresql+psycopg://michito_admin:michito_secure_pass@postgres:5432/michito
-      GCS_BUCKET_NAME: michito-deliverables
-      GCP_PROJECT_ID: chiketto-michito
+      api:
+        condition: service_started
+    env_file:
+      - .env.local
     volumes:
       - ./outputs:/app/outputs
+
+  web:
+    build:
+      context: .
+      dockerfile: clients/web/Dockerfile
+    container_name: michito-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
 
 volumes:
   michito_pgdata:
     driver: local
-

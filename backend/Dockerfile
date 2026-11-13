@@ -1,6 +1,6 @@
 # ==============================================================================
 # Michito B2B Lead Intelligence Engine — Production Multi-Stage Dockerfile
-# Python 3.13 Slim • Non-Root Security • Cloud Run & ECS Compatible
+# Python 3.13 Slim • Non-Root Security • Container & Cloud Run Compatible
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -45,10 +45,11 @@ ENV PATH="/home/michito/.local/bin:${PATH}" \
     PYTHONPATH=/app \
     PORT=8000
 
-# Copy application source code and configurations
+# Copy application source code, modules, and configurations
 COPY --chown=michito:michito backend/src/ /app/src/
 COPY --chown=michito:michito backend/campaigns/ /app/campaigns/
 COPY --chown=michito:michito backend/templates/ /app/templates/
+COPY --chown=michito:michito backend/*.py /app/
 COPY --chown=michito:michito clients/ /app/clients/
 COPY --chown=michito:michito backend/requirements.txt /app/
 
@@ -57,7 +58,7 @@ RUN mkdir -p /app/outputs && chown -R michito:michito /app/outputs
 
 USER michito
 
-# Expose HTTP port for Cloud Run / Kubernetes
+# Expose HTTP port for Web API
 EXPOSE 8000
 
 # Healthcheck validating API responsiveness
@@ -65,6 +66,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT}/docs || exit 1
 
 # Default Command: Launches FastAPI Web API Service
-# (Can be overridden to run the worker: python -m src.entrypoints.workers.order_worker_daemon)
+# (Can be overridden to run the worker: python order_worker.py --daemon)
 CMD exec uvicorn src.entrypoints.api.main:app --host 0.0.0.0 --port ${PORT}
-
