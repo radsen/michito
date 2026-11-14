@@ -7,12 +7,10 @@ import {
   Mail,
   Phone,
   Building2,
-  UserCheck,
   ChevronDown,
   ChevronUp,
   Sparkles,
   Send,
-  Linkedin,
 } from "lucide-react";
 
 export interface PlaybookCompany {
@@ -67,10 +65,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
   if (!companies || companies.length === 0) {
     return (
-      <div className="p-8 text-center text-slate-400 bg-slate-900/50 rounded-xl border border-slate-800">
-        <Sparkles className="w-8 h-8 text-sky-400 mx-auto mb-2 opacity-70" />
-        <p className="font-medium text-slate-300">Playbook en Generación</p>
-        <p className="text-xs text-slate-500 mt-1">
+      <div className="playbook-empty-state" data-testid="outreach-playbook">
+        <Sparkles className="playbook-empty-icon" />
+        <p className="playbook-empty-title">Playbook en Generación</p>
+        <p className="playbook-empty-subtitle">
           Los guiones multicanal y ángulos comerciales de prospección se activan al completar el lote.
         </p>
       </div>
@@ -106,25 +104,26 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
   };
 
   return (
-    <div className="space-y-4" data-testid="outreach-playbook">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-900/90 rounded-xl border border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🎯</span>
-            <h4 className="text-base font-bold text-white tracking-tight">
+    <div className="playbook-wrapper" data-testid="outreach-playbook">
+      {/* Header Banner */}
+      <div className="playbook-header-banner">
+        <div className="playbook-header-content">
+          <div className="playbook-header-title-row">
+            <Send className="w-5 h-5 text-sky-400" />
+            <h4 className="playbook-header-title">
               Playbook de Prospección & Guiones 1-Click
             </h4>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="playbook-header-subtitle">
             Cadencias de 5 toques omnicanal (LinkedIn, Email, WhatsApp, Follow-up). Copia o dispara en 1 clic.
           </p>
         </div>
-        <div className="text-xs text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shrink-0">
-          <span className="font-semibold text-sky-400">{companies.length}</span> cuentas con guiones listos
+        <div className="playbook-badge-count">
+          <span className="playbook-badge-num">{companies.length}</span> cuentas con guiones listos
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="playbook-companies-list">
         {companies.map((comp, idx) => {
           const isExpanded = expandedIndex === idx;
           const currentTouchTab = activeTab[idx] || 1; // 1 to 5
@@ -140,38 +139,32 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
           return (
             <div
               key={idx}
-              className={`rounded-xl border transition-all duration-200 overflow-hidden ${
-                isExpanded
-                  ? "bg-slate-900/95 border-sky-500/50 shadow-lg shadow-sky-950/20"
-                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-              }`}
+              className={`playbook-company-card ${isExpanded ? "expanded" : ""}`}
             >
               {/* Accordion Header */}
               <button
                 type="button"
                 onClick={() => setExpandedIndex(isExpanded ? -1 : idx)}
-                className="w-full text-left p-4 flex items-center justify-between gap-3 hover:bg-slate-800/30 transition-colors"
+                className="playbook-card-header"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-sky-950/80 border border-sky-800/60 flex items-center justify-center text-xs font-bold text-sky-300 shrink-0">
-                    {idx + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-base">{flag}</span>
-                      <span className="font-semibold text-white truncate text-sm">
+                <div className="playbook-company-left">
+                  <div className="playbook-index-pill">{idx + 1}</div>
+                  <div className="playbook-company-meta">
+                    <div className="playbook-company-title-row">
+                      <span className="playbook-flag">{flag}</span>
+                      <span className="playbook-company-name">
                         {comp.company_name}
                       </span>
                       {comp.tax_id && (
-                        <span className="text-xs text-slate-400 font-mono">
+                        <span className="playbook-tax-id">
                           {comp.tax_id_type || "NIT"}: {comp.tax_id}
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                    <div className="playbook-company-subline">
                       <span>{comp.city}</span>
-                      <span>•</span>
-                      <span className="text-sky-400 font-medium truncate">
+                      <span className="playbook-dot">•</span>
+                      <span className="playbook-dm-name">
                         {comp.decision_maker_name || "Contacto Registrado"} (
                         {comp.decision_maker_title || "Representante Legal"})
                       </span>
@@ -179,9 +172,9 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="playbook-card-header-actions">
                   {comp.triggers?.intent && (
-                    <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                    <span className="playbook-intent-tag">
                       {comp.triggers.intent}
                     </span>
                   )}
@@ -195,25 +188,25 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
               {/* Expanded Card Body */}
               {isExpanded && (
-                <div className="p-4 pt-0 border-t border-slate-800/80 space-y-4">
+                <div className="playbook-card-body">
                   {/* Account Intelligence Strip */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3">
-                    <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 text-xs">
-                      <div className="text-slate-500 font-medium flex items-center gap-1.5 mb-1">
+                  <div className="playbook-intel-grid">
+                    <div className="playbook-intel-card">
+                      <div className="playbook-intel-label">
                         <Mail className="w-3.5 h-3.5 text-sky-400" />
                         <span>Correo Verificado</span>
                       </div>
-                      <div className="font-mono text-slate-200 select-all truncate">
+                      <div className="playbook-intel-value font-mono">
                         {comp.email || "No registrado"}
                       </div>
                     </div>
 
-                    <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 text-xs">
-                      <div className="text-slate-500 font-medium flex items-center gap-1.5 mb-1">
+                    <div className="playbook-intel-card">
+                      <div className="playbook-intel-label">
                         <Phone className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Celular Directo / WhatsApp</span>
                       </div>
-                      <div className="font-mono text-slate-200 select-all truncate flex items-center justify-between">
+                      <div className="playbook-intel-value font-mono playbook-phone-row">
                         <span>{comp.phone || "No registrado"}</span>
                         {comp.phone && (
                           <button
@@ -224,7 +217,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                                 `Hola ${comp.decision_maker_name || ""}, te contacto de parte de nuestro equipo comercial.`
                               )
                             }
-                            className="text-emerald-400 hover:text-emerald-300 text-[11px] font-semibold"
+                            className="playbook-whatsapp-link"
                             title="Abrir WhatsApp"
                           >
                             WhatsApp
@@ -233,18 +226,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       </div>
                     </div>
 
-                    <div className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 text-xs">
-                      <div className="text-slate-500 font-medium flex items-center gap-1.5 mb-1">
+                    <div className="playbook-intel-card">
+                      <div className="playbook-intel-label">
                         <Building2 className="w-3.5 h-3.5 text-purple-400" />
                         <span>Sitio Web Corporativo</span>
                       </div>
-                      <div className="truncate">
+                      <div className="playbook-intel-value">
                         {comp.website && comp.website.startsWith("http") ? (
                           <a
                             href={comp.website}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sky-400 hover:underline flex items-center gap-1"
+                            className="playbook-website-link"
                           >
                             <span className="truncate">{comp.website}</span>
                             <ExternalLink className="w-3 h-3 shrink-0" />
@@ -258,13 +251,13 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
                   {/* Trigger Angle Alert */}
                   {comp.recommended_angle && (
-                    <div className="p-3 bg-sky-950/30 border border-sky-800/40 rounded-lg text-xs flex items-start gap-2.5 text-sky-200">
+                    <div className="playbook-angle-box">
                       <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-bold text-sky-300">Ángulo de Entrada Recomendado: </span>
-                        <span>{comp.recommended_angle}</span>
+                        <span className="playbook-angle-heading">Ángulo de Entrada Recomendado: </span>
+                        <span className="playbook-angle-text">{comp.recommended_angle}</span>
                         {comp.triggers?.contracts_won && (
-                          <span className="block text-slate-400 mt-0.5">
+                          <span className="playbook-angle-contracts">
                             Contratos ganados: {comp.triggers.contracts_won} • {comp.triggers.entity}
                           </span>
                         )}
@@ -273,7 +266,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                   )}
 
                   {/* Touch Navigation Tabs */}
-                  <div className="border-b border-slate-800 flex items-center gap-1 overflow-x-auto pb-1 text-xs">
+                  <div className="playbook-touch-tabs">
                     {[
                       { num: 1, label: "Touch 1 (LinkedIn)" },
                       { num: 2, label: "Touch 2 (Cold Email)" },
@@ -287,11 +280,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         onClick={() =>
                           setActiveTab((prev) => ({ ...prev, [idx]: tab.num }))
                         }
-                        className={`px-3 py-1.5 rounded-t-lg font-medium transition-colors shrink-0 ${
-                          currentTouchTab === tab.num
-                            ? "bg-slate-800 text-sky-400 border-b-2 border-sky-400"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                        }`}
+                        className={`playbook-touch-tab-btn ${currentTouchTab === tab.num ? "active" : ""}`}
                       >
                         {tab.label}
                       </button>
@@ -299,18 +288,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                   </div>
 
                   {/* Touch Content Panel */}
-                  <div className="bg-slate-950/80 p-3.5 rounded-lg border border-slate-800 space-y-3">
+                  <div className="playbook-touch-panel">
                     {/* Touch 1: LinkedIn */}
                     {currentTouchTab === 1 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-slate-400">
-                          <span className="font-semibold text-slate-300">
+                      <div className="playbook-touch-section">
+                        <div className="playbook-touch-title-row">
+                          <span className="playbook-touch-title">
                             Nota de Conexión LinkedIn (&lt;300 caracteres)
                           </span>
                           <button
                             type="button"
                             onClick={() => handleCopy(t1, `t1_${idx}`)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-900/60 hover:bg-sky-800 text-sky-200 rounded text-xs font-medium transition-colors"
+                            className="playbook-btn-copy"
                           >
                             {copiedKey === `t1_${idx}` ? (
                               <>
@@ -325,7 +314,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             )}
                           </button>
                         </div>
-                        <div className="p-3 bg-slate-900 rounded border border-slate-800 text-xs text-slate-200 leading-relaxed font-sans select-all">
+                        <div className="playbook-touch-body select-all">
                           {t1 || "Nota de conexión no provista para esta cuenta."}
                         </div>
                       </div>
@@ -333,33 +322,41 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
                     {/* Touch 2: Cold Email */}
                     {currentTouchTab === 2 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="text-slate-400">
-                            <span className="font-semibold text-slate-300">Asunto: </span>
-                            <span className="text-sky-300 font-medium">{t2.subject}</span>
+                      <div className="playbook-touch-section">
+                        <div className="playbook-subject-row">
+                          <div className="playbook-subject-label">
+                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-text">{t2.subject}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCopy(t2.subject, `t2_sub_${idx}`)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition-colors"
+                            className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t2_sub_${idx}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedKey === `t2_sub_${idx}` ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
                             <span>Copiar Asunto</span>
                           </button>
                         </div>
 
-                        <div className="p-3 bg-slate-900 rounded border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans select-all">
+                        <div className="playbook-touch-body select-all">
                           {t2.body || "Cuerpo no disponible"}
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="playbook-touch-actions">
                           <button
                             type="button"
                             onClick={() => handleCopy(`Asunto: ${t2.subject}\n\n${t2.body}`, `t2_all_${idx}`)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                            className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t2_all_${idx}` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedKey === `t2_all_${idx}` ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                             <span>Copiar Correo Completo</span>
                           </button>
 
@@ -367,7 +364,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             <button
                               type="button"
                               onClick={() => openWhatsApp(comp.phone, t2.body)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                              className="playbook-btn-whatsapp"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
                               <span>Enviar por WhatsApp</span>
@@ -379,33 +376,41 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
                     {/* Touch 3: Follow-up */}
                     {currentTouchTab === 3 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="text-slate-400">
-                            <span className="font-semibold text-slate-300">Asunto (Re:): </span>
-                            <span className="text-sky-300 font-medium">{t3.subject}</span>
+                      <div className="playbook-touch-section">
+                        <div className="playbook-subject-row">
+                          <div className="playbook-subject-label">
+                            <span className="playbook-subject-tag">Asunto (Re:): </span>
+                            <span className="playbook-subject-text">{t3.subject}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCopy(t3.subject, `t3_sub_${idx}`)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition-colors"
+                            className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t3_sub_${idx}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedKey === `t3_sub_${idx}` ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
                             <span>Copiar Asunto</span>
                           </button>
                         </div>
 
-                        <div className="p-3 bg-slate-900 rounded border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans select-all">
+                        <div className="playbook-touch-body select-all">
                           {t3.body || "Cuerpo no disponible"}
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="playbook-touch-actions">
                           <button
                             type="button"
                             onClick={() => handleCopy(`Asunto: ${t3.subject}\n\n${t3.body}`, `t3_all_${idx}`)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                            className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t3_all_${idx}` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedKey === `t3_all_${idx}` ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                             <span>Copiar Follow-up</span>
                           </button>
 
@@ -413,7 +418,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             <button
                               type="button"
                               onClick={() => openWhatsApp(comp.phone, t3.body)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                              className="playbook-btn-whatsapp"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
                               <span>Enviar por WhatsApp</span>
@@ -425,33 +430,41 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
                     {/* Touch 4: Social Proof */}
                     {currentTouchTab === 4 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="text-slate-400">
-                            <span className="font-semibold text-slate-300">Asunto: </span>
-                            <span className="text-sky-300 font-medium">{t4.subject}</span>
+                      <div className="playbook-touch-section">
+                        <div className="playbook-subject-row">
+                          <div className="playbook-subject-label">
+                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-text">{t4.subject}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCopy(t4.subject, `t4_sub_${idx}`)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition-colors"
+                            className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t4_sub_${idx}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedKey === `t4_sub_${idx}` ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
                             <span>Copiar Asunto</span>
                           </button>
                         </div>
 
-                        <div className="p-3 bg-slate-900 rounded border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans select-all">
+                        <div className="playbook-touch-body select-all">
                           {t4.body || "Cuerpo no disponible"}
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="playbook-touch-actions">
                           <button
                             type="button"
                             onClick={() => handleCopy(`Asunto: ${t4.subject}\n\n${t4.body}`, `t4_all_${idx}`)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                            className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t4_all_${idx}` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedKey === `t4_all_${idx}` ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                             <span>Copiar Prueba Social</span>
                           </button>
                         </div>
@@ -460,33 +473,41 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
                     {/* Touch 5: Breakup */}
                     {currentTouchTab === 5 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="text-slate-400">
-                            <span className="font-semibold text-slate-300">Asunto: </span>
-                            <span className="text-sky-300 font-medium">{t5.subject}</span>
+                      <div className="playbook-touch-section">
+                        <div className="playbook-subject-row">
+                          <div className="playbook-subject-label">
+                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-text">{t5.subject}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCopy(t5.subject, `t5_sub_${idx}`)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition-colors"
+                            className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t5_sub_${idx}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedKey === `t5_sub_${idx}` ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
                             <span>Copiar Asunto</span>
                           </button>
                         </div>
 
-                        <div className="p-3 bg-slate-900 rounded border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans select-all">
+                        <div className="playbook-touch-body select-all">
                           {t5.body || "Cuerpo no disponible"}
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="playbook-touch-actions">
                           <button
                             type="button"
                             onClick={() => handleCopy(`Asunto: ${t5.subject}\n\n${t5.body}`, `t5_all_${idx}`)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition-colors"
+                            className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t5_all_${idx}` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedKey === `t5_all_${idx}` ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
                             <span>Copiar Despedida / Catálogo</span>
                           </button>
                         </div>
@@ -502,4 +523,3 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
     </div>
   );
 };
-

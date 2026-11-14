@@ -4883,6 +4883,605 @@ main {
   font-weight: 600;
 }
 
+/* ==============================================================================
+   Outreach Playbook & 1-Click Multichannel Cadences
+   ============================================================================== */
+
+.tracker-views-container {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tracker-tab-badge {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  background: rgba(2, 132, 199, 0.25);
+  color: #38bdf8;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.tracker-view-tab-btn.active .tracker-tab-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Playbook Empty State */
+.playbook-empty-state {
+  padding: 40px 24px;
+  text-align: center;
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.playbook-empty-icon {
+  width: 36px;
+  height: 36px;
+  color: var(--accent-blue);
+  margin: 0 auto 12px auto;
+  opacity: 0.8;
+}
+
+.playbook-empty-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.playbook-empty-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Playbook Header Banner */
+.playbook-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.playbook-header-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(17, 24, 39, 0.9));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+@media (min-width: 640px) {
+  .playbook-header-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.playbook-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playbook-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playbook-header-title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.playbook-header-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.playbook-badge-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: rgba(30, 41, 59, 0.8);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+@media (min-width: 640px) {
+  .playbook-badge-count {
+    align-self: auto;
+  }
+}
+
+.playbook-badge-num {
+  font-weight: 700;
+  color: var(--accent-blue);
+  margin-right: 2px;
+}
+
+/* Company List & Accordion Cards */
+.playbook-companies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playbook-company-card {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.playbook-company-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.playbook-company-card.expanded {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.15);
+}
+
+.playbook-card-header {
+  width: 100%;
+  text-align: left;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+
+.playbook-card-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.playbook-company-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.playbook-index-pill {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #7dd3fc;
+  flex-shrink: 0;
+}
+
+.playbook-company-meta {
+  min-width: 0;
+}
+
+.playbook-company-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.playbook-flag {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.playbook-company-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playbook-tax-id {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.playbook-company-subline {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.playbook-dot {
+  color: var(--text-dim);
+}
+
+.playbook-dm-name {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.playbook-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.playbook-intent-tag {
+  display: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+@media (min-width: 640px) {
+  .playbook-intent-tag {
+    display: inline-block;
+  }
+}
+
+/* Expanded Card Body */
+.playbook-card-body {
+  padding: 16px 18px 20px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Account Intelligence Strip */
+.playbook-intel-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .playbook-intel-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.playbook-intel-card {
+  background: rgba(2, 6, 23, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playbook-intel-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.playbook-intel-value {
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playbook-phone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.playbook-whatsapp-link {
+  background: transparent;
+  border: none;
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.playbook-whatsapp-link:hover {
+  color: #6ee7b7;
+}
+
+.playbook-website-link {
+  color: #38bdf8;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.playbook-website-link:hover {
+  text-decoration: underline;
+}
+
+/* Recommended Angle Alert Box */
+.playbook-angle-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #bae6fd;
+  line-height: 1.5;
+}
+
+.playbook-angle-heading {
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.playbook-angle-text {
+  color: #e0f2fe;
+}
+
+.playbook-angle-contracts {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Touch Navigation Tabs */
+.playbook-touch-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.playbook-touch-tab-btn {
+  padding: 8px 12px;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.playbook-touch-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playbook-touch-tab-btn.active {
+  color: #38bdf8;
+  background: rgba(15, 23, 42, 0.9);
+  font-weight: 700;
+}
+
+.playbook-touch-tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+/* Touch Content Panel */
+.playbook-touch-panel {
+  background: rgba(2, 6, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playbook-touch-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.playbook-touch-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.playbook-touch-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.playbook-subject-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.playbook-subject-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playbook-subject-tag {
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.playbook-subject-text {
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.playbook-touch-body {
+  padding: 14px;
+  background: #090e17;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #f1f5f9;
+  line-height: 1.6;
+  font-family: var(--font-sans);
+  user-select: all;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Touch Action Buttons */
+.playbook-touch-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.playbook-btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playbook-btn-copy:hover {
+  background: rgba(14, 165, 233, 0.28);
+  color: #ffffff;
+}
+
+.playbook-btn-copy-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.playbook-btn-copy-sm:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.playbook-btn-copy-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #0284c7;
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.3);
+}
+
+.playbook-btn-copy-full:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.playbook-btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #059669;
+  border: 1px solid #34d399;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.3);
+}
+
+.playbook-btn-whatsapp:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+
 
 
 

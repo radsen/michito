@@ -668,7 +668,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
       {/* View Switcher Tabs: Summary Table vs Interactive Outreach Playbook */}
       {(isAwaitingPayment || isPaid) && (
-        <div className="space-y-4 mt-6">
+        <div className="tracker-views-container">
           {playbook && playbook.length > 0 && (
             <div className="tracker-view-tabs">
               <button
@@ -684,7 +684,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 className={`tracker-view-tab-btn ${activeViewTab === "playbook" ? "active" : ""}`}
               >
                 <span>Playbook de Prospección (1-Click Outreach)</span>
-                <span className="px-1.5 py-0.5 text-xs bg-sky-950 text-sky-300 rounded font-mono">
+                <span className="tracker-tab-badge">
                   {playbook.length}
                 </span>
               </button>
