@@ -136,25 +136,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
       <div className="footer-bottom">
         <p>{f.copyright}</p>
-        <div className="footer-legal">
-          <span className="text-xs text-slate-500">{f.regulatoryNote}</span>
-          <span>•</span>
-          <a
-            href="/terminos"
-            onClick={(e) => handleNavigate("/terminos", e)}
-            className="footer-legal-link"
-          >
-            {f.privacy}
-          </a>
-          <span>•</span>
-          <a
-            href="/terminos"
-            onClick={(e) => handleNavigate("/terminos", e)}
-            className="footer-legal-link"
-          >
-            {f.terms}
-          </a>
-        </div>
       </div>
     </footer>
   );
