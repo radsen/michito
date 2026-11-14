@@ -347,6 +347,13 @@ export const OrderGenerator: React.FC = () => {
   // 2-Step Stepper & Mode Switcher
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [searchMode, setSearchMode] = useState<"direct" | "ai">("direct");
+  const [isFormCollapsed, setIsFormCollapsed] = useState(Boolean(activeOrderId));
+
+  useEffect(() => {
+    if (activeOrderId) {
+      setIsFormCollapsed(true);
+    }
+  }, [activeOrderId]);
 
   // Stage 1 AI Intent Discovery States
   const [aiQuery, setAiQuery] = useState("");
@@ -553,6 +560,7 @@ export const OrderGenerator: React.FC = () => {
   const handleAdjustParameters = () => {
     setFormError(null);
     setCurrentStep(1);
+    setIsFormCollapsed(false);
     dispatch(resetOrder());
     setTimeout(() => {
       const elem = document.getElementById("generador");
@@ -625,6 +633,7 @@ export const OrderGenerator: React.FC = () => {
 
       const res = await createOrderMutation(payload).unwrap();
       if (res.status === "success") {
+        setIsFormCollapsed(true);
         dispatch(
           orderCreatedSuccess({
             orderId: res.order_id,
@@ -690,6 +699,7 @@ export const OrderGenerator: React.FC = () => {
 
       const res = await createOrderMutation(payload).unwrap();
       if (res.status === "success") {
+        setIsFormCollapsed(true);
         dispatch(
           orderCreatedSuccess({
             orderId: res.order_id,
@@ -730,6 +740,46 @@ export const OrderGenerator: React.FC = () => {
         <div className="generator-layout">
           {/* Form Card */}
           <div className="generator-card">
+            {activeOrderId && isFormCollapsed ? (
+              <div
+                className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg"
+                data-testid="active-order-collapsed-summary"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+                    <Target className="w-5 h-5 text-sky-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-sky-300 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>Calificación Activa • {activeOrderId}</span>
+                    </div>
+                    <div className="text-sm font-bold text-white mt-0.5">
+                      {volume} cuentas • Tier {tier} • {locationAllocations[0]?.city || "Medellín"}, {locationAllocations[0]?.country || "CO"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormCollapsed(false)}
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Modificar Criterios</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAdjustParameters}
+                    className="px-3.5 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-400 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Nueva Búsqueda</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {activeOrderId && (
               <div className="active-order-floating-banner" data-testid="active-order-banner">
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -749,6 +799,14 @@ export const OrderGenerator: React.FC = () => {
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFormCollapsed(true)}
+                    className="active-order-action-link"
+                    title="Ocultar formulario para ver resultados"
+                  >
+                    Ocultar Criterios
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1651,6 +1709,8 @@ export const OrderGenerator: React.FC = () => {
 
                 <p className="generator-disclaimer">{g.disclaimer}</p>
               </form>
+            )}
+              </>
             )}
           </div>
 

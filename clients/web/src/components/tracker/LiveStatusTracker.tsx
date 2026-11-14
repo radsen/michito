@@ -198,6 +198,18 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     }
   }, [orderData, dispatch, totalLeadsTarget]);
 
+  // Smoothly bring the deliverables section into view upon payment confirmation
+  useEffect(() => {
+    if (isPaid) {
+      setTimeout(() => {
+        const target = document.querySelector(".deliverables-unlocked-card");
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 200);
+    }
+  }, [isPaid]);
+
   if (!activeOrderId) return null;
 
   const handleCopyOrderId = () => {
@@ -722,6 +734,12 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               totalLeads={totalLeadsTarget}
               totalAmountCop={(orderData?.amount_in_cents || totalAmountInCents || 0) / 100}
               requestedLeads={(orderData as any)?.request?.limit || orderData?.limit}
+              isPaid={isPaid}
+              xlsxUrl={xlsxDownloadUrl || (orderData as any)?.xlsx_download_url}
+              csvUrl={csvDownloadUrl || orderData?.csv_download_url}
+              pdfUrl={pdfDownloadUrl || (orderData as any)?.pdf_download_url}
+              fullCsvUrl={fullCsvDownloadUrl || (orderData as any)?.full_csv_download_url}
+              activeOrderId={activeOrderId}
             />
           )}
 

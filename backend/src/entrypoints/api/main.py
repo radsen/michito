@@ -24,6 +24,7 @@ from src.adapters.partners.partner_registry import PartnerRegistry
 from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
 from src.application.use_cases.deliver_order_use_case import DeliverOrderUseCase
 from src.application.services.brief_parser_service import BriefParserService
+from src.adapters.security.rate_limiter import ai_agent_rate_limiter
 from campaign_loader import list_available_campaigns, load_campaign
 
 logger = logging.getLogger(__name__)
@@ -321,28 +322,45 @@ def get_partner_settlement_statement(partner_id: str):
     }
 
 @app.post("/api/v1/intent/profile")
-def profile_b2b_intent(payload: IntentProfileRequest):
+def profile_b2b_intent(payload: IntentProfileRequest, request: Request):
     """
     Stage 1 Conversational & Search Intent Profiler (Zero Compute Cost).
     Analyzes natural language sales brief, extracts target geography and vertical,
     estimates match volume, and generates a verified preview card without incurring heavy scraping costs.
+    Protected by in-memory rate limiting and SHA-256 query caching.
     """
     if not payload.query or not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query must not be empty.")
 
+    ai_agent_rate_limiter.check_rate_limit(request, endpoint_name="intent_profile")
+
+    cache_key = ai_agent_rate_limiter.compute_cache_key("intent_profile", payload.query, payload.country or "CO")
+    cached = ai_agent_rate_limiter.get_cached_response(cache_key)
+    if cached is not None:
+        return cached
+
     use_case = app_container.profile_b2b_intent_use_case
     result = use_case.execute(query=payload.query, country=payload.country or "CO")
+    ai_agent_rate_limiter.set_cached_response(cache_key, result)
     return result
 
 @app.post("/api/v1/prospecting/parse-brief")
-def parse_prospecting_brief(payload: ParseBriefRequest):
+def parse_prospecting_brief(payload: ParseBriefRequest, request: Request):
     """
     Intelligent Natural Language Brief Parser (Gemini Flash + Local BM25 Index).
     Translates free-form business briefs into structured Super Query criteria,
     resolving directionality (Sales vs RFQ), CIIU codes, locations, roles, and quotas.
+    Protected by in-memory rate limiting and deterministic query caching.
     """
     if not payload.prompt or not payload.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+
+    ai_agent_rate_limiter.check_rate_limit(request, endpoint_name="parse_brief")
+
+    cache_key = ai_agent_rate_limiter.compute_cache_key("parse_brief", payload.prompt)
+    cached = ai_agent_rate_limiter.get_cached_response(cache_key)
+    if cached is not None:
+        return cached
 
     brief_parser = BriefParserService(sql_adapter=sql_adapter)
     try:
@@ -352,10 +370,12 @@ def parse_prospecting_brief(payload: ParseBriefRequest):
             session_id=payload.session_id,
             force_fallback=payload.force_fallback or False,
         )
-        return {
+        res_obj = {
             "status": "success",
             "data": result,
         }
+        ai_agent_rate_limiter.set_cached_response(cache_key, res_obj)
+        return res_obj
     except Exception as e:
         logger.error(f"Error parsing prospecting brief: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to parse brief: {str(e)}")
