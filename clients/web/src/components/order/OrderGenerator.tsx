@@ -550,6 +550,20 @@ export const OrderGenerator: React.FC = () => {
     setCurrentStep(2);
   };
 
+  const handleAdjustParameters = () => {
+    setFormError(null);
+    setCurrentStep(1);
+    dispatch(resetOrder());
+    setTimeout(() => {
+      const elem = document.getElementById("generador");
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  };
+
   const formatCop = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -748,18 +762,10 @@ export const OrderGenerator: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "¿Deseas iniciar una nueva búsqueda? Tu orden anterior no se borrará."
-                        )
-                      ) {
-                        dispatch(resetOrder());
-                      }
-                    }}
+                    onClick={handleAdjustParameters}
                     className="active-order-reset-link"
                   >
-                    Nueva Orden
+                    Nueva Búsqueda
                   </button>
                 </div>
               </div>
@@ -769,7 +775,10 @@ export const OrderGenerator: React.FC = () => {
             <div className="generator-stepper-header">
               <button
                 type="button"
-                onClick={() => setCurrentStep(1)}
+                onClick={() => {
+                  setFormError(null);
+                  setCurrentStep(1);
+                }}
                 className={`stepper-pill ${currentStep === 1 ? "active" : "done"}`}
               >
                 <span className="stepper-circle">{currentStep === 2 ? "✓" : "1"}</span>
@@ -1577,7 +1586,10 @@ export const OrderGenerator: React.FC = () => {
                 <div className="generator-step-actions">
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(1)}
+                    onClick={() => {
+                      setFormError(null);
+                      setCurrentStep(1);
+                    }}
                     className="generator-back-btn"
                   >
                     ← Modificar Búsqueda
@@ -1645,7 +1657,7 @@ export const OrderGenerator: React.FC = () => {
           {/* Live Tracker & Results (mounts upon submission) */}
           {activeOrderId && (
             <div className="generator-tracker-area">
-              <LiveStatusTracker />
+              <LiveStatusTracker onAdjustParameters={handleAdjustParameters} />
             </div>
           )}
         </div>

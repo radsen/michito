@@ -112,7 +112,16 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
         {/* Order Display Area */}
         {activeOrderId ? (
           <div className="generator-tracker-area" style={{ marginTop: "32px" }}>
-            <LiveStatusTracker />
+            <LiveStatusTracker
+              onAdjustParameters={() => {
+                dispatch(resetOrder());
+                if (onBack) {
+                  onBack();
+                } else if (typeof window !== "undefined") {
+                  window.location.href = "/#generador";
+                }
+              }}
+            />
           </div>
         ) : (
           /* Helper Tips Card */

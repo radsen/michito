@@ -95,7 +95,7 @@ class OrderWorkerDaemon:
             self.alert_dispatcher = WebhookAlertAdapter()
 
     def process_order(self, order: Dict[str, Any]) -> bool:
-        order_id = order.get("order_id")
+        order_id = order.get("order_id") or order.get("id")
         if not order_id:
             print("[WorkerDaemon] [WARN] Invalid order object received: missing order_id.")
             return False
@@ -170,6 +170,35 @@ class OrderWorkerDaemon:
                 print(f"[WorkerDaemon] [WARN] Order `{order_id}` produced 0 qualified leads. Marking failed.")
                 if hasattr(self.order_repository, "mark_failed"):
                     self.order_repository.mark_failed(order_id, err_msg)
+
+                if hasattr(self.alert_dispatcher, "send_feed_event"):
+                    self.alert_dispatcher.send_feed_event(
+                        title="Order Qualification Incomplete (0 Leads)",
+                        message=f"Order `{order_id}` for {client_name} produced 0 qualified leads in {elapsed:.1f}s. Criteria may need broadening.",
+                        details={
+                            "order_id": order_id,
+                            "client": client_name,
+                            "campaign": campaign_id,
+                            "city": city,
+                            "tier": tier,
+                            "status": "failed_zero_leads",
+                            "reason": err_msg,
+                        },
+                    )
+
+                if hasattr(self.alert_dispatcher, "send_alert"):
+                    self.alert_dispatcher.send_alert(
+                        title="Order Failed - 0 Qualified Leads",
+                        message=f"Order `{order_id}` ({campaign_id} in {city}) yielded 0 leads: {err_msg}",
+                        level="warning",
+                        details={
+                            "order_id": order_id,
+                            "client": client_name,
+                            "campaign": campaign_id,
+                            "city": city,
+                            "error": err_msg,
+                        },
+                    )
                 return False
 
             country = req.get("country", "CO")
@@ -268,6 +297,19 @@ class OrderWorkerDaemon:
                     "failed_at": time.time(),
                 })
 
+            client_email = order.get("client", {}).get("email") if isinstance(order, dict) else "N/A"
+            if hasattr(self.alert_dispatcher, "send_feed_event"):
+                self.alert_dispatcher.send_feed_event(
+                    title="Order Execution Error",
+                    message=f"Order `{order_id}` encountered an error: {e}",
+                    details={
+                        "order_id": order_id,
+                        "client": client_email,
+                        "status": "execution_error",
+                        "reason": str(e),
+                    },
+                )
+
             # If dead-lettered after max retries, dispatch operator alert immediately
             if not failure_info or failure_info.get("status") == "dead-lettered":
                 self.alert_dispatcher.send_alert(
@@ -276,7 +318,7 @@ class OrderWorkerDaemon:
                     level="error",
                     details={
                         "order_id": order_id,
-                        "client_email": order.get("client", {}).get("email"),
+                        "client_email": client_email,
                         "retry_count": failure_info.get("order", {}).get("retry_count") if failure_info else "N/A",
                         "error": str(e),
                     },

@@ -140,7 +140,7 @@ class WebhookAlertAdapter:
                 fields_str = ""
                 if payload_details:
                     for k, v in payload_details.items():
-                        if k not in ("error", "raw") and v is not None:
+                        if k != "raw" and v is not None:
                             k_clean = k.replace("_", " ").title()
                             fields_str += f"• *{k_clean}*: {v}\n"
 

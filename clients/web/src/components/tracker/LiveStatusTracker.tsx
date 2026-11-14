@@ -31,7 +31,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-export const LiveStatusTracker: React.FC = () => {
+export interface LiveStatusTrackerProps {
+  onAdjustParameters?: () => void;
+}
+
+export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustParameters }) => {
   const dispatch = useDispatch();
   const { currentLanguage, dict } = useSelector((state: RootState) => state.language);
   const {
@@ -200,8 +204,18 @@ export const LiveStatusTracker: React.FC = () => {
   };
 
   const handleNewOrder = () => {
-    if (window.confirm("¿Deseas iniciar una nueva búsqueda? Podrás recuperar esta orden luego con su referencia.")) {
+    if (onAdjustParameters) {
+      onAdjustParameters();
+    } else {
       dispatch(resetOrder());
+      if (typeof window !== "undefined") {
+        const generatorElem = document.getElementById("generador");
+        if (generatorElem) {
+          generatorElem.scrollIntoView({ behavior: "smooth" });
+        } else {
+          window.location.href = "/#generador";
+        }
+      }
     }
   };
 
@@ -470,7 +484,7 @@ export const LiveStatusTracker: React.FC = () => {
                   className="order-failed-btn"
                   type="button"
                 >
-                  <PlusCircle className="w-4 h-4" />
+                  <RotateCcw className="w-4 h-4" />
                   <span>Ajustar Parámetros / Nueva Búsqueda</span>
                 </button>
               </div>
