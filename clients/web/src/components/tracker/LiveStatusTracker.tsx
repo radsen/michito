@@ -29,6 +29,7 @@ import {
   Share2,
   ExternalLink,
   MessageSquare,
+  Database,
 } from "lucide-react";
 
 export interface LiveStatusTrackerProps {
@@ -43,8 +44,10 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     orderStatus,
     teaserLeads,
     totalLeadsTarget,
+    totalQualified,
     totalAmountInCents,
     csvDownloadUrl,
+    fullCsvDownloadUrl,
     xlsxDownloadUrl,
     dossierDownloadUrl,
     pdfDownloadUrl,
@@ -182,12 +185,14 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           status: orderData.status,
           teaserLeads: orderData.sample_leads,
           csvUrl: orderData.csv_download_url,
+          fullCsvUrl: (orderData as any).full_csv_download_url,
           xlsxUrl: (orderData as any).xlsx_download_url,
           dossierUrl: orderData.dossier_download_url,
           pdfUrl: (orderData as any).pdf_download_url,
           playbook: (orderData as any).playbook || [],
           totalAmountInCents: orderData.amount_in_cents,
           totalLeadsTarget: resolvedTotal,
+          totalQualified: orderData.total_qualified,
         })
       );
     }
@@ -622,6 +627,25 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 </div>
               </a>
             ) : null}
+
+            {/* 5. Complete Raw Intelligence CSV (Zero Data Loss) */}
+            {fullCsvDownloadUrl || csvDownloadUrl ? (
+              <a
+                href={fullCsvDownloadUrl || `/api/v1/orders/${activeOrderId}/download/full_csv`}
+                download
+                className="download-btn full-csv-download"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div className="download-btn-icon csv-icon">
+                  <Database className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div className="download-btn-info">
+                  <div className="download-btn-title">Inteligencia Completa (.CSV)</div>
+                  <div className="download-btn-sub">40+ Atributos Técnicos & SECOP</div>
+                </div>
+              </a>
+            ) : null}
           </div>
 
           {/* Phase 3: Automated 2x1 Replacement Guarantee Portal */}
@@ -697,6 +721,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               leads={teaserLeads}
               totalLeads={totalLeadsTarget}
               totalAmountCop={(orderData?.amount_in_cents || totalAmountInCents || 0) / 100}
+              requestedLeads={(orderData as any)?.request?.limit || orderData?.limit}
             />
           )}
 

@@ -82,19 +82,19 @@ class SecopHarvesterAdapter:
     METRO_CLUSTERS: Dict[str, Dict[str, Any]] = {
         "medellín": {
             "dept": "Antioquia",
-            "cluster_cities": ["Medellín", "Envigado", "Itagüí", "Sabaneta", "Bello", "Rionegro"],
+            "cluster_cities": ["Medellín", "Envigado", "Itagüí", "Sabaneta", "Bello", "Caldas", "La Estrella", "Copacabana", "Girardota", "Rionegro", "Guarne", "Marinilla"],
         },
         "medellin": {
             "dept": "Antioquia",
-            "cluster_cities": ["Medellín", "Envigado", "Itagüí", "Sabaneta", "Bello", "Rionegro"],
+            "cluster_cities": ["Medellín", "Envigado", "Itagüí", "Sabaneta", "Bello", "Caldas", "La Estrella", "Copacabana", "Girardota", "Rionegro", "Guarne", "Marinilla"],
         },
         "bogotá": {
             "dept": "Distrito Capital de Bogotá",
-            "cluster_cities": ["Bogotá", "Chía", "Cota", "Soacha"],
+            "cluster_cities": ["Bogotá", "Chía", "Cota", "Soacha", "Zipaquirá", "Funza", "Mosquera", "Madrid", "Cajicá"],
         },
         "bogota": {
             "dept": "Distrito Capital de Bogotá",
-            "cluster_cities": ["Bogotá", "Chía", "Cota", "Soacha"],
+            "cluster_cities": ["Bogotá", "Chía", "Cota", "Soacha", "Zipaquirá", "Funza", "Mosquera", "Madrid", "Cajicá"],
         },
         "cali": {
             "dept": "Valle del Cauca",
@@ -365,19 +365,38 @@ class SecopHarvesterAdapter:
             m_key = city.strip().lower()
             if m_key in self.METRO_CLUSTERS:
                 cluster_info = self.METRO_CLUSTERS[m_key]
-                cluster_params = dict(params)
-                cluster_params.pop("municipio", None)
-                cluster_params["departamento"] = cluster_info["dept"]
-                cluster_data = self._execute_soda_request(cluster_params)
-                for item in cluster_data:
-                    lead = _process_item(item)
-                    if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
-                        qualified_leads.append(lead)
-                        if len(qualified_leads) >= limit:
-                            break
+                # First try specific cluster municipalities in concentric order
+                for c_city in cluster_info.get("cluster_cities", []):
+                    if len(qualified_leads) >= limit:
+                        break
+                    if c_city.lower() == m_key:
+                        continue
+                    c_params = dict(params)
+                    c_params["municipio"] = c_city
+                    c_data = self._execute_soda_request(c_params)
+                    for item in c_data:
+                        lead = _process_item(item)
+                        if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                            qualified_leads.append(lead)
+                            if len(qualified_leads) >= limit:
+                                break
+
+                # If still under limit, broaden to the entire Department
+                if len(qualified_leads) < limit:
+                    cluster_params = dict(params)
+                    cluster_params.pop("municipio", None)
+                    cluster_params["departamento"] = cluster_info["dept"]
+                    cluster_data = self._execute_soda_request(cluster_params)
+                    for item in cluster_data:
+                        lead = _process_item(item)
+                        if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                            qualified_leads.append(lead)
+                            if len(qualified_leads) >= limit:
+                                break
 
         # -------------------------------------------------------------
         # SODA LADDER TIER 4: Guaranteed Resilient Fallback Pool
+        # (Activated when SODA API is unreachable, offline, or returns 0 matches)
         # -------------------------------------------------------------
         if not qualified_leads:
             fallback_items = self._get_fallback_candidates(

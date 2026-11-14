@@ -3,18 +3,20 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { setWompiModalOpen } from "../../store/slices/uiSlice";
 import { TeaserLead } from "../../store/slices/orderSlice";
-import { ShieldCheck, Mail, Phone, Lock, CreditCard } from "lucide-react";
+import { ShieldCheck, Mail, Phone, Lock, CreditCard, Info } from "lucide-react";
 
 interface SampleTeaserTableProps {
   leads: TeaserLead[];
   totalLeads: number;
   totalAmountCop: number;
+  requestedLeads?: number;
 }
 
 export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
   leads,
   totalLeads,
   totalAmountCop,
+  requestedLeads,
 }) => {
   const dispatch = useDispatch();
   const { dict } = useSelector((state: RootState) => state.language);
@@ -27,8 +29,20 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
     }).format(amount);
   };
 
+  const isPartialFill = Boolean(requestedLeads && requestedLeads > totalLeads);
+
   return (
     <div className="teaser-container">
+      {isPartialFill && (
+        <div className="mb-4 p-3 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-slate-300">
+            <span className="font-semibold text-sky-300">Garantía de Cobro Justo: </span>
+            Se solicitaron {requestedLeads} cuentas y se entregaron {totalLeads} cuentas que superaron el 100% de los filtros de solvencia, buzón activo y presencia web. Únicamente pagarás por las cuentas verificadas con éxito.
+          </div>
+        </div>
+      )}
+
       <div className="teaser-header">
         <h3 className="teaser-title">
           Muestra de Cuentas Identificadas (3 de {totalLeads})
@@ -117,7 +131,11 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
           data-testid="teaser-pay-btn"
         >
           <CreditCard className="w-5 h-5" />
-          <span>Desbloquear Lote Completo ({formatCop(totalAmountCop)})</span>
+          <span>
+            {isPartialFill
+              ? `Desbloquear ${totalLeads} Cuentas Verificadas (${formatCop(totalAmountCop)})`
+              : `Desbloquear Lote Completo (${formatCop(totalAmountCop)})`}
+          </span>
         </button>
       </div>
     </div>

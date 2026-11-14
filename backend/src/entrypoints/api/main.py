@@ -576,6 +576,10 @@ def download_deliverable(order_id: str, file_type: str):
         file_path = delivery.get("csv_path")
         media_type = "text/csv"
         filename = f"{order_id}_prospects.csv"
+    elif ft in ("full_csv", "full-csv", "intelligence", "full"):
+        file_path = delivery.get("full_csv_path")
+        media_type = "text/csv"
+        filename = f"{order_id}_prospects_full_intelligence.csv"
     elif ft in ("xlsx", "excel"):
         file_path = delivery.get("xlsx_path")
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -589,7 +593,7 @@ def download_deliverable(order_id: str, file_type: str):
         media_type = "text/markdown"
         filename = f"{order_id}_executive_dossier.md"
     else:
-        raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv', 'xlsx', 'pdf', or 'md')")
+        raise HTTPException(status_code=400, detail="Invalid file_type (must be 'csv', 'full_csv', 'xlsx', 'pdf', or 'md')")
 
     if not file_path:
         raise HTTPException(status_code=404, detail="No deliverable file path recorded for this order.")

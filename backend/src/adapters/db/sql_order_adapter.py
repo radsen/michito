@@ -292,6 +292,7 @@ class SqlOrderAdapter:
                 d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
                 d["error_message"] = getattr(order_obj, "error_message", None)
                 d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if delivery.get("csv_path") else None
+                d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if delivery.get("full_csv_path") else None
                 d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if delivery.get("xlsx_path") else None
                 d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if delivery.get("dossier_path") else None
                 d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if delivery.get("pdf_path") else None

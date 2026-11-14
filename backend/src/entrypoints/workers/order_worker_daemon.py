@@ -223,6 +223,7 @@ class OrderWorkerDaemon:
             csv_path = job_result.get("csv_path")
             xlsx_path = job_result.get("xlsx_path")
             dossier_path = job_result.get("dossier_path")
+            full_csv_path = job_result.get("full_csv_path")
             pdf_path = job_result.get("pdf_path")
 
             if csv_path and os.path.exists(csv_path):
@@ -231,7 +232,15 @@ class OrderWorkerDaemon:
                 csv_url = self.storage_adapter.generate_download_url(dest_csv, expiration_hours=48)
                 job_result["csv_uri"] = csv_uri
                 job_result["csv_download_url"] = csv_url
-                print(f"[WorkerDaemon] [PACKAGE] CSV Stored: {csv_uri}")
+                print(f"[WorkerDaemon] [PACKAGE] Clean CRM CSV Stored: {csv_uri}")
+
+            if full_csv_path and os.path.exists(full_csv_path):
+                dest_full_csv = f"orders/{order_id}/prospects_full_intelligence.csv"
+                full_csv_uri = self.storage_adapter.upload_file(full_csv_path, dest_full_csv, content_type="text/csv")
+                full_csv_url = self.storage_adapter.generate_download_url(dest_full_csv, expiration_hours=48)
+                job_result["full_csv_uri"] = full_csv_uri
+                job_result["full_csv_download_url"] = full_csv_url
+                print(f"[WorkerDaemon] [PACKAGE] Full Intelligence CSV Stored: {full_csv_uri}")
 
             if xlsx_path and os.path.exists(xlsx_path):
                 dest_xlsx = f"orders/{order_id}/prospects.xlsx"

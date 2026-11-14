@@ -921,6 +921,16 @@ class GenerateProspectsUseCase:
         code_header = "SRI Code" if target_country == "EC" else ("DGII Code" if target_country == "DO" else "CIIU Code")
         contracts_header = f"Trigger 1: Total Contracts Won {target_currency}"
 
+        # Standardized Tax Header for Clean CRM:
+        # If single-country batch: use the respective national tax ID label (NIT / RNC / RUC)
+        # If multi-country cross-border batch: unified header "Tax ID (NIT / RNC / RUC)"
+        batch_countries = {lead.get("country", target_country) for lead in all_selected}
+        if len(batch_countries) == 1:
+            only_c = list(batch_countries)[0]
+            batch_tax_label = "NIT" if only_c == "CO" else ("RNC" if only_c == "DO" else ("RUC" if only_c == "EC" else "Tax ID"))
+        else:
+            batch_tax_label = "Tax ID (NIT / RNC / RUC)"
+
         for idx, lead in enumerate(all_selected, start=1):
             clean_name = lead["clean_name"]
             salutation = f"Hola {lead['first_name']}"
@@ -1015,17 +1025,17 @@ class GenerateProspectsUseCase:
                 "Touch 5: Breakup / Catalog Body": t5_body,
             }
 
-            # Backward-compatible columns for existing parsers
+            # Backward-compatible country-specific regulatory tax header
             row[tax_id_header] = lead["nit"]
             row[code_header] = ciiu.code
             row[activity_header] = ciiu.description
             row[size_header] = lead["segment_name"]
             row[contracts_header] = contracts["total_value_display"]
-            if "NIT" not in row:
+            if lead_c == "CO" and "NIT" not in row:
                 row["NIT"] = lead["nit"]
-            if "RNC" not in row:
+            elif lead_c == "DO" and "RNC" not in row:
                 row["RNC"] = lead["nit"]
-            if "RUC" not in row:
+            elif lead_c == "EC" and "RUC" not in row:
                 row["RUC"] = lead["nit"]
 
             if tier == 3 and self.underwriter:
@@ -1045,19 +1055,39 @@ class GenerateProspectsUseCase:
 
             csv_rows.append(row)
 
-            # Clean CRM row (Stripped of multi-line text walls for 100% CRM ingestion)
-            cadence_keys = {
-                "Touch 1: LinkedIn Connection Note",
-                "Touch 2: Cold Email Subject",
-                "Touch 2: Cold Email Body",
-                "Touch 3: Operational Follow-up Subject",
-                "Touch 3: Operational Follow-up Body",
-                "Touch 4: Social Proof / VIP Subject",
-                "Touch 4: Social Proof / VIP Body",
-                "Touch 5: Breakup / Catalog Subject",
-                "Touch 5: Breakup / Catalog Body",
+            trigger_summary = contracts["total_value_display"]
+            if contracts.get("has_contracts") and contracts.get("top_contract_entity"):
+                trigger_summary = f"Contratos SECOP: {contracts['total_value_display']} ({contracts['top_contract_entity']})"
+            elif lead.get("expansion_flag"):
+                trigger_summary = lead["expansion_flag"]
+            else:
+                trigger_summary = "Operación Corporativa Activa (Crecimiento Privado)"
+
+            crm_row = {
+                "Index": idx,
+                "Company Name": lead["company_name"],
+                batch_tax_label: lead["nit"],
+                "City": lead["city"],
+                "Department": lead.get("department", ""),
+                "Country": lead.get("country_name", "Colombia"),
+                "Sector Macro": ciiu.sector_macro,
+                "Economic Activity": ciiu.description,
+                "Activity Code": ciiu.code,
+                "Company Size": lead["segment_name"],
+                "Decision Maker Name": lead["decision_maker_name"],
+                "Official Title": lead["decision_maker_title"],
+                "Verified Work Email": lead["email"],
+                "Direct Mobile Phone": lead["phone"],
+                "Website": lead["website_url"],
+                "Commercial Trigger": trigger_summary,
+                "Recommended Angle": recommended_angle,
             }
-            crm_row = {k: v for k, v in row.items() if k not in cadence_keys}
+            if tier == 3 and lead.get("underwriting"):
+                uw = lead["underwriting"]
+                crm_row["Underwriting Grade"] = uw.get("underwriting_grade", "A")
+                crm_row["Solvency Tier"] = uw.get("solvency_tier", "Solvente")
+                crm_row["Litigation Risk"] = uw.get("litigation_risk_status", "Clean")
+
             crm_rows.append(crm_row)
 
             # Structured Playbook Cadence for Interactive Web SDR UI
@@ -1130,12 +1160,31 @@ class GenerateProspectsUseCase:
         pdf_filename = os.path.join(batch_dir, "executive_dossier.pdf")
         teaser_filename = os.path.join(batch_dir, "confidential_teaser.html")
 
+        full_csv_filename = os.path.join(batch_dir, "prospects_full_intelligence.csv")
         if output_format in ("csv", "both", "all", "xlsx"):
+            crm_fieldnames: List[str] = []
+            for r in crm_rows:
+                for k in r.keys():
+                    if k not in crm_fieldnames:
+                        crm_fieldnames.append(k)
+
             with open(csv_filename, "w", newline="", encoding="utf-8-sig") as f:
-                writer = csv.DictWriter(f, fieldnames=list(crm_rows[0].keys()))
+                writer = csv.DictWriter(f, fieldnames=crm_fieldnames, extrasaction="ignore")
                 writer.writeheader()
                 writer.writerows(crm_rows)
             print(f"[OK] Generated CRM CSV Batch: {csv_filename}")
+
+            full_fieldnames: List[str] = []
+            for r in csv_rows:
+                for k in r.keys():
+                    if k not in full_fieldnames:
+                        full_fieldnames.append(k)
+
+            with open(full_csv_filename, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(f, fieldnames=full_fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(csv_rows)
+            print(f"[OK] Generated Full Intelligence CSV Batch: {full_csv_filename}")
 
             try:
                 excel_adapter = ExcelDossierAdapter()
@@ -1375,6 +1424,7 @@ class GenerateProspectsUseCase:
             "batch_dir": batch_dir,
             "csv_path": csv_filename if output_format in ("csv", "both", "all") else None,
             "xlsx_path": xlsx_filename if (output_format in ("csv", "both", "all", "xlsx") and os.path.exists(xlsx_filename)) else None,
+            "full_csv_path": full_csv_filename if output_format in ("csv", "both", "all") else None,
             "dossier_path": md_filename if output_format in ("markdown", "both", "all") else None,
             "pdf_path": pdf_filename if (output_format in ("markdown", "both", "all", "pdf") and os.path.exists(pdf_filename)) else None,
             "teaser_path": teaser_filename if compiled_teaser else None,

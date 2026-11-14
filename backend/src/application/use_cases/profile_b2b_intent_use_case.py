@@ -226,8 +226,15 @@ class ProfileB2BIntentUseCase:
         elif any(term in normalized for term in ["directorio", "base basica", "pbx", "masivo", "tier 1"]):
             recommended_tier = 1
 
-        # 4. Determine Volume & Pricing
+        # 4. Determine Volume & Pricing (Honor explicit client requests, e.g. "100 colegios")
         volume = 25  # Standard conversion-optimized batch
+        vol_match = re.search(r"\b(10|25|50|100|150|200|300|500)\s*(?:colegios|empresas|cuentas|leads|prospectos|contactos)?\b", normalized)
+        if vol_match:
+            try:
+                volume = int(vol_match.group(1))
+            except Exception:
+                volume = 25
+
         pricing_matrix = {
             1: {"unit_cop": 5000, "name": "Tier 1: Directorio Base Corporativo"},
             2: {"unit_cop": 30000, "name": "Tier 2: Decisor C-Level (Celular & Email Verificado) ⭐"},
@@ -237,9 +244,23 @@ class ProfileB2BIntentUseCase:
         unit_price_cop = tier_info["unit_cop"]
         total_price_cop = unit_price_cop * volume
 
-        # 5. Calculate Realistic Estimated Matches (Deterministic Hash)
-        hash_seed = int(hashlib.md5(f"{best_campaign}_{target_city}".encode()).hexdigest(), 16)
-        estimated_matches = 32 + (hash_seed % 54)  # Between 32 and 85 matching companies
+        # 5. Query Actual Market Universe from Harvester / Registry
+        estimated_matches = 0
+        try:
+            from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
+            harvester = SecopHarvesterAdapter()
+            candidates = harvester.fetch_candidates(
+                city=target_city,
+                limit=max(volume * 2, 120),
+                include_keywords=parsed_super_query.get("keywords_include", []),
+                ciiu_codes=parsed_super_query.get("ciiu_codes", []),
+            )
+            estimated_matches = len(candidates)
+        except Exception:
+            estimated_matches = 0
+
+        if estimated_matches == 0:
+            estimated_matches = max(volume, 45)
 
         # 6. Retrieve Representative Teaser Sample
         sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS["tinkko_enterprise_offices"])
@@ -252,9 +273,9 @@ class ProfileB2BIntentUseCase:
         campaign_name = campaign_config.get("name", best_campaign)
 
         summary_msg = (
-            f"Encontramos aproximadamente {estimated_matches} cuentas corporativas en {target_city} "
+            f"Encontramos aproximadamente {estimated_matches} cuentas/instituciones en {target_city} y su área metropolitana "
             f"con alta afinidad para tu propuesta. "
-            f"Te recomendamos un lote curado de {volume} decisores clave verificados."
+            f"Configuramos tu lote en {volume} decisores clave verificados."
         )
 
         return {

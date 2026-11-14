@@ -21,9 +21,11 @@ export interface OrderState {
   orderStatus: "idle" | "submitting" | "queued" | "processing" | "awaiting_payment" | "paid" | "failed" | "error";
   errorMessage: string | null;
   totalLeadsTarget: number;
+  totalQualified?: number;
   teaserLeads: TeaserLead[];
   totalAmountInCents: number;
   csvDownloadUrl: string | null;
+  fullCsvDownloadUrl: string | null;
   xlsxDownloadUrl: string | null;
   dossierDownloadUrl: string | null;
   pdfDownloadUrl: string | null;
@@ -62,6 +64,7 @@ const initialState: OrderState = {
   teaserLeads: [],
   totalAmountInCents: 0,
   csvDownloadUrl: null,
+  fullCsvDownloadUrl: null,
   xlsxDownloadUrl: null,
   dossierDownloadUrl: null,
   pdfDownloadUrl: null,
@@ -140,12 +143,14 @@ export const orderSlice = createSlice({
         status: string;
         teaserLeads?: TeaserLead[];
         csvUrl?: string;
+        fullCsvUrl?: string;
         xlsxUrl?: string;
         dossierUrl?: string;
         pdfUrl?: string;
         playbook?: any[];
         totalAmountInCents?: number;
         totalLeadsTarget?: number;
+        totalQualified?: number;
       }>
     ) => {
       state.orderStatus = action.payload.status as any;
@@ -154,6 +159,9 @@ export const orderSlice = createSlice({
       }
       if (action.payload.csvUrl) {
         state.csvDownloadUrl = action.payload.csvUrl;
+      }
+      if (action.payload.fullCsvUrl) {
+        state.fullCsvDownloadUrl = action.payload.fullCsvUrl;
       }
       if (action.payload.xlsxUrl) {
         state.xlsxDownloadUrl = action.payload.xlsxUrl;
@@ -173,6 +181,9 @@ export const orderSlice = createSlice({
       if (action.payload.totalLeadsTarget && action.payload.totalLeadsTarget > 0) {
         state.totalLeadsTarget = action.payload.totalLeadsTarget;
       }
+      if (action.payload.totalQualified !== undefined) {
+        state.totalQualified = action.payload.totalQualified;
+      }
     },
     orderFailed: (state, action: PayloadAction<string>) => {
       state.orderStatus = "error";
@@ -182,8 +193,10 @@ export const orderSlice = createSlice({
       state.activeOrderId = null;
       state.orderStatus = "idle";
       state.errorMessage = null;
+      state.totalQualified = undefined;
       state.teaserLeads = [];
       state.csvDownloadUrl = null;
+      state.fullCsvDownloadUrl = null;
       state.xlsxDownloadUrl = null;
       state.dossierDownloadUrl = null;
       state.pdfDownloadUrl = null;
