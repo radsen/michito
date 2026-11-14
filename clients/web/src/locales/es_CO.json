@@ -225,5 +225,31 @@
     "privacy": "Habeas Data & Privacidad",
     "terms": "Términos de Servicio",
     "regulatoryNote": "Datos públicos corporativos con estricto apego a normativas de privacidad y tratamiento de datos comerciales."
+  },
+  "legal": {
+    "backButton": "Volver a la plataforma principal",
+    "kicker": "Marco Jurídico & Operativo",
+    "title": "Términos del Servicio, Garantía & Habeas Data",
+    "subtitle": "Última actualización: Noviembre 2026 • Cobertura Comercial: Colombia 🇨🇴, República Dominicana 🇩🇴, Ecuador 🇪🇨 y Mercados B2B 🌎",
+    "sec1Title": "1. Delimitación de Alcance Comercial",
+    "sec1P1": "Michito es un proveedor de datos e inteligencia B2B calificada. Nuestra responsabilidad técnica y contractual consiste en entregar cuentas corporativas verificadas, canales de contacto válidos y cadencias estratégicas redactadas. Michito no es una agencia de ventas, no ejecuta llamadas en frío en nombre de terceros ni cobra comisiones por cierre.",
+    "sec1P2": "La conversión comercial final, las reuniones agendadas y los negocios cerrados dependen de la propuesta de valor, la competitividad de precios, la agilidad de seguimiento y la habilidad de cierre del equipo comercial de cada cliente.",
+    "sec2Title": "2. Garantía Técnica de Reemplazo 2 por 1",
+    "sec2Badge": "Garantía Técnica de Reemplazo: Si algún buzón presenta rebote duro comprobable en los primeros 7 días de entrega, el sistema lo reemplaza sin costo por 2 cuentas verificadas.",
+    "sec2P1": "Para activar la garantía técnica de reemplazo, puedes reportar el rebote duro directamente en el portal de seguimiento con tu número de orden o remitir la notificación técnica de rebote SMTP. El sistema registrará el dominio en el ledger de exclusión y generará 2 nuevas cuentas verificadas con los mismos criterios de vertical y rol.",
+    "sec2P2": "Garantía de Cobro Justo: El sistema factura exclusivamente por las cuentas que superan el 100% de los filtros técnicos de calificación en vivo. Si un lote no alcanza el objetivo solicitado debido a filtros de calidad estrictos, las cuentas no calificadas se descuentan automáticamente del cobro final.",
+    "sec3Title": "3. Marco Jurídico por Territorio & Habeas Data Comercial",
+    "sec3P1": "Fuentes Institucionales Públicas y Corporativas: Michito recopila y procesa exclusivamente información de naturaleza pública, mercantil y corporativa vinculada a personas jurídicas legalmente constituidas, portales estatales de contratación y sitios web corporativos en operación activa. No se procesan datos sensibles, datos crediticios reservados ni información de vida privada.",
+    "coTitle": "🇨🇴 Colombia — Ley 1581 de 2012 y Decreto 1377 de 2013",
+    "coDesc": "Conforme al Artículo 10 de la Ley 1581 de 2012 y directrices de la Superintendencia de Industria y Comercio (SIC), los datos de naturaleza pública contenidos en registros mercantiles oficiales (Cámaras de Comercio y RUES), como razón social, NIT, representantes legales estatutarios y datos de contacto institucional, no requieren autorización previa para su tratamiento con fines de contacto interempresarial (B2B).",
+    "doTitle": "🇩🇴 República Dominicana — Ley 172-13",
+    "doDesc": "En cumplimiento de la Ley 172-13 sobre Protección Integral de los Datos Personales, la recopilación se limita a datos de personas jurídicas inscritas en el Registro Mercantil y registros públicos de proveedores del Estado administrados por la Dirección General de Contrataciones Públicas (DGCP).",
+    "ecTitle": "🇪🇨 Ecuador — Ley Orgánica de Protección de Datos Personales (LOPDP)",
+    "ecDesc": "Bajo el principio de legitimidad y transparencia de la LOPDP, los datos procesados provienen de información comercial y tributaria de acceso público del Registro Único de Contribuyentes (RUC) administrado por el SRI y proveedores oficiales del Servicio Nacional de Contratación Pública (SERCOP).",
+    "intlTitle": "🌎 Estándares Internacionales B2B & CAN-SPAM",
+    "intlDesc": "Las cadencias de contacto sugeridas por Michito cumplen con los principios de pertinencia profesional B2B, identificación clara del remitente, asunto transparente relacionado con la actividad comercial y mecanismo visible de cancelación de suscripción (opt-out).",
+    "sec4Title": "4. Canales de Exclusión Voluntaria (Opt-Out) & Derechos ARCO",
+    "sec4P1": "Cualquier persona jurídica, directivo o representante estatutario puede ejercer en cualquier momento sus derechos de Acceso, Rectificación, Cancelación u Oposición (ARCO), así como solicitar la exclusión voluntaria de su correo corporativo para que no sea incluido en futuros lotes comerciales generados por el motor.",
+    "sec4P2": "Para solicitar la exclusión inmediata, remite un correo a habeasdata@chiketto.com indicando el dominio o correo corporativo a excluir. El motor registrará la exclusión en el ledger global permanente en un plazo máximo de 24 horas hábiles."
   }
 }

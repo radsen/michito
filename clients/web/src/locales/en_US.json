@@ -225,5 +225,31 @@
     "privacy": "Habeas Data & Privacy",
     "terms": "Terms of Service",
     "regulatoryNote": "Official public corporate intelligence adhering to international B2B privacy standards and commercial data compliance."
+  },
+  "legal": {
+    "backButton": "Back to main platform",
+    "kicker": "Legal & Operational Framework",
+    "title": "Terms of Service, Guarantee & Habeas Data",
+    "subtitle": "Last updated: November 2026 • Commercial Coverage: Colombia 🇨🇴, Dominican Republic 🇩🇴, Ecuador 🇪🇨, and B2B Markets 🌎",
+    "sec1Title": "1. Commercial Scope & Delimitation",
+    "sec1P1": "Michito is a qualified B2B data and intelligence provider. Our contractual and technical responsibility consists of delivering verified corporate accounts, validated contact channels, and customized strategic sales cadences. Michito is not a sales agency, does not make cold calls on behalf of third parties, and does not charge commissions on closed sales.",
+    "sec1P2": "Final commercial conversion, meeting booking, and closed transactions depend 100% on the client's value proposition, price competitiveness, follow-up cadence, and sales team closing ability.",
+    "sec2Title": "2. Technical 2-for-1 Replacement Guarantee",
+    "sec2Badge": "Technical Replacement Guarantee: If any corporate mailbox experiences a verified hard bounce within 7 days of delivery, the system automatically replaces it 2-for-1 with verified accounts at no additional cost.",
+    "sec2P1": "To activate the technical replacement guarantee, report the hard bounce directly in the live tracking portal using your order ID or submit the technical SMTP bounce header. The system records the domain in the exclusion ledger and generates 2 fresh verified accounts with matching vertical and role criteria.",
+    "sec2P2": "Fair Billing Guarantee: The platform bills strictly for accounts that pass 100% of live verification filters. If a batch yields fewer qualified accounts than requested due to rigorous deliverability gates, unverified accounts are automatically deducted from the final charge.",
+    "sec3Title": "3. Multi-Country Legal Framework & B2B Data Privacy",
+    "sec3P1": "Official Institutional & Corporate Sources: Michito gathers and processes strictly public, commercial, and institutional data associated with legally established entities, government procurement portals, and active corporate websites. No sensitive personal data, consumer credit records, or private consumer profiles are processed.",
+    "coTitle": "🇨🇴 Colombia — Law 1581 of 2012 & Decree 1377 of 2013",
+    "coDesc": "Under Article 10 of Law 1581 of 2012 and Superintendency of Industry and Commerce (SIC) circulars, public corporate records from official chambers of commerce (RUES), including company names, NITs, statutory legal representatives, and institutional contact channels, do not require prior consent for legitimate B2B business outreach.",
+    "doTitle": "🇩🇴 Dominican Republic — Law 172-13",
+    "doDesc": "Pursuant to Law 172-13 on Comprehensive Personal Data Protection, data sourcing is strictly limited to legal corporate entities in the commercial registry and public supplier databases administered by the General Directorate of Public Procurement (DGCP).",
+    "ecTitle": "🇪🇨 Ecuador — Organic Law on Personal Data Protection (LOPDP)",
+    "ecDesc": "Under LOPDP principles of legitimacy and transparency, processed data originates from public corporate tax records (RUC) of the Internal Revenue Service (SRI) and registered state procurement suppliers from the National Public Procurement Service (SERCOP).",
+    "intlTitle": "🌎 International B2B Standards & CAN-SPAM Compliance",
+    "intlDesc": "Michito's strategic contact cadences comply with professional B2B relevance principles, clear sender identification, transparent commercial subject lines, and visible opt-out mechanisms.",
+    "sec4Title": "4. Opt-Out Channels & ARCO Rights",
+    "sec4P1": "Any legal entity, officer, or corporate contact may exercise their rights of Access, Rectification, Cancellation, or Opposition (ARCO) at any time, or request the voluntary opt-out of their corporate email from future commercial prospect batches.",
+    "sec4P2": "To request immediate exclusion, send an email to habeasdata@chiketto.com specifying the domain or corporate email to suppress. The engine registers the exclusion in the permanent global ledger within 24 business hours."
   }
 }
