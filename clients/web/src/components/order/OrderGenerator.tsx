@@ -56,6 +56,7 @@ import {
   Check,
   ShoppingCart,
   TrendingUp,
+  ExternalLink,
 } from "lucide-react";
 
 interface PresetTemplate {
@@ -346,7 +347,7 @@ export const OrderGenerator: React.FC = () => {
 
   // 2-Step Stepper & Mode Switcher
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
-  const [searchMode, setSearchMode] = useState<"direct" | "ai">("direct");
+  const [searchMode, setSearchMode] = useState<"direct" | "ai">("ai");
   const [isFormCollapsed, setIsFormCollapsed] = useState(Boolean(activeOrderId));
 
   useEffect(() => {
@@ -776,6 +777,14 @@ export const OrderGenerator: React.FC = () => {
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Nueva Búsqueda</span>
                   </button>
+                  <a
+                    href={`/rastrear?order_id=${activeOrderId}`}
+                    className="px-3.5 py-2 rounded-lg bg-sky-950/60 hover:bg-sky-900/80 text-sky-300 border border-sky-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    title="Ver orden en pantalla completa sin elementos de la landing"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Espacio Dedicado</span>
+                  </a>
                 </div>
               </div>
             ) : (
@@ -934,19 +943,19 @@ export const OrderGenerator: React.FC = () => {
                 <div className="generator-mode-tabs">
                   <button
                     type="button"
-                    onClick={() => setSearchMode("direct")}
-                    className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
-                  >
-                    <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                    <span>Configuración Avanzada del Lote</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setSearchMode("ai")}
                     className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
                   >
                     <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
-                    <span>Búsqueda con IA (Michito Engine™)</span>
+                    <span>Búsqueda Rápida con IA (Recomendado)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSearchMode("direct")}
+                    className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
+                  >
+                    <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                    <span>Filtros Manuales Avanzados</span>
                   </button>
                 </div>
 

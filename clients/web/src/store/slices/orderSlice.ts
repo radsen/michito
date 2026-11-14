@@ -36,15 +36,18 @@ function getInitialActiveOrderId(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const urlParams = new URLSearchParams(window.location.search);
-    const fromUrl = urlParams.get("order_id");
+    const fromUrl = urlParams.get("order_id") || urlParams.get("quote") || urlParams.get("approval");
     if (fromUrl && fromUrl.startsWith("ord_")) {
       return fromUrl;
     }
-    const fromSession = sessionStorage.getItem("michito_session_order_id");
-    if (fromSession && fromSession.startsWith("ord_")) {
-      return fromSession;
+    // Only auto-restore session order if user is explicitly on the tracking page (/rastrear)
+    if (window.location.pathname === "/rastrear") {
+      const fromSession = sessionStorage.getItem("michito_session_order_id");
+      if (fromSession && fromSession.startsWith("ord_")) {
+        return fromSession;
+      }
     }
-    // Customers can also resume an existing order anytime via the tracking search bar or direct link.
+    // On the main landing page (/), keep the generator fresh and clean for new prospect searches
   } catch (e) {
     // Graceful fallback if storage is disabled
   }
