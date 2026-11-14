@@ -12,6 +12,7 @@ interface TrackOrderPageProps {
 
 export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialOrderId }) => {
   const dispatch = useDispatch();
+  const { dict } = useSelector((state: RootState) => state.language);
   const { activeOrderId } = useSelector((state: RootState) => state.order);
   const [searchInput, setSearchInput] = useState(initialOrderId || "");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
     e.preventDefault();
     const cleanId = searchInput.trim();
     if (!cleanId) {
-      setErrorMsg("Ingresa un número de orden válido (ej: ord_20261109_4c2836).");
+      setErrorMsg(dict.trackPage.invalidIdError);
       return;
     }
     setErrorMsg(null);
@@ -50,7 +51,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
           className="legal-back-btn"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Volver a la plataforma principal</span>
+          <span>{dict.legal.backButton}</span>
         </button>
 
         {/* Page Header */}
@@ -59,10 +60,10 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
             <PackageCheck className="w-6 h-6" />
           </div>
           <h1 className="legal-title" style={{ fontSize: "2rem" }}>
-            Consulta de Lotes B2B
+            {dict.trackPage.title}
           </h1>
           <p className="legal-subtitle" style={{ maxWidth: "560px", margin: "8px auto 0" }}>
-            Ingresa tu número de referencia para verificar el avance de tu orden, revisar la muestra calificada o descargar tus entregables.
+            {dict.trackPage.subtitle}
           </p>
         </div>
 
@@ -74,7 +75,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Ej: ord_20261109_4c2836"
+              placeholder={dict.trackPage.inputPlaceholder}
               className="track-search-input"
             />
             <button
@@ -82,7 +83,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
               className="track-search-btn"
             >
               <Search className="w-4 h-4" />
-              <span>Consultar Estado</span>
+              <span>{dict.trackPage.searchBtn}</span>
             </button>
           </form>
 
@@ -96,14 +97,14 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
           {activeOrderId && (
             <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--text-muted)" }}>
               <span>
-                Orden activa: <strong style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>{activeOrderId}</strong>
+                {dict.trackPage.activeOrderLabel} <strong style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono)" }}>{activeOrderId}</strong>
               </span>
               <button
                 type="button"
                 onClick={handleReset}
                 style={{ background: "none", border: "none", color: "var(--accent-blue)", textDecoration: "underline", cursor: "pointer", fontSize: "0.85rem" }}
               >
-                Buscar otra orden
+                {dict.trackPage.searchAnotherBtn}
               </button>
             </div>
           )}
@@ -127,21 +128,21 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ onBack, initialO
           /* Helper Tips Card */
           <div className="track-search-card" style={{ background: "rgba(17, 24, 39, 0.5)" }}>
             <h3 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#fff", marginBottom: "14px" }}>
-              ¿Dónde encuentro mi número de orden?
+              {dict.trackPage.helpTitle}
             </h3>
             <div className="track-tips-grid">
               <div className="track-tip-card">
                 <Mail className="w-5 h-5 text-sky-400 shrink-0" style={{ color: "var(--accent-blue)" }} />
                 <div>
-                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>Correo Corporativo</strong>
-                  Enviamos el enlace y código de seguimiento al email que indicaste al generar tu orden.
+                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>{dict.trackPage.helpEmailTitle}</strong>
+                  {dict.trackPage.helpEmailDesc}
                 </div>
               </div>
               <div className="track-tip-card">
                 <MessageSquare className="w-5 h-5 text-emerald-400 shrink-0" style={{ color: "var(--accent-emerald)" }} />
                 <div>
-                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>Notificación WhatsApp</strong>
-                  Si registraste tu número celular, recibiste un mensaje con el enlace directo a tu entrega.
+                  <strong style={{ display: "block", color: "#fff", marginBottom: "4px" }}>{dict.trackPage.helpWhatsappTitle}</strong>
+                  {dict.trackPage.helpWhatsappDesc}
                 </div>
               </div>
             </div>

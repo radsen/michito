@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
 import { Building2, Check, ChevronDown, Plus, Loader2 } from "lucide-react";
 import { useSearchSectorsQuery, useCreateCustomTaxonomyMutation } from "../../store/api/michitoApi";
 
@@ -13,6 +15,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
   onChange,
   onKeywordsSuggested,
 }) => {
+  const { dict } = useSelector((state: RootState) => state.language);
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -64,7 +67,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
   return (
     <div className="sector-select-box">
       <label className="tag-pill-label">
-        Sector Económico & Clasificación CIIU
+        {dict.sector.label}
       </label>
 
       {/* Selected Sectors Display / Dropdown Trigger */}
@@ -84,7 +87,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
               ))
             ) : (
               <span style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
-                Seleccionar sectores económicos (CIIU)...
+                {dict.sector.placeholder}
               </span>
             )}
           </div>
@@ -114,7 +117,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
                     handleCreateCustomSector();
                   }
                 }}
-                placeholder="Filtrar o tipear nuevo nicho (ej. Colegios, Muebles)..."
+                placeholder={dict.sector.searchPlaceholder}
                 className="geo-search-input"
                 style={{ padding: "6px 10px", fontSize: "0.8rem" }}
               />
@@ -141,10 +144,10 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
                   )}
                   <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
                     <span style={{ fontWeight: 600 }}>
-                      + Clasificar y añadir nuevo nicho: "{searchTerm.trim()}"
+                      {dict.sector.addCustomPrefix} "{searchTerm.trim()}"
                     </span>
                     <span style={{ fontSize: "0.70rem", color: "#818cf8" }}>
-                      El motor inferirá automáticamente el código CIIU Rev. 4 y lo agregará al catálogo
+                      {dict.sector.addCustomHint}
                     </span>
                   </div>
                 </div>
@@ -175,7 +178,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
 
             {sectors.length === 0 && !searchTerm.trim() && (
               <div style={{ padding: "12px", textAlign: "center", fontSize: "0.78rem", color: "var(--text-dim)" }}>
-                No se encontraron sectores que coincidan con la búsqueda.
+                {dict.sector.emptySearch}
               </div>
             )}
           </div>
@@ -183,7 +186,7 @@ export const SectorSelector: React.FC<SectorSelectorProps> = ({
       </div>
 
       <span style={{ fontSize: "0.72rem", color: "var(--text-dim)" }}>
-        Al seleccionar o escribir un sector, el motor indexa los códigos CIIU correspondientes en registros oficiales sin costo.
+        {dict.sector.footerHint}
       </span>
     </div>
   );

@@ -61,15 +61,16 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
         <div className="mb-4 p-3 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-start gap-2.5">
           <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
           <div className="text-xs text-slate-300">
-            <span className="font-semibold text-sky-300">Garantía de Cobro Justo: </span>
-            Se solicitaron {requestedLeads} cuentas y se entregaron {totalLeads} cuentas que superaron el 100% de los filtros de solvencia, buzón activo y presencia web. Únicamente pagarás por las cuentas verificadas con éxito.
+            {dict.tracker.fairBillingNotice
+              .replace("{requested}", String(requestedLeads))
+              .replace("{delivered}", String(totalLeads))}
           </div>
         </div>
       )}
 
       <div className="teaser-header">
         <h3 className="teaser-title">
-          Muestra de Cuentas Identificadas (3 de {totalLeads})
+          {dict.tracker.teaserTitle.replace("{total}", String(totalLeads))}
         </h3>
         <p className="teaser-subtitle">{dict.tracker.teaserSubtitle}</p>
       </div>
@@ -95,16 +96,16 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                     <span>{lead.company_name}</span>
                     {lead.is_guarantee_replacement && (
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-semibold">
-                        Garantía 2x1
+                        {dict.tracker.guarantee2x1Badge}
                       </span>
                     )}
                   </div>
                   {lead.nit && <span className="text-xs text-slate-400 font-mono">NIT: {lead.nit}</span>}
                 </td>
                 <td>
-                  <div>{lead.decision_maker_name || "Contacto Institucional"}</div>
+                  <div>{lead.decision_maker_name || dict.tracker.contactInstitutional}</div>
                   <div className="text-xs text-sky-400">
-                    {lead.decision_maker_role || (lead as any).decision_maker_title || "Representante Legal"}
+                    {lead.decision_maker_role || (lead as any).decision_maker_title || dict.tracker.roleLegalRep}
                   </div>
                 </td>
                 <td>
@@ -121,7 +122,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                 </td>
                 <td>
                   <span className="intent-badge">
-                    {lead.intent_trigger || (lead as any).intent_level || "Adjudicación Contrato Reciente"}
+                    {lead.intent_trigger || (lead as any).intent_level || dict.tracker.recentAward}
                   </span>
                 </td>
                 <td>
@@ -131,7 +132,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                       {lead.solvency_tier} • {lead.underwriting_grade || "AAA"}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">Verificado</span>
+                    <span className="text-xs text-slate-400">{dict.tracker.verified}</span>
                   )}
                 </td>
               </tr>
@@ -149,13 +150,13 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold text-white flex items-center gap-2">
-                <span>¡Lote de {totalLeads} Cuentas Desbloqueado y Verificado!</span>
+                <span>{dict.tracker.unlockedBarTitle.replace("{total}", String(totalLeads))}</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500/30">
-                  Listo para Descarga
+                  {dict.tracker.unlockedBarBadge}
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5 mb-0">
-                Los datos completos y el playbook comercial están listos. Descarga tus archivos directamente:
+                {dict.tracker.unlockedBarSub}
               </p>
             </div>
           </div>
@@ -206,7 +207,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                 rel="noreferrer"
               >
                 <Database className="w-4 h-4" />
-                <span>Inteligencia Completa</span>
+                <span>{dict.tracker.dlFullCsvTitle}</span>
               </a>
             )}
           </div>
@@ -216,7 +217,10 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
           <div className="unlock-info">
             <Lock className="w-5 h-5 text-amber-400" />
             <span>
-              Las {Math.max(1, totalLeads - leads.length)} cuentas restantes y los correos completos se desbloquean con el pago.
+              {dict.tracker.unlockRemaining.replace(
+                "{remaining}",
+                String(Math.max(1, totalLeads - leads.length))
+              )}
             </span>
           </div>
           <button
@@ -228,8 +232,10 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
             <CreditCard className="w-5 h-5" />
             <span>
               {isPartialFill
-                ? `Desbloquear ${totalLeads} Cuentas Verificadas (${formatCop(totalAmountCop)})`
-                : `Desbloquear Lote Completo (${formatCop(totalAmountCop)})`}
+                ? dict.tracker.unlockPartialBtn
+                    .replace("{total}", String(totalLeads))
+                    .replace("{amount}", formatCop(totalAmountCop))
+                : dict.tracker.unlockBtn.replace("{amount}", formatCop(totalAmountCop))}
             </span>
           </button>
         </div>

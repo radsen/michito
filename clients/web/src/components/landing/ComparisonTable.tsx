@@ -17,7 +17,7 @@ export const ComparisonTable: React.FC = () => {
         <div className="comparison-grid">
           {/* Traditional Card */}
           <div className="comparison-card traditional-card">
-            <div className="card-badge-bad">Desactualizado & Costoso</div>
+            <div className="card-badge-bad">{dict.comparison.traditionalBadge}</div>
             <h3 className="card-title">{dict.comparison.traditionalTitle}</h3>
             <ul className="comparison-list">
               <li>
@@ -41,7 +41,7 @@ export const ComparisonTable: React.FC = () => {
 
           {/* Michito Card */}
           <div className="comparison-card michito-card">
-            <div className="card-badge-good">Arquitectura On-Demand</div>
+            <div className="card-badge-good">{dict.comparison.michitoBadge}</div>
             <h3 className="card-title">{dict.comparison.michitoTitle}</h3>
             <ul className="comparison-list">
               <li>

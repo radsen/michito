@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
 import {
   Copy,
   Check,
@@ -59,6 +61,8 @@ interface OutreachPlaybookProps {
 }
 
 export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies }) => {
+  const { dict } = useSelector((state: RootState) => state.language);
+  const pb = dict.playbook;
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<{ [key: number]: number }>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -67,9 +71,9 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
     return (
       <div className="playbook-empty-state" data-testid="outreach-playbook">
         <Sparkles className="playbook-empty-icon" />
-        <p className="playbook-empty-title">Playbook en Generación</p>
+        <p className="playbook-empty-title">{pb.emptyTitle}</p>
         <p className="playbook-empty-subtitle">
-          Los guiones multicanal y ángulos comerciales de prospección se activan al completar el lote.
+          {pb.emptySubtitle}
         </p>
       </div>
     );
@@ -111,15 +115,15 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
           <div className="playbook-header-title-row">
             <Send className="w-5 h-5 text-sky-400" />
             <h4 className="playbook-header-title">
-              Playbook de Prospección & Guiones 1-Click
+              {pb.title}
             </h4>
           </div>
           <p className="playbook-header-subtitle">
-            Cadencias de 5 toques omnicanal (LinkedIn, Email, WhatsApp, Follow-up). Copia o dispara en 1 clic.
+            {pb.subtitle}
           </p>
         </div>
         <div className="playbook-badge-count">
-          <span className="playbook-badge-num">{companies.length}</span> cuentas con guiones listos
+          <span className="playbook-badge-num">{companies.length}</span> {pb.badgeSuffix}
         </div>
       </div>
 
@@ -194,20 +198,20 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                     <div className="playbook-intel-card">
                       <div className="playbook-intel-label">
                         <Mail className="w-3.5 h-3.5 text-sky-400" />
-                        <span>Correo Verificado</span>
+                        <span>{pb.verifiedEmail}</span>
                       </div>
                       <div className="playbook-intel-value font-mono">
-                        {comp.email || "No registrado"}
+                        {comp.email || pb.notRegistered}
                       </div>
                     </div>
 
                     <div className="playbook-intel-card">
                       <div className="playbook-intel-label">
                         <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Celular Directo / WhatsApp</span>
+                        <span>{pb.directPhone}</span>
                       </div>
                       <div className="playbook-intel-value font-mono playbook-phone-row">
-                        <span>{comp.phone || "No registrado"}</span>
+                        <span>{comp.phone || pb.notRegistered}</span>
                         {comp.phone && (
                           <button
                             type="button"
@@ -229,7 +233,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                     <div className="playbook-intel-card">
                       <div className="playbook-intel-label">
                         <Building2 className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Sitio Web Corporativo</span>
+                        <span>{pb.companyWebsite}</span>
                       </div>
                       <div className="playbook-intel-value">
                         {comp.website && comp.website.startsWith("http") ? (
@@ -243,7 +247,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             <ExternalLink className="w-3 h-3 shrink-0" />
                           </a>
                         ) : (
-                          <span className="text-slate-400">{comp.website || "No disponible"}</span>
+                          <span className="text-slate-400">{comp.website || pb.notAvailable}</span>
                         )}
                       </div>
                     </div>
@@ -254,11 +258,11 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                     <div className="playbook-angle-box">
                       <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="playbook-angle-heading">Ángulo de Entrada Recomendado: </span>
+                        <span className="playbook-angle-heading">{pb.recommendedAngle} </span>
                         <span className="playbook-angle-text">{comp.recommended_angle}</span>
                         {comp.triggers?.contracts_won && (
                           <span className="playbook-angle-contracts">
-                            Contratos ganados: {comp.triggers.contracts_won} • {comp.triggers.entity}
+                            {pb.contractsWon} {comp.triggers.contracts_won} • {comp.triggers.entity}
                           </span>
                         )}
                       </div>
@@ -268,11 +272,11 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                   {/* Touch Navigation Tabs */}
                   <div className="playbook-touch-tabs">
                     {[
-                      { num: 1, label: "Touch 1 (LinkedIn)" },
-                      { num: 2, label: "Touch 2 (Cold Email)" },
-                      { num: 3, label: "Touch 3 (Follow-up)" },
-                      { num: 4, label: "Touch 4 (Social Proof)" },
-                      { num: 5, label: "Touch 5 (Breakup)" },
+                      { num: 1, label: pb.touch1Tab },
+                      { num: 2, label: pb.touch2Tab },
+                      { num: 3, label: pb.touch3Tab },
+                      { num: 4, label: pb.touch4Tab },
+                      { num: 5, label: pb.touch5Tab },
                     ].map((tab) => (
                       <button
                         key={tab.num}
@@ -294,7 +298,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <div className="playbook-touch-section">
                         <div className="playbook-touch-title-row">
                           <span className="playbook-touch-title">
-                            Nota de Conexión LinkedIn (&lt;300 caracteres)
+                            {pb.touch1Title}
                           </span>
                           <button
                             type="button"
@@ -304,18 +308,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             {copiedKey === `t1_${idx}` ? (
                               <>
                                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>¡Copiado!</span>
+                                <span>{pb.copied}</span>
                               </>
                             ) : (
                               <>
                                 <Copy className="w-3.5 h-3.5" />
-                                <span>Copiar Nota</span>
+                                <span>{pb.copyNote}</span>
                               </>
                             )}
                           </button>
                         </div>
                         <div className="playbook-touch-body select-all">
-                          {t1 || "Nota de conexión no provista para esta cuenta."}
+                          {t1 || pb.noNoteAvailable}
                         </div>
                       </div>
                     )}
@@ -325,7 +329,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <div className="playbook-touch-section">
                         <div className="playbook-subject-row">
                           <div className="playbook-subject-label">
-                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-tag">{pb.subjectLabel}</span>
                             <span className="playbook-subject-text">{t2.subject}</span>
                           </div>
                           <button
@@ -338,18 +342,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
-                            <span>Copiar Asunto</span>
+                            <span>{pb.copySubject}</span>
                           </button>
                         </div>
 
                         <div className="playbook-touch-body select-all">
-                          {t2.body || "Cuerpo no disponible"}
+                          {t2.body || pb.bodyNotAvailable}
                         </div>
 
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`Asunto: ${t2.subject}\n\n${t2.body}`, `t2_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t2.subject}\n\n${t2.body}`, `t2_all_${idx}`)}
                             className="playbook-btn-copy-full"
                           >
                             {copiedKey === `t2_all_${idx}` ? (
@@ -357,7 +361,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
                             )}
-                            <span>Copiar Correo Completo</span>
+                            <span>{pb.copyFullEmail}</span>
                           </button>
 
                           {comp.phone && (
@@ -367,7 +371,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                               className="playbook-btn-whatsapp"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
-                              <span>Enviar por WhatsApp</span>
+                              <span>{pb.sendWhatsapp}</span>
                             </button>
                           )}
                         </div>
@@ -379,7 +383,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <div className="playbook-touch-section">
                         <div className="playbook-subject-row">
                           <div className="playbook-subject-label">
-                            <span className="playbook-subject-tag">Asunto (Re:): </span>
+                            <span className="playbook-subject-tag">{pb.subjectFollowupLabel}</span>
                             <span className="playbook-subject-text">{t3.subject}</span>
                           </div>
                           <button
@@ -392,18 +396,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
-                            <span>Copiar Asunto</span>
+                            <span>{pb.copySubject}</span>
                           </button>
                         </div>
 
                         <div className="playbook-touch-body select-all">
-                          {t3.body || "Cuerpo no disponible"}
+                          {t3.body || pb.bodyNotAvailable}
                         </div>
 
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`Asunto: ${t3.subject}\n\n${t3.body}`, `t3_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectFollowupLabel}${t3.subject}\n\n${t3.body}`, `t3_all_${idx}`)}
                             className="playbook-btn-copy-full"
                           >
                             {copiedKey === `t3_all_${idx}` ? (
@@ -411,7 +415,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
                             )}
-                            <span>Copiar Follow-up</span>
+                            <span>{pb.copyFollowup}</span>
                           </button>
 
                           {comp.phone && (
@@ -421,7 +425,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                               className="playbook-btn-whatsapp"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
-                              <span>Enviar por WhatsApp</span>
+                              <span>{pb.sendWhatsapp}</span>
                             </button>
                           )}
                         </div>
@@ -433,7 +437,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <div className="playbook-touch-section">
                         <div className="playbook-subject-row">
                           <div className="playbook-subject-label">
-                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-tag">{pb.subjectLabel}</span>
                             <span className="playbook-subject-text">{t4.subject}</span>
                           </div>
                           <button
@@ -446,18 +450,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
-                            <span>Copiar Asunto</span>
+                            <span>{pb.copySubject}</span>
                           </button>
                         </div>
 
                         <div className="playbook-touch-body select-all">
-                          {t4.body || "Cuerpo no disponible"}
+                          {t4.body || pb.bodyNotAvailable}
                         </div>
 
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`Asunto: ${t4.subject}\n\n${t4.body}`, `t4_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t4.subject}\n\n${t4.body}`, `t4_all_${idx}`)}
                             className="playbook-btn-copy-full"
                           >
                             {copiedKey === `t4_all_${idx}` ? (
@@ -465,7 +469,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
                             )}
-                            <span>Copiar Prueba Social</span>
+                            <span>{pb.copySocialProof}</span>
                           </button>
                         </div>
                       </div>
@@ -476,7 +480,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <div className="playbook-touch-section">
                         <div className="playbook-subject-row">
                           <div className="playbook-subject-label">
-                            <span className="playbook-subject-tag">Asunto: </span>
+                            <span className="playbook-subject-tag">{pb.subjectLabel}</span>
                             <span className="playbook-subject-text">{t5.subject}</span>
                           </div>
                           <button
@@ -489,18 +493,18 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
-                            <span>Copiar Asunto</span>
+                            <span>{pb.copySubject}</span>
                           </button>
                         </div>
 
                         <div className="playbook-touch-body select-all">
-                          {t5.body || "Cuerpo no disponible"}
+                          {t5.body || pb.bodyNotAvailable}
                         </div>
 
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`Asunto: ${t5.subject}\n\n${t5.body}`, `t5_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t5.subject}\n\n${t5.body}`, `t5_all_${idx}`)}
                             className="playbook-btn-copy-full"
                           >
                             {copiedKey === `t5_all_${idx}` ? (
@@ -508,7 +512,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
                             )}
-                            <span>Copiar Despedida / Catálogo</span>
+                            <span>{pb.copyBreakup}</span>
                           </button>
                         </div>
                       </div>

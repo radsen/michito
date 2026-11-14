@@ -37,14 +37,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="footer-badges">
             <span className="footer-pill">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Fuentes Públicas Oficiales &bull; B2B Compliance</span>
+              <span>{f.complianceBadge}</span>
             </span>
           </div>
         </div>
 
         <div className="footer-links-grid">
           <div className="footer-column">
-            <h4>Plataforma</h4>
+            <h4>{f.colPlatform}</h4>
             <ul>
               <li>
                 <a
@@ -52,7 +52,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/#generador", e)}
                   className="footer-link"
                 >
-                  Configurar Lote
+                  {f.linkConfigure}
                 </a>
               </li>
               <li>
@@ -61,7 +61,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/#como-funciona", e)}
                   className="footer-link"
                 >
-                  Cómo Funciona
+                  {f.linkHowItWorks}
                 </a>
               </li>
               <li>
@@ -70,13 +70,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/#precios", e)}
                   className="footer-link"
                 >
-                  Precios & Paquetes
+                  {f.linkPricing}
                 </a>
               </li>
             </ul>
           </div>
           <div className="footer-column">
-            <h4>Servicio & Clientes</h4>
+            <h4>{f.colService}</h4>
             <ul>
               <li>
                 <a
@@ -85,7 +85,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   className="footer-link footer-link-highlight"
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Rastrear Orden Existente</span>
+                  <span>{f.linkTrack}</span>
                 </a>
               </li>
               <li>
@@ -94,7 +94,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/terminos", e)}
                   className="footer-link"
                 >
-                  Garantía Técnica 2x1
+                  {f.linkWarranty}
                 </a>
               </li>
               <li>
@@ -103,13 +103,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/terminos", e)}
                   className="footer-link"
                 >
-                  Privacidad & Habeas Data
+                  {f.linkPrivacy}
                 </a>
               </li>
             </ul>
           </div>
           <div className="footer-column">
-            <h4>Cobertura B2B</h4>
+            <h4>{f.colCoverage}</h4>
             <ul>
               <li>
                 <span className="text-xs text-slate-400">🇨🇴 Colombia (SECOP / RUES)</span>
@@ -126,7 +126,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => handleNavigate("/terminos", e)}
                   className="footer-link text-xs text-sky-400 hover:text-sky-300"
                 >
-                  Canales de Exclusión (Opt-Out)
+                  {f.linkOptOut}
                 </a>
               </li>
             </ul>

@@ -547,11 +547,11 @@ export const OrderGenerator: React.FC = () => {
 
   const handleProceedToStep2 = () => {
     if (!offerDescription.trim() && selectedPresetId === "custom") {
-      setFormError("Por favor ingresa una breve descripción de tu oferta comercial o producto.");
+      setFormError(g.errorOfferRequired);
       return;
     }
     if (locationAllocations.length === 0) {
-      setFormError("Por favor asigna al menos un territorio o ciudad con cuota de prospectos.");
+      setFormError(g.errorLocationRequired);
       return;
     }
     setFormError(null);
@@ -593,7 +593,7 @@ export const OrderGenerator: React.FC = () => {
     setFormError(null);
 
     if (!buyerName.trim() || !buyerEmail.trim()) {
-      setFormError("Por favor completa tu nombre y correo corporativo.");
+      setFormError(g.errorBuyerRequired);
       return;
     }
 
@@ -644,10 +644,10 @@ export const OrderGenerator: React.FC = () => {
           })
         );
       } else {
-        dispatch(orderFailed(res.message || "No se pudo crear la orden."));
+        dispatch(orderFailed(res.message || g.errorCreateOrder));
       }
     } catch (err: any) {
-      const msg = err?.data?.detail || "Error de conexión al generar la orden.";
+      const msg = err?.data?.detail || g.errorConnection;
       setFormError(msg);
       dispatch(orderFailed(msg));
     }
@@ -658,7 +658,7 @@ export const OrderGenerator: React.FC = () => {
     setQuoteSharedToast(null);
 
     if (!buyerName.trim() || !buyerEmail.trim()) {
-      setFormError("Por favor completa tu nombre y correo corporativo antes de compartir la cotización.");
+      setFormError(g.errorBuyerShareRequired);
       return;
     }
 
@@ -713,15 +713,15 @@ export const OrderGenerator: React.FC = () => {
         if (navigator?.clipboard) {
           navigator.clipboard.writeText(shareUrl);
         }
-        setQuoteSharedToast("¡Cotización generada y guardada! Enlace copiado al portapapeles para aprobación interna.");
+        setQuoteSharedToast(g.quoteSharedSuccess);
         setTimeout(() => {
           document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
         }, 300);
       } else {
-        dispatch(orderFailed(res.message || "No se pudo crear la cotización."));
+        dispatch(orderFailed(res.message || g.errorCreateQuote));
       }
     } catch (err: any) {
-      const msg = err?.data?.detail || "Error al generar la cotización.";
+      const msg = err?.data?.detail || g.errorShareConnection;
       setFormError(msg);
       dispatch(orderFailed(msg));
     } finally {
@@ -753,10 +753,10 @@ export const OrderGenerator: React.FC = () => {
                   <div>
                     <div className="text-xs font-semibold text-sky-300 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>Calificación Activa • {activeOrderId}</span>
+                      <span>{g.collapsedActive} • {activeOrderId}</span>
                     </div>
                     <div className="text-sm font-bold text-white mt-0.5">
-                      {volume} cuentas • Tier {tier} • {locationAllocations[0]?.city || "Medellín"}, {locationAllocations[0]?.country || "CO"}
+                      {volume} {g.recapAccounts} • Tier {tier} • {locationAllocations[0]?.city || "Medellín"}, {locationAllocations[0]?.country || "CO"}
                     </div>
                   </div>
                 </div>
@@ -767,7 +767,7 @@ export const OrderGenerator: React.FC = () => {
                     className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Modificar Criterios</span>
+                    <span>{g.modifyCriteria}</span>
                   </button>
                   <button
                     type="button"
@@ -775,15 +775,15 @@ export const OrderGenerator: React.FC = () => {
                     className="px-3.5 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-400 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Nueva Búsqueda</span>
+                    <span>{g.newSearch}</span>
                   </button>
                   <a
                     href={`/rastrear?order_id=${activeOrderId}`}
                     className="px-3.5 py-2 rounded-lg bg-sky-950/60 hover:bg-sky-900/80 text-sky-300 border border-sky-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                    title="Ver orden en pantalla completa sin elementos de la landing"
+                    title={g.dedicatedSpace}
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Espacio Dedicado</span>
+                    <span>{g.dedicatedSpace}</span>
                   </a>
                 </div>
               </div>
@@ -801,7 +801,7 @@ export const OrderGenerator: React.FC = () => {
                     }}
                   />
                   <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff" }}>
-                    Prospección activa:{" "}
+                    {g.activeFloating}{" "}
                     <strong style={{ fontFamily: "monospace", color: "#38bdf8" }}>
                       {activeOrderId}
                     </strong>
@@ -812,9 +812,9 @@ export const OrderGenerator: React.FC = () => {
                     type="button"
                     onClick={() => setIsFormCollapsed(true)}
                     className="active-order-action-link"
-                    title="Ocultar formulario para ver resultados"
+                    title={g.hideCriteria}
                   >
-                    Ocultar Criterios
+                    {g.hideCriteria}
                   </button>
                   <button
                     type="button"
@@ -825,14 +825,14 @@ export const OrderGenerator: React.FC = () => {
                     }}
                     className="active-order-action-link"
                   >
-                    Ver Estado
+                    {g.viewStatus}
                   </button>
                   <button
                     type="button"
                     onClick={handleAdjustParameters}
                     className="active-order-reset-link"
                   >
-                    Nueva Búsqueda
+                    {g.newSearch}
                   </button>
                 </div>
               </div>
@@ -906,7 +906,7 @@ export const OrderGenerator: React.FC = () => {
                       }}
                     >
                       <TrendingUp style={{ width: 16, height: 16 }} />
-                      <span>Quiero Vender (Captar Clientes B2B)</span>
+                      <span>{g.directionVendor}</span>
                     </button>
                     <button
                       type="button"
@@ -934,7 +934,7 @@ export const OrderGenerator: React.FC = () => {
                       }}
                     >
                       <ShoppingCart style={{ width: 16, height: 16 }} />
-                      <span>Quiero Comprar (Cotizar Proveedores / Auto-RFQ)</span>
+                      <span>{g.directionBuyer}</span>
                     </button>
                   </div>
                 </div>
@@ -947,7 +947,7 @@ export const OrderGenerator: React.FC = () => {
                     className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
                   >
                     <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
-                    <span>Búsqueda Rápida con IA (Recomendado)</span>
+                    <span>{g.aiModeTab}</span>
                   </button>
                   <button
                     type="button"
@@ -955,7 +955,7 @@ export const OrderGenerator: React.FC = () => {
                     className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
                   >
                     <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                    <span>Filtros Manuales Avanzados</span>
+                    <span>{g.manualModeTab}</span>
                   </button>
                 </div>
 
@@ -967,10 +967,11 @@ export const OrderGenerator: React.FC = () => {
                         <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
                         Michito Intent Engine™
                       </span>
-                      <h3 className="ai-intent-title">¿A qué empresas le quieres vender hoy?</h3>
+                      <h3 className="ai-intent-title">
+                        {directionality === "client_to_vendors" ? g.aiBuyerTitle : g.aiTitle}
+                      </h3>
                       <p className="ai-intent-subtitle">
-                        Describe tu oferta o cliente ideal en lenguaje natural. Nuestra IA extraerá
-                        sectores, cargos y configurará el lote óptimo en tiempo real.
+                        {g.aiSubtitle}
                       </p>
                     </div>
 
@@ -985,7 +986,7 @@ export const OrderGenerator: React.FC = () => {
                             handleProfileIntent();
                           }
                         }}
-                        placeholder="Ej: Vendo software contable a clínicas y firmas de consultoría en Bogotá y Cali..."
+                        placeholder={g.aiPlaceholder}
                         className="ai-intent-input"
                         disabled={isProfiling}
                       />
@@ -998,12 +999,12 @@ export const OrderGenerator: React.FC = () => {
                         {isProfiling ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Analizando...</span>
+                            <span>{g.aiLoading}</span>
                           </>
                         ) : (
                           <>
                             <Sparkles style={{ width: 16, height: 16 }} />
-                            <span>Descubrir con IA</span>
+                            <span>{g.aiSubmit}</span>
                           </>
                         )}
                       </button>
@@ -1011,28 +1012,24 @@ export const OrderGenerator: React.FC = () => {
 
                     {/* Quick Suggestion Pills */}
                     <div className="ai-pills-container">
-                      <span className="ai-pills-label">O explora búsquedas frecuentes:</span>
+                      <span className="ai-pills-label">{g.aiQuickLabel}</span>
                       <div className="ai-pills-grid">
                         {[
                           {
-                            label: "Oficinas & Sedes Corporativas (Medellín)",
-                            query:
-                              "Busco empresas medianas y corporativas para arriendo de oficinas y coworking en Medellín",
+                            label: g.aiPill1,
+                            query: g.aiPill1Query,
                           },
                           {
-                            label: "Logística y Flotas Pesadas (Bogotá)",
-                            query:
-                              "Empresas de transporte de carga pesada y distribución logística en Bogotá para suministro de combustible",
+                            label: g.aiPill2,
+                            query: g.aiPill2Query,
                           },
                           {
-                            label: "Software & Facturación DIAN (Bogotá)",
-                            query:
-                              "Clínicas, IPS y empresas de servicios en Bogotá con facturación electrónica DIAN",
+                            label: g.aiPill3,
+                            query: g.aiPill3Query,
                           },
                           {
-                            label: "Bodegas y Parques Industriales (Cali)",
-                            query:
-                              "Empresas buscando bodegas y centros de distribución logística en parques industriales en Cali",
+                            label: g.aiPill4,
+                            query: g.aiPill4Query,
                           },
                         ].map((pill, idx) => (
                           <button
@@ -1057,7 +1054,7 @@ export const OrderGenerator: React.FC = () => {
                           <div>
                             <span className="discovery-match-badge">
                               <CheckCircle2 style={{ width: 16, height: 16 }} />
-                              {discoveryResult.estimated_matches} Empresas Encontradas en{" "}
+                              {discoveryResult.estimated_matches} {g.discoveryMatches}{" "}
                               {discoveryResult.city}
                             </span>
                             <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
@@ -1066,10 +1063,10 @@ export const OrderGenerator: React.FC = () => {
                           </div>
                           <div style={{ textAlign: "right" }}>
                             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
-                              Lote Sugerido:
+                              {g.suggestedBatch}
                             </span>
                             <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
-                              {discoveryResult.recommended_limit} Contactos Directos (
+                              {discoveryResult.recommended_limit} {g.directContactsUnit} (
                               {formatCop(discoveryResult.pricing?.total_cop || 0)} COP)
                             </strong>
                           </div>
@@ -1078,7 +1075,7 @@ export const OrderGenerator: React.FC = () => {
                         {discoveryResult.sample_preview && (
                           <div className="discovery-sample-preview">
                             <div className="discovery-sample-title">
-                              Ejemplo de cuenta calificada en este lote:
+                              {g.samplePreviewTitle}
                             </div>
                             <div className="discovery-sample-company">
                               {discoveryResult.sample_preview.company_name}
@@ -1088,9 +1085,9 @@ export const OrderGenerator: React.FC = () => {
                               {discoveryResult.sample_preview.title})
                             </div>
                             <div className="discovery-sample-badges">
-                              <span className="discovery-sample-badge">✓ NIT Vigente en Cámara de Comercio</span>
-                              <span className="discovery-sample-badge">✓ Mailbox MX Corporativo Verificado</span>
-                              <span className="discovery-sample-badge">✓ Huella HTTP y Dominio Activo</span>
+                              <span className="discovery-sample-badge">{g.sampleBadgeNit}</span>
+                              <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
+                              <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
                             </div>
                           </div>
                         )}
@@ -1103,7 +1100,7 @@ export const OrderGenerator: React.FC = () => {
                             style={{ flex: 1, justifyContent: "center", padding: "10px" }}
                           >
                             <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                            <span>Personalizar y Ajustar Filtros en Modo Avanzado →</span>
+                            <span>{g.customizeAdvancedBtn}</span>
                           </button>
                         </div>
                       </div>
@@ -1117,7 +1114,7 @@ export const OrderGenerator: React.FC = () => {
                       <div className="preset-catalog-header">
                         <span className="preset-catalog-title">
                           <Compass style={{ width: 15, height: 15, color: "#38bdf8" }} />
-                          <span>Plantillas Rápidas o Búsqueda Libre:</span>
+                          <span>{g.quickTemplates}</span>
                         </span>
                         {selectedPresetId !== "custom" && (
                           <button
@@ -1135,7 +1132,7 @@ export const OrderGenerator: React.FC = () => {
                             }}
                           >
                             <RotateCcw style={{ width: 12, height: 12 }} />
-                            <span>Búsqueda Libre desde Cero</span>
+                            <span>{g.freeSearchFromScratch}</span>
                           </button>
                         )}
                       </div>
@@ -1149,7 +1146,7 @@ export const OrderGenerator: React.FC = () => {
                           }`}
                         >
                           <Sparkles style={{ width: 14, height: 14 }} />
-                          <span>Búsqueda Universal Libre</span>
+                          <span>{g.universalFreeSearch}</span>
                         </button>
                         {availablePresets.map((p: PresetTemplate) => (
                           <button
@@ -1172,8 +1169,8 @@ export const OrderGenerator: React.FC = () => {
                         <FileText className={`form-label-icon ${directionality === "client_to_vendors" ? "text-emerald-400" : "text-sky-400"}`} />
                         <span>
                           {directionality === "client_to_vendors"
-                            ? "Producto, Insumo o Servicio que Necesitas Cotizar / Contratar"
-                            : "Propuesta de Valor u Oferta Comercial B2B"}
+                            ? g.offerLabelBuyer
+                            : g.offerLabelVendor}
                         </span>
                       </label>
                       <textarea
@@ -1182,15 +1179,15 @@ export const OrderGenerator: React.FC = () => {
                         onChange={(e) => setOfferDescription(e.target.value)}
                         placeholder={
                           directionality === "client_to_vendors"
-                            ? "Describe lo que deseas cotizar (ej: Reparación y mantenimiento locativo de silletería de oficina, suministro de dotaciones escolares, o compra mayorista de insumos)..."
-                            : "Describe el producto o servicio que vendes (ej: Distribución mayorista de insumos médicos para clínicas, suministro de combustible diésel para flotas pesadas, o software de facturación)..."
+                            ? g.offerPlaceholderBuyer
+                            : g.offerPlaceholderVendor
                         }
                         className="form-textarea"
                       />
                       <span className="form-hint">
                         {directionality === "client_to_vendors"
-                          ? "El motor identificará los proveedores registrados más sólidos en las cámaras de comercio y generará la solicitud de cotización formal (Auto-RFQ)."
-                          : "Esta propuesta personaliza automáticamente las 5 cadencias de contacto (correos y notas de LinkedIn) que genera el motor para cada prospecto."}
+                          ? g.offerHintBuyer
+                          : g.offerHintVendor}
                       </span>
                     </div>
 
@@ -1199,18 +1196,18 @@ export const OrderGenerator: React.FC = () => {
                       <div className="form-group">
                         <label className="form-label">
                           <FileText className="form-label-icon text-emerald-400" />
-                          <span>Especificaciones Técnicas / Pliego del Requerimiento (Auto-RFQ)</span>
+                          <span>{g.rfqSpecLabel}</span>
                         </label>
                         <textarea
                           rows={2}
                           value={rfqSpecifications}
                           onChange={(e) => setRfqSpecifications(e.target.value)}
-                          placeholder="Requerimientos específicos (ej: Requerimos cotizar mantenimiento para 120 puestos de trabajo en Medellín con garantía de 12 meses y ejecución en enero)..."
+                          placeholder={g.rfqSpecPlaceholder}
                           className="form-textarea"
                           style={{ borderColor: "rgba(16, 185, 129, 0.4)" }}
                         />
                         <span className="form-hint" style={{ color: "#34d399" }}>
-                          Estas especificaciones se insertarán automáticamente en la solicitud formal de cotización enviada a los directores comerciales de los proveedores calificados.
+                          {g.rfqSpecHint}
                         </span>
                       </div>
                     )}
@@ -1225,7 +1222,7 @@ export const OrderGenerator: React.FC = () => {
                       {targetCiiuCodes.length > 0 && (
                         <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: "8px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
                           <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#60a5fa", display: "block", marginBottom: "4px" }}>
-                            Códigos CIIU / ISIC Identificados por IA:
+                            {g.ciiuIdentifiedByAi}
                           </span>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                             {targetCiiuCodes.map((code) => (
@@ -1242,15 +1239,15 @@ export const OrderGenerator: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">
                         <Target className="form-label-icon text-indigo-400" />
-                        <span>Cargos y Tomadores de Decisión Objetivo</span>
+                        <span>{g.targetRolesLabel}</span>
                       </label>
                       <TagPillInput
                         tags={targetRoles}
                         onChange={handleRolesChange}
                         suggestions={suggestedRoles}
                         color="indigo"
-                        placeholder="Ej: Gerente General, Director de Compras, CFO..."
-                        helperText="Escribe un cargo y presiona Enter o haz clic en las sugerencias frecuentes."
+                        placeholder={g.targetRolesPlaceholder}
+                        helperText={g.targetRolesHelper}
                       />
                       <div
                         style={{
@@ -1261,16 +1258,16 @@ export const OrderGenerator: React.FC = () => {
                         }}
                       >
                         <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", alignSelf: "center" }}>
-                          Sugerencias populares:
+                          {g.popularSuggestions}
                         </span>
-                        {[
+                        {(g.popularRoles || [
                           "Gerente General",
                           "Director de Operaciones",
                           "Director de Compras",
                           "Director Comercial",
                           "Gerente Financiero (CFO)",
                           "Director de Tecnología (CTO)",
-                        ].map((role) => (
+                        ]).map((role: string) => (
                           <button
                             key={role}
                             type="button"
@@ -1293,7 +1290,7 @@ export const OrderGenerator: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">
                         <MapPin className="form-label-icon text-emerald-400" />
-                        <span>Distribución Geográfica y Cuota de Leads</span>
+                        <span>{g.geoQuotaLabel}</span>
                       </label>
                       <GeoQuotaAllocator
                         allocations={locationAllocations}
@@ -1307,14 +1304,14 @@ export const OrderGenerator: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">
                         <Sparkles className="form-label-icon text-emerald-400" />
-                        <span>Palabras Clave y Señales de Compra (Inclusiones)</span>
+                        <span>{g.positiveKeywordsLabel}</span>
                       </label>
                       <TagPillInput
                         tags={positiveKeywords}
                         onChange={setPositiveKeywords}
                         color="emerald"
-                        placeholder="Ej: facturación electrónica, cadena de frío, transporte pesado..."
-                        helperText="Señales técnicas o de actividad comercial que deben estar presentes en los registros o el sitio web."
+                        placeholder={g.positiveKeywordsPlaceholder}
+                        helperText={g.positiveKeywordsHelper}
                       />
                     </div>
 
@@ -1331,13 +1328,13 @@ export const OrderGenerator: React.FC = () => {
                           className={`tier-pill ${tier === 1 ? "active" : ""}`}
                         >
                           <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">Directorio Base</span>
+                            <span className="tier-pill-name">{g.tierBaseName}</span>
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
                               {formatUnitCurrency(curConfig.tierPrices[1], currency)}
                             </span>
-                            <span className="tier-pill-unit">/ cta</span>
+                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>
                         </button>
                         <button
@@ -1346,14 +1343,14 @@ export const OrderGenerator: React.FC = () => {
                           className={`tier-pill ${tier === 2 ? "active" : ""}`}
                         >
                           <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">Contactos Directos</span>
-                            <span className="tier-pill-badge">Rec.</span>
+                            <span className="tier-pill-name">{g.tierDirectName}</span>
+                            <span className="tier-pill-badge">{g.tierRecBadge}</span>
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
                               {formatUnitCurrency(curConfig.tierPrices[2], currency)}
                             </span>
-                            <span className="tier-pill-unit">/ cta</span>
+                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>
                         </button>
                         <button
@@ -1362,13 +1359,13 @@ export const OrderGenerator: React.FC = () => {
                           className={`tier-pill ${tier === 3 ? "active" : ""}`}
                         >
                           <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">Auditoría Completa</span>
+                            <span className="tier-pill-name">{g.tierAuditName}</span>
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
                               {formatUnitCurrency(curConfig.tierPrices[3], currency)}
                             </span>
-                            <span className="tier-pill-unit">/ cta</span>
+                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>
                         </button>
                       </div>
@@ -1380,7 +1377,7 @@ export const OrderGenerator: React.FC = () => {
                         <Hash className="form-label-icon text-purple-400" />
                         <span>
                           {g.volumeLabel}{" "}
-                          <strong className="text-sky-400">{volume} cuentas</strong>
+                          <strong className="text-sky-400">{volume} {g.recapAccounts}</strong>
                         </span>
                       </label>
                       <div className="volume-presets-grid">
@@ -1422,13 +1419,13 @@ export const OrderGenerator: React.FC = () => {
                   >
                     <div className="exclusions-toggle-title">
                       <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Excluir Clientes Actuales o Competidores (Opcional)</span>
+                      <span>{g.exclusionsToggle}</span>
                       {allExclusions.length > 0 && (
                         <span className="exclusions-count-badge">
                           {allExclusions.length}{" "}
                           {allExclusions.length === 1
-                            ? "exclusión activa"
-                            : "exclusiones activas"}
+                            ? g.activeExclusionSingle
+                            : g.activeExclusionPlural}
                         </span>
                       )}
                     </div>
@@ -1442,20 +1439,19 @@ export const OrderGenerator: React.FC = () => {
                   {isExclusionsOpen && (
                     <div className="exclusions-drawer">
                       <p className="exclusions-hint">
-                        Ingresa dominios web o NITs que desees omitir (ej: cliente1.com, 900123456).
-                        Se excluirán automáticamente del lote sin costo alguno.
+                        {g.exclusionsHint}
                       </p>
 
                       <TagPillInput
                         tags={negativeExclusions}
                         onChange={setNegativeExclusions}
                         color="rose"
-                        placeholder="Escribe dominio o NIT y presiona Enter..."
+                        placeholder={g.exclusionsPlaceholder}
                       />
 
                       <div style={{ marginTop: "10px" }}>
                         <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
-                          O pega una lista en bloque (separada por comas o saltos de línea):
+                          {g.exclusionsBulkLabel}
                         </span>
                         <textarea
                           value={exclusionsText}
@@ -1473,24 +1469,24 @@ export const OrderGenerator: React.FC = () => {
                 <div className="calc-summary-box">
                   <div className="calc-row">
                     <span>
-                      Precio por cuenta (
+                      {g.pricePerAccountLabel} (
                       {tier === 1
-                        ? "Directorio Base"
+                        ? g.tierBaseName
                         : tier === 2
-                        ? "Contactos Directos"
-                        : "Auditoría Completa"}
+                        ? g.tierDirectName
+                        : g.tierAuditName}
                       ):
                     </span>
                     <span>{formatCurrencyAmount(unitPrice, currency)}</span>
                   </div>
                   <div className="calc-row">
-                    <span>Subtotal ({volume} cuentas):</span>
+                    <span>{g.subtotalLabel} ({volume} {g.recapAccounts}):</span>
                     <span>{formatCurrencyAmount(subtotal, currency)}</span>
                   </div>
                   {discountPercent > 0 && (
                     <div className="calc-row text-emerald-400">
                       <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <Sparkles style={{ width: 14, height: 14 }} /> Descuento por volumen (-
+                        <Sparkles style={{ width: 14, height: 14 }} /> {g.volumeDiscountLabel} (-
                         {discountPercent}%):
                       </span>
                       <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
@@ -1502,7 +1498,7 @@ export const OrderGenerator: React.FC = () => {
                   </div>
                   {currency !== "COP" && (
                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px", textAlign: "right" }}>
-                      Equivalente en liquidación segura Wompi: {formatCop(totalCop)} COP
+                      {g.wompiEquivalent} {formatCop(totalCop)} COP
                     </div>
                   )}
                   <div className="fair-billing-pill">
@@ -1523,7 +1519,7 @@ export const OrderGenerator: React.FC = () => {
                   className="generator-submit-btn"
                   style={{ marginTop: "24px" }}
                 >
-                  <span>Continuar a Datos de Entrega</span>
+                  <span>{g.continueBtn}</span>
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </button>
               </div>
@@ -1538,21 +1534,21 @@ export const OrderGenerator: React.FC = () => {
                 {/* Selected Order Comprehensive Recap */}
                 <div className="generator-recap-box">
                   <div className="recap-item">
-                    <span className="recap-label">Oferta / Propuesta</span>
+                    <span className="recap-label">{g.recapOffer}</span>
                     <span className="recap-value">
-                      {offerDescription ? `"${offerDescription.slice(0, 80)}..."` : "Configuración Universal"}
+                      {offerDescription ? `"${offerDescription.slice(0, 80)}..."` : g.recapUniversal}
                     </span>
                   </div>
 
                   <div className="recap-item">
-                    <span className="recap-label">Sectores CIIU</span>
+                    <span className="recap-label">{g.recapSectors}</span>
                     <span className="recap-value">
-                      {selectedSectors.length > 0 ? selectedSectors.join(", ") : "Multi-Sector Abierto"}
+                      {selectedSectors.length > 0 ? selectedSectors.join(", ") : g.recapOpenSector}
                     </span>
                   </div>
 
                   <div className="recap-item">
-                    <span className="recap-label">Cargos Objetivo</span>
+                    <span className="recap-label">{g.recapRoles}</span>
                     <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                       {targetRoles.map((r, i) => (
                         <span key={i} className="tag-pill-chip indigo" style={{ fontSize: "0.72rem" }}>
@@ -1563,11 +1559,11 @@ export const OrderGenerator: React.FC = () => {
                   </div>
 
                   <div className="recap-item">
-                    <span className="recap-label">Territorios & Cuota</span>
+                    <span className="recap-label">{g.recapTerritories}</span>
                     <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                       {locationAllocations.map((loc, i) => (
                         <span key={i} style={{ color: "#34d399", fontWeight: 600 }}>
-                          {loc.city}: {loc.allocated_leads} leads
+                          {loc.city}: {loc.allocated_leads} {g.recapLeads}
                         </span>
                       ))}
                     </span>
@@ -1575,18 +1571,18 @@ export const OrderGenerator: React.FC = () => {
 
                   {allExclusions.length > 0 && (
                     <div className="recap-item">
-                      <span className="recap-label">Exclusiones Activas</span>
+                      <span className="recap-label">{g.recapExclusions}</span>
                       <span className="recap-value text-amber-300 font-medium">
                         {allExclusions.length}{" "}
-                        {allExclusions.length === 1 ? "cuenta excluida" : "cuentas excluidas"}
+                        {allExclusions.length === 1 ? g.recapExclSingle : g.recapExclPlural}
                       </span>
                     </div>
                   )}
 
                   <div className="recap-item">
-                    <span className="recap-label">Inversión Estimada</span>
+                    <span className="recap-label">{g.recapInvestment}</span>
                     <span className="recap-value text-emerald-400">
-                      {formatCurrencyAmount(total, currency)} ({volume} cuentas)
+                      {formatCurrencyAmount(total, currency)} ({volume} {g.recapAccounts})
                     </span>
                   </div>
                 </div>
@@ -1600,7 +1596,7 @@ export const OrderGenerator: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="Ej: Juan Carlos Pérez"
+                      placeholder={g.buyerNamePlaceholder}
                       value={buyerName}
                       onChange={(e) => setLocalName(e.target.value)}
                       className="form-input"
@@ -1615,7 +1611,7 @@ export const OrderGenerator: React.FC = () => {
                     <input
                       type="email"
                       required
-                      placeholder="director@empresa.com"
+                      placeholder={g.buyerEmailPlaceholder}
                       value={buyerEmail}
                       onChange={(e) => setLocalEmail(e.target.value)}
                       className="form-input"
@@ -1630,7 +1626,7 @@ export const OrderGenerator: React.FC = () => {
                     <input
                       type="tel"
                       required
-                      placeholder="+57 300 123 4567"
+                      placeholder={g.buyerPhonePlaceholder}
                       value={buyerPhone}
                       onChange={(e) => setLocalPhone(e.target.value)}
                       className="form-input"
@@ -1659,7 +1655,7 @@ export const OrderGenerator: React.FC = () => {
                     }}
                     className="generator-back-btn"
                   >
-                    ← Modificar Búsqueda
+                    {g.backBtn}
                   </button>
                   <button
                     type="button"
@@ -1680,14 +1676,14 @@ export const OrderGenerator: React.FC = () => {
                       gap: "6px",
                       transition: "all 0.2s ease",
                     }}
-                    title="Guarda la configuración y copia un enlace directo para que tu equipo o CFO pueda revisarla y autorizarla"
+                    title={g.shareQuoteTooltip}
                   >
                     {isSharingQuote ? (
                       <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
                     ) : (
                       <Share2 className="w-4 h-4 text-sky-400" />
                     )}
-                    <span>Compartir para Aprobación</span>
+                    <span>{g.shareQuoteBtn}</span>
                   </button>
                   <button
                     type="submit"
@@ -1698,7 +1694,7 @@ export const OrderGenerator: React.FC = () => {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Iniciando calificación asíncrona...</span>
+                        <span>{g.submittingBtn}</span>
                       </>
                     ) : (
                       <>

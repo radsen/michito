@@ -22,6 +22,7 @@ async function sha256(message: string): Promise<string> {
 
 export const WompiCheckoutModal: React.FC = () => {
   const dispatch = useDispatch();
+  const { dict } = useSelector((state: RootState) => state.language);
   const { isWompiModalOpen } = useSelector((state: RootState) => state.ui);
   const { activeOrderId, totalAmountInCents } = useSelector((state: RootState) => state.order);
   const { totalCop, total, currency } = useSelector((state: RootState) => state.pricing);
@@ -158,7 +159,7 @@ export const WompiCheckoutModal: React.FC = () => {
         <button
           onClick={() => dispatch(setWompiModalOpen(false))}
           className="modal-close-btn"
-          aria-label="Cerrar modal"
+          aria-label={dict.checkout.closeLabel}
           type="button"
         >
           <X className="w-5 h-5" />
@@ -168,19 +169,19 @@ export const WompiCheckoutModal: React.FC = () => {
           <div className="modal-icon-badge">
             <CreditCard className="w-6 h-6 text-sky-400" />
           </div>
-          <h3 className="modal-title">Confirmar y Desbloquear Lote B2B</h3>
+          <h3 className="modal-title">{dict.checkout.modalTitle}</h3>
           <p className="modal-subtitle">
-            Transacción segura con tarjeta, PSE o Bancolombia vía Wompi.
+            {dict.checkout.modalSubtitle}
           </p>
         </div>
 
         <div className="modal-summary">
           <div className="summary-row">
-            <span>Referencia:</span>
+            <span>{dict.checkout.reference}</span>
             <span className="font-mono text-white font-semibold">{activeOrderId}</span>
           </div>
           <div className="summary-row">
-            <span>Monto Total:</span>
+            <span>{dict.checkout.totalAmount}</span>
             <span className="text-xl font-bold text-emerald-400">
               {currency !== "COP"
                 ? `${formatCurrencyAmount(total, currency)} (${formatCop(resolvedAmountInCents / 100)} COP)`
@@ -188,8 +189,8 @@ export const WompiCheckoutModal: React.FC = () => {
             </span>
           </div>
           <div className="summary-row text-xs text-slate-400">
-            <span>Ambiente:</span>
-            <span className="text-amber-400 font-semibold">Wompi Sandbox (Pruebas)</span>
+            <span>{dict.checkout.environment}</span>
+            <span className="text-amber-400 font-semibold">{dict.checkout.sandboxBadge}</span>
           </div>
         </div>
 
@@ -208,7 +209,7 @@ export const WompiCheckoutModal: React.FC = () => {
             type="button"
           >
             <CreditCard className="w-5 h-5" />
-            <span>Pagar con Pasarela Wompi</span>
+            <span>{dict.checkout.payBtn}</span>
           </button>
 
           <button
@@ -218,7 +219,7 @@ export const WompiCheckoutModal: React.FC = () => {
             type="button"
           >
             {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            <span>Aprobar Directo (Modo Sandbox / Dev)</span>
+            <span>{dict.checkout.devApproveBtn}</span>
           </button>
         </div>
       </div>

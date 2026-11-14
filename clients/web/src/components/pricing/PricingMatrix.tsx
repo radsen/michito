@@ -98,7 +98,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn ${selectedTier === 1 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 1 ? "Tier 1 Seleccionado" : "Elegir Directorio"}
+              {selectedTier === 1 ? p.tier1Selected : p.tier1Cta}
             </button>
           </div>
 
@@ -152,7 +152,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn btn-highlighted ${selectedTier === 2 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 2 ? "Tier 2 Seleccionado" : "Elegir Contactos Directos"}
+              {selectedTier === 2 ? p.tier2Selected : p.tier2Cta}
             </button>
           </div>
 
@@ -202,7 +202,7 @@ export const PricingMatrix: React.FC = () => {
               }}
               className={`tier-cta-btn ${selectedTier === 3 ? "btn-selected" : ""}`}
             >
-              {selectedTier === 3 ? "Tier 3 Seleccionado" : "Elegir Auditoría"}
+              {selectedTier === 3 ? p.tier3Selected : p.tier3Cta}
             </button>
           </div>
         </div>
@@ -216,18 +216,18 @@ export const PricingMatrix: React.FC = () => {
           <div className="calc-card-header">
             <div className="calc-card-title-box">
               <Calculator className="w-5 h-5 text-sky-400" />
-              <h3 className="calc-card-title">Simula tu Inversión por Volumen</h3>
+              <h3 className="calc-card-title">{p.calcTitle}</h3>
             </div>
             <p className="calc-card-subtitle">
-              Pagas únicamente por las cuentas verificadas. Descuentos automáticos hasta 42%.
+              {p.calcSubtitle}
             </p>
           </div>
 
           <div className="calc-controls-grid">
             <div className="calc-volume-picker">
               <label className="form-label">
-                <span>Cantidad de Cuentas:</span>
-                <strong className="text-sky-400 font-bold ml-1">{volume} cuentas</strong>
+                <span>{p.calcVolumeLabel}</span>
+                <strong className="text-sky-400 font-bold ml-1">{volume} {p.calcAccountsUnit}</strong>
               </label>
 
               <div className="pricing-volume-presets-grid">
@@ -295,38 +295,38 @@ export const PricingMatrix: React.FC = () => {
 
             <div className="pricing-calc-summary">
               <div className="calc-row">
-                <span>Paquete Seleccionado:</span>
+                <span>{p.calcSelectedTier}</span>
                 <span className="text-white font-semibold">
                   {selectedTier === 1
-                    ? "Directorio Base"
+                    ? p.tier1Name
                     : selectedTier === 2
-                    ? "Contactos Directos"
-                    : "Auditoría Completa"}
+                    ? p.tier2Name
+                    : p.tier3Name}
                 </span>
               </div>
               <div className="calc-row">
-                <span>Precio por cuenta:</span>
+                <span>{p.calcPricePerAccount}</span>
                 <span>{formatCurrencyAmount(unitPrice, currency)}</span>
               </div>
               <div className="calc-row">
-                <span>Subtotal ({volume} cuentas):</span>
+                <span>{p.calcSubtotal.replace("{volume}", String(volume))}</span>
                 <span>{formatCurrencyAmount(subtotal, currency)}</span>
               </div>
               {discountPercent > 0 && (
                 <div className="calc-row text-emerald-400">
                   <span className="flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> Descuento por volumen (-{discountPercent}%):
+                    <Sparkles className="w-3.5 h-3.5" /> {p.calcDiscount.replace("{percent}", String(discountPercent))}
                   </span>
                   <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
                 </div>
               )}
               <div className="calc-row-total">
-                <span>Inversión Total:</span>
+                <span>{p.calcTotal}</span>
                 <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
               </div>
               {currency !== "COP" && (
                 <div className="text-xs text-slate-400 text-right mt-1">
-                  Equivalente aproximado: {formatCurrencyAmount(totalCop, "COP")} (Liquidación Wompi)
+                  {p.calcWompiEquiv.replace("{amount}", formatCurrencyAmount(totalCop, "COP"))}
                 </div>
               )}
 
@@ -335,7 +335,7 @@ export const PricingMatrix: React.FC = () => {
                 onClick={handleScrollToOrder}
                 className="calc-order-cta-btn"
               >
-                <span>Configurar este Lote ({volume} Cuentas)</span>
+                <span>{p.calcOrderCta.replace("{volume}", String(volume))}</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </button>
             </div>

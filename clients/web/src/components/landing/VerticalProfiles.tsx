@@ -109,11 +109,11 @@ export const VerticalProfiles: React.FC = () => {
                 >
                   {isSelected ? (
                     <>
-                      <Check className="w-4 h-4" /> Perfil Seleccionado
+                      <Check className="w-4 h-4" /> {v.profileSelected}
                     </>
                   ) : (
                     <>
-                      <span>Elegir Vertical</span>
+                      <span>{v.chooseVertical}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

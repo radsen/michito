@@ -312,31 +312,31 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               {isPaid
                 ? dict.tracker.completedTitle
                 : isFailed
-                ? "Calificación no completada"
+                ? dict.tracker.failedTitle
                 : isAwaitingPayment
-                ? "Calificación Lista: Revisa la Muestra y Desbloquea"
+                ? dict.tracker.readyToUnlockTitle
                 : dict.tracker.processingTitle}
             </h3>
             <div className="tracker-ref-row">
-              <span className="tracker-ref-label">Referencia de Orden:</span>
+              <span className="tracker-ref-label">{dict.tracker.orderRefLabel}</span>
               <strong className="tracker-ref-id">{activeOrderId}</strong>
               <button
                 onClick={handleCopyOrderId}
                 className="copy-id-btn"
-                title="Copiar ID de orden"
+                title={dict.tracker.copyId}
                 type="button"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? "¡Copiado!" : "Copiar"}</span>
+                <span>{copied ? dict.tracker.copiedId : dict.tracker.copyId}</span>
               </button>
               <button
                 onClick={handleCopyApprovalLink}
                 className="copy-id-btn"
-                title="Copiar enlace compartible para aprobación"
+                title={dict.tracker.shareLink}
                 type="button"
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-sky-400" />}
-                <span>{copiedLink ? "¡Enlace Copiado!" : "Compartir Enlace"}</span>
+                <span>{copiedLink ? dict.tracker.linkCopied : dict.tracker.shareLink}</span>
               </button>
             </div>
           </div>
@@ -346,7 +346,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           <button
             onClick={() => refetch()}
             className={`tracker-icon-btn ${isFetching ? "animate-spin" : ""}`}
-            title="Refrescar estado en vivo"
+            title={dict.tracker.refreshTooltip}
             type="button"
           >
             <RefreshCw className="w-4 h-4" />
@@ -354,11 +354,11 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           <button
             onClick={handleNewOrder}
             className="tracker-new-search-btn"
-            title="Iniciar nueva búsqueda"
+            title={dict.tracker.newSearch}
             type="button"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>Nueva Búsqueda</span>
+            <span>{dict.tracker.newSearch}</span>
           </button>
         </div>
       </div>
@@ -372,13 +372,17 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             </div>
             <div>
               <div className="shareable-quote-header">
-                <span className="shareable-quote-title">Enlace Compartible de Aprobación</span>
+                <span className="shareable-quote-title">{dict.tracker.shareableApprovalTitle}</span>
                 <span className="shareable-quote-badge">
-                  {isPaid ? "Entrega Aprobada" : isAwaitingPayment ? "Listo para Aprobación" : "En Calificación"}
+                  {isPaid
+                    ? dict.tracker.shareableApprovalBadgePaid
+                    : isAwaitingPayment
+                    ? dict.tracker.shareableApprovalBadgeReady
+                    : dict.tracker.shareableApprovalBadgeQualifying}
                 </span>
               </div>
               <p className="shareable-quote-desc">
-                Comparte este enlace directo con tu líder comercial o equipo para revisar los criterios, verificar la muestra y autorizar el lote.
+                {dict.tracker.shareableApprovalDesc}
               </p>
             </div>
           </div>
@@ -389,14 +393,14 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               className="btn-quote-copy"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedLink ? "¡Copiado!" : "Copiar Enlace"}</span>
+              <span>{copiedLink ? dict.tracker.copiedId : dict.tracker.copyId}</span>
             </button>
             <a
-              href={`https://wa.me/?text=${encodeURIComponent(`Hola, por favor revisa y aprueba esta cotización de prospección B2B en Michito: ${getShareableApprovalUrl()}`)}`}
+              href={`https://wa.me/?text=${encodeURIComponent(`${dict.tracker.shareWhatsappText} ${getShareableApprovalUrl()}`)}`}
               target="_blank"
               rel="noreferrer"
               className="btn-quote-whatsapp"
-              title="Compartir por WhatsApp"
+              title="WhatsApp"
             >
               <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
               <span>WhatsApp</span>
@@ -411,26 +415,26 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-300">
               {isPaid
-                ? "Entrega Confirmada"
+                ? dict.tracker.deliveryConfirmed
                 : isAwaitingPayment
-                ? "Muestra Teaser Calificada (100%)"
+                ? dict.tracker.teaserSampleQualified
                 : isProcessing
                 ? targetTier === 3
-                  ? "Auditando Estados Financieros, Rama Judicial y Registros en Tiempo Real..."
-                  : "Calificando Huellas Web HTTP 200 y Servidores MX en Tiempo Real..."
-                : "Orden en Cola • Asignando Worker..."}
+                  ? dict.tracker.auditingFinancials
+                  : dict.tracker.checkingWebAndMx
+                : dict.tracker.orderQueued}
             </span>
           </div>
 
           {isQueued || isProcessing ? (
             <div className="tracker-timer-chip">
               <Clock className="w-3 h-3 text-sky-400" />
-              <span>Tiempo: {formatTimeDisplay(elapsedSec)} (est. {formatEstDisplay(estimatedTotalSec)})</span>
+              <span>{dict.tracker.elapsedLabel} {formatTimeDisplay(elapsedSec)} ({dict.tracker.estimatedPrefix} {formatEstDisplay(estimatedTotalSec)})</span>
             </div>
           ) : elapsedSec > 0 ? (
             <div className="tracker-timer-chip">
               <Clock className="w-3 h-3 text-emerald-400" />
-              <span>Tiempo de calificación: {formatTimeDisplay(elapsedSec)}</span>
+              <span>{dict.tracker.qualificationTimeLabel} {formatTimeDisplay(elapsedSec)}</span>
             </div>
           ) : null}
         </div>
@@ -447,15 +451,11 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             <div className="flex items-center gap-2 text-xs font-semibold text-sky-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>
-                {currentLanguage === "en_US"
-                  ? "Your batch is being processed"
-                  : "Tu lote se está procesando"}
+                {dict.tracker.batchProcessingTitle}
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed mt-1 mb-0">
-              {currentLanguage === "en_US"
-                ? `You don't need to keep this window open. Feel free to close it or carry on with your tasks; once verification finishes, you can review your qualified prospects right here with your order number (${activeOrderId}).`
-                : `Puedes cerrar esta ventana o continuar con tus actividades habituales. La verificación seguirá ejecutándose normalmente; cuando finalice, podrás revisar tus prospectos calificados aquí mismo con tu número de orden (${activeOrderId}).`}
+              {dict.tracker.batchProcessingNotice.replace("{orderId}", activeOrderId || "")}
             </p>
           </div>
         )}
@@ -489,11 +489,10 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             <AlertCircle className="w-5 h-5 order-failed-icon" />
             <div className="order-failed-content">
               <h4 className="order-failed-title">
-                No fue posible completar la calificación de prospectos
+                {dict.tracker.failedCardTitle}
               </h4>
               <p className="order-failed-desc">
-                {orderData?.error_message ||
-                  "No se encontraron cuentas que superaran todos los filtros de validación técnica, presencia web y buzón activo."}
+                {orderData?.error_message || dict.tracker.failedCardFallback}
               </p>
               <div className="order-failed-actions">
                 <button
@@ -502,7 +501,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   type="button"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>Ajustar Parámetros / Nueva Búsqueda</span>
+                  <span>{dict.tracker.failedCardBtn}</span>
                 </button>
               </div>
             </div>
@@ -515,35 +514,35 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
         <div className="live-quality-radar" data-testid="live-quality-radar">
           <div className="radar-title">
             <Sparkles className="w-4 h-4 text-sky-400" />
-            <span>Verificaciones en Ejecución en Segundo Plano (Worker Daemon)</span>
+            <span>{dict.tracker.radarTitle}</span>
           </div>
           <div className="radar-grid">
             <div className="radar-item active">
               <Building2 className="w-4 h-4 text-sky-400" />
               <div>
-                <div className="radar-item-title">Registros Mercantiles</div>
-                <div className="radar-item-sub">Extrayendo NITs/RNC vigentes</div>
+                <div className="radar-item-title">{dict.tracker.radarRegistries}</div>
+                <div className="radar-item-sub">{dict.tracker.radarRegistriesSub}</div>
               </div>
             </div>
             <div className={`radar-item ${isProcessing ? "active" : ""}`}>
               <Globe className="w-4 h-4 text-emerald-400" />
               <div>
-                <div className="radar-item-title">Auditoría Web HTTP</div>
-                <div className="radar-item-sub">Descartando dominios caídos</div>
+                <div className="radar-item-title">{dict.tracker.radarWeb}</div>
+                <div className="radar-item-sub">{dict.tracker.radarWebSub}</div>
               </div>
             </div>
             <div className={`radar-item ${isProcessing ? "active" : ""}`}>
               <Mail className="w-4 h-4 text-purple-400" />
               <div>
-                <div className="radar-item-title">Comprobación Socket MX</div>
-                <div className="radar-item-sub">Verificando buzones directos</div>
+                <div className="radar-item-title">{dict.tracker.radarMx}</div>
+                <div className="radar-item-sub">{dict.tracker.radarMxSub}</div>
               </div>
             </div>
             <div className={`radar-item ${isProcessing ? "active" : ""}`}>
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <div>
-                <div className="radar-item-title">Solvencia & Cadencias</div>
-                <div className="radar-item-sub">Redactando toques B2B</div>
+                <div className="radar-item-title">{dict.tracker.radarSolvency}</div>
+                <div className="radar-item-sub">{dict.tracker.radarSolvencySub}</div>
               </div>
             </div>
           </div>
@@ -556,9 +555,9 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           <div className="unlocked-header">
             <Sparkles className="w-6 h-6 text-emerald-400" />
             <div>
-              <h4 className="text-lg font-bold text-white">Entregables Listos para Descarga Inmediata</h4>
+              <h4 className="text-lg font-bold text-white">{dict.tracker.deliverablesTitle}</h4>
               <p className="text-sm text-slate-300">
-                Los enlaces seguros están activos por 48 horas. Tu orden queda guardada en tu navegador.
+                {dict.tracker.deliverablesSub}
               </p>
             </div>
           </div>
@@ -577,8 +576,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <div className="download-btn-info">
-                  <div className="download-btn-title">Hoja de Cálculo (.XLSX)</div>
-                  <div className="download-btn-sub">Excel con filtros y formato</div>
+                  <div className="download-btn-title">{dict.tracker.dlXlsxTitle}</div>
+                  <div className="download-btn-sub">{dict.tracker.dlXlsxSub}</div>
                 </div>
               </a>
             ) : null}
@@ -596,8 +595,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="download-btn-info">
-                  <div className="download-btn-title">Dossier Ejecutivo (.PDF)</div>
-                  <div className="download-btn-sub">Reporte C-Level & Guiones</div>
+                  <div className="download-btn-title">{dict.tracker.dlPdfTitle}</div>
+                  <div className="download-btn-sub">{dict.tracker.dlPdfSub}</div>
                 </div>
               </a>
             ) : null}
@@ -615,8 +614,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   <Download className="w-5 h-5" />
                 </div>
                 <div className="download-btn-info">
-                  <div className="download-btn-title">Base para CRM (.CSV)</div>
-                  <div className="download-btn-sub">HubSpot / Salesforce Ready</div>
+                  <div className="download-btn-title">{dict.tracker.dlCsvTitle}</div>
+                  <div className="download-btn-sub">{dict.tracker.dlCsvSub}</div>
                 </div>
               </a>
             ) : null}
@@ -634,8 +633,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   <FileCheck className="w-5 h-5" />
                 </div>
                 <div className="download-btn-info">
-                  <div className="download-btn-title">Playbook Texto (.MD)</div>
-                  <div className="download-btn-sub">Notion / Obsidian Ready</div>
+                  <div className="download-btn-title">{dict.tracker.dlMdTitle}</div>
+                  <div className="download-btn-sub">{dict.tracker.dlMdSub}</div>
                 </div>
               </a>
             ) : null}
@@ -653,8 +652,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   <Database className="w-5 h-5 text-indigo-400" />
                 </div>
                 <div className="download-btn-info">
-                  <div className="download-btn-title">Inteligencia Completa (.CSV)</div>
-                  <div className="download-btn-sub">40+ Atributos Técnicos & SECOP</div>
+                  <div className="download-btn-title">{dict.tracker.dlFullCsvTitle}</div>
+                  <div className="download-btn-sub">{dict.tracker.dlFullCsvSub}</div>
                 </div>
               </a>
             ) : null}
@@ -669,18 +668,27 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h5 className="text-sm font-bold text-white">Garantía Técnica 2x1 por Rebote Duro</h5>
+                    <h5 className="text-sm font-bold text-white">{dict.tracker.guaranteeBannerTitle}</h5>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                      7 Días Activa
+                      {dict.tracker.guaranteeBannerBadge}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 mt-0.5">
-                    Si un correo corporativo presenta rebote duro verificado, recibe 2 cuentas nuevas de reemplazo al instante.
+                    {dict.tracker.guaranteeBannerDesc}
                   </p>
                   {orderData?.replacement_claims && orderData.replacement_claims.length > 0 && (
                     <div className="text-xs text-emerald-400 font-medium mt-1">
-                      Garantías aplicadas: {orderData.replacement_claims.length} rebote(s) reportado(s) •{" "}
-                      {orderData.replacement_claims.reduce((acc: number, c: any) => acc + (c.replacement_count || 2), 0)} cuentas adicionales generadas
+                      {dict.tracker.guaranteeBannerApplied
+                        .replace("{claims}", String(orderData.replacement_claims.length))
+                        .replace(
+                          "{accounts}",
+                          String(
+                            orderData.replacement_claims.reduce(
+                              (acc: number, c: any) => acc + (c.replacement_count || 2),
+                              0
+                            )
+                          )
+                        )}
                     </div>
                   )}
                 </div>
@@ -695,7 +703,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 className="btn-guarantee-claim"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reclamar Reemplazo 2x1</span>
+                <span>{dict.tracker.guaranteeClaimBtn}</span>
               </button>
             </div>
           </div>
@@ -712,14 +720,14 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 onClick={() => setActiveViewTab("summary")}
                 className={`tracker-view-tab-btn ${activeViewTab === "summary" ? "active" : ""}`}
               >
-                Resumen & Muestra de Datos
+                {dict.tracker.tabSummary}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveViewTab("playbook")}
                 className={`tracker-view-tab-btn ${activeViewTab === "playbook" ? "active" : ""}`}
               >
-                <span>Playbook de Prospección (1-Click Outreach)</span>
+                <span>{dict.tracker.tabPlaybook}</span>
                 <span className="tracker-tab-badge">
                   {playbook.length}
                 </span>
@@ -767,14 +775,13 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-base font-bold text-white">Reclamar Garantía Técnica 2x1</h4>
-                <p className="text-xs text-slate-400">Reemplazo instantáneo de contactos con rebote verificado</p>
+                <h4 className="text-base font-bold text-white">{dict.tracker.guaranteeModalTitle}</h4>
+                <p className="text-xs text-slate-400">{dict.tracker.guaranteeModalSub}</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-300 mb-4 leading-relaxed">
-              Ingresa el correo corporativo que presentó rebote duro (hard bounce). El motor registrará el correo en el
-              ledger global de deduplicación y generará de inmediato <strong>2 cuentas nuevas</strong> con el mismo criterio territorial y de rol.
+              {dict.tracker.guaranteeModalDesc}
             </p>
 
             {claimSuccess && (
@@ -794,19 +801,19 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             <form onSubmit={handleClaimSubmit} className="space-y-3">
               <div>
                 <label className="claim-form-label">
-                  Correo Electrónico Rebotado *
+                  {dict.tracker.guaranteeModalEmailLabel}
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder="ejemplo@empresa.com"
+                  placeholder={dict.tracker.guaranteeModalEmailPlaceholder}
                   value={claimEmail}
                   onChange={(e) => setClaimEmail(e.target.value)}
                   className="claim-form-input"
                 />
                 {teaserLeads && teaserLeads.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                    <span className="text-[11px] text-slate-400">Sugeridos de la orden:</span>
+                    <span className="text-[11px] text-slate-400">{dict.tracker.guaranteeModalSuggested}</span>
                     {teaserLeads.slice(0, 4).map((l, i) => (
                       <button
                         key={i}
@@ -826,11 +833,11 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
               <div>
                 <label className="claim-form-label">
-                  Nombre de la Empresa (Opcional)
+                  {dict.tracker.guaranteeModalCompanyLabel}
                 </label>
                 <input
                   type="text"
-                  placeholder="Empresa asociada al contacto"
+                  placeholder={dict.tracker.guaranteeModalCompanyPlaceholder}
                   value={claimCompany}
                   onChange={(e) => setClaimCompany(e.target.value)}
                   className="claim-form-input"
@@ -839,17 +846,17 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
               <div>
                 <label className="claim-form-label">
-                  Motivo del Rechazo
+                  {dict.tracker.guaranteeModalReasonLabel}
                 </label>
                 <select
                   value={claimReason}
                   onChange={(e) => setClaimReason(e.target.value)}
                   className="claim-form-select"
                 >
-                  <option value="hard_bounce">Rebote Duro / Buzón Inexistente (Error 550)</option>
-                  <option value="domain_dead">Dominio Inactivo / Sin Registro MX</option>
-                  <option value="left_company">Contacto Ya No Labora en la Compañía</option>
-                  <option value="mailbox_full">Buzón Saturado Permanente</option>
+                  <option value="hard_bounce">{dict.tracker.guaranteeReasonHardBounce}</option>
+                  <option value="domain_dead">{dict.tracker.guaranteeReasonDeadDomain}</option>
+                  <option value="left_company">{dict.tracker.guaranteeReasonLeftCompany}</option>
+                  <option value="mailbox_full">{dict.tracker.guaranteeReasonMailboxFull}</option>
                 </select>
               </div>
 
@@ -859,7 +866,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   onClick={() => setShowGuaranteeModal(false)}
                   className="claim-cancel-btn"
                 >
-                  Cerrar
+                  {dict.tracker.guaranteeModalClose}
                 </button>
                 <button
                   type="submit"
@@ -869,12 +876,12 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   {isClaiming ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Generando Reemplazos...</span>
+                      <span>{dict.tracker.guaranteeModalGenerating}</span>
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Ejecutar Garantía 2x1</span>
+                      <span>{dict.tracker.guaranteeModalSubmit}</span>
                     </>
                   )}
                 </button>

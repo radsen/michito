@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
 import { MapPin, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { LocationAllocationPayload, useLazyValidateLocationQuery, useSearchLocationsQuery } from "../../store/api/michitoApi";
 
@@ -15,6 +17,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
   totalVolume,
   onTotalVolumeChange,
 }) => {
+  const { dict } = useSelector((state: RootState) => state.language);
   const [searchInput, setSearchInput] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<string>("ALL");
   const [coverageNotice, setCoverageNotice] = useState<{ isSupported: boolean; message: string } | null>(null);
@@ -114,24 +117,24 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
       <div className="geo-quota-header">
         <div className="geo-quota-title-wrap">
           <MapPin style={{ width: 18, height: 18, color: "#34d399" }} />
-          <span className="geo-quota-title">Asignación Geográfica de Cuota Multi-Territorio</span>
+          <span className="geo-quota-title">{dict.geo.title}</span>
         </div>
         <span className="geo-quota-total-badge">
-          {currentAllocatedSum} leads asignados
+          {dict.geo.allocatedBadge.replace("{count}", String(currentAllocatedSum))}
         </span>
       </div>
 
       <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", margin: 0 }}>
-        Selecciona las ciudades y asigna el volumen específico de prospectos por territorio (ej: 20 Medellín, 10 Bogotá, 10 Cali, 10 Santo Domingo):
+        {dict.geo.subtitle}
       </p>
 
       {/* Country Filter Tabs */}
       <div className="geo-filter-tabs">
         {[
-          { code: "ALL", label: "🌎 Todos los Países" },
-          { code: "CO", label: "🇨🇴 Colombia" },
-          { code: "DO", label: "🇩🇴 Rep. Dominicana" },
-          { code: "EC", label: "🇪🇨 Ecuador" },
+          { code: "ALL", label: dict.geo.tabAll },
+          { code: "CO", label: dict.geo.tabCo },
+          { code: "DO", label: dict.geo.tabDo },
+          { code: "EC", label: dict.geo.tabEc },
         ].map((c) => (
           <button
             key={c.code}
@@ -157,7 +160,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
                 handleCustomValidation();
               }
             }}
-            placeholder="Buscar municipio, departamento o clúster (ej: Cali, Medellín, Santo Domingo, Guayaquil)..."
+            placeholder={dict.geo.searchPlaceholder}
             className="geo-search-input"
           />
           <button
@@ -168,7 +171,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
             style={{ padding: "0 14px", height: "auto" }}
           >
             <Plus style={{ width: 14, height: 14 }} />
-            <span>Añadir</span>
+            <span>{dict.geo.addBtn}</span>
           </button>
         </div>
 
@@ -196,7 +199,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
                     </div>
                   </div>
                   <span style={{ fontSize: "0.72rem", color: isAdded ? "var(--text-dim)" : "#34d399" }}>
-                    {isAdded ? "Ya asignado" : "+ Asignar"}
+                    {isAdded ? dict.geo.alreadyAllocated : dict.geo.assign}
                   </span>
                 </button>
               );
@@ -235,7 +238,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
               </div>
 
               <div className="geo-alloc-controls">
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Cuota:</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{dict.geo.quotaLabel}</span>
                 <input
                   type="number"
                   min="1"
@@ -244,12 +247,12 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
                   onChange={(e) => handleUpdateQuota(alloc.city, parseInt(e.target.value, 10) || 1)}
                   className="geo-alloc-num-input"
                 />
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>leads</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{dict.geo.leadsUnit}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveAllocation(alloc.city)}
                   className="geo-alloc-delete-btn"
-                  title="Eliminar territorio"
+                  title={dict.geo.deleteTooltip}
                 >
                   <Trash2 style={{ width: 14, height: 14 }} />
                 </button>
@@ -260,7 +263,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
       ) : (
         <div style={{ textAlign: "center", padding: "16px", border: "1px dashed var(--border-color)", borderRadius: "8px" }}>
           <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", margin: 0 }}>
-            No has agregado territorios específicos. Busca una ciudad o departamento arriba para empezar.
+            {dict.geo.emptyNotice}
           </p>
         </div>
       )}

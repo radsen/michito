@@ -101,12 +101,10 @@ export const DeliverablesStandards: React.FC<DeliverablesStandardsProps> = ({ on
           <div className="deliverable-trust-main">
             <div className="deliverable-trust-badge-pill">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{isEn ? "Fair Replacement Guarantee" : "Garantía de Reposición 2 por 1"}</span>
+              <span>{d.trustBadge}</span>
             </div>
             <p className="deliverable-trust-desc">
-              {isEn
-                ? "If any corporate inbox exhibits a verifiable hard bounce within 7 days of delivery, it is replaced 2-for-1 at zero additional cost."
-                : "Si algún buzón presenta rebote comprobable en los primeros 7 días, se repone 2 por 1 sin costo adicional."}
+              {d.trustDesc}
             </p>
           </div>
           {onNavigateTerms && (
@@ -115,7 +113,7 @@ export const DeliverablesStandards: React.FC<DeliverablesStandardsProps> = ({ on
               onClick={onNavigateTerms}
               className="deliverable-terms-btn group"
             >
-              <span>{isEn ? "Terms & Habeas Data" : "Términos y Habeas Data"}</span>
+              <span>{d.termsBtn}</span>
               <ArrowRight className="w-4 h-4 text-sky-400 group-hover:translate-x-0.5 transition-transform" />
             </button>
           )}
