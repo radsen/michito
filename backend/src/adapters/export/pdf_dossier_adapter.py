@@ -29,13 +29,18 @@ class NumberedCanvas(canvas.Canvas):
     Two-pass canvas to dynamically compute and stamp total page count
     and institutional confidentiality footer.
     """
+    _saved_page_states: list
+    _startPage: Any
+    _pageNumber: int
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
 
     def showPage(self):
         self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+        if hasattr(self, "_startPage"):
+            self._startPage()
 
     def save(self):
         num_pages = len(self._saved_page_states)
@@ -51,7 +56,8 @@ class NumberedCanvas(canvas.Canvas):
         self.setFillColor(colors.HexColor("#64748B"))
 
         # Footer
-        footer_text = f"Michito B2B Intent Engine™ • Dossier Confidencial de Prospección • Página {self._pageNumber} de {page_count}"
+        curr_page = getattr(self, "_pageNumber", 1)
+        footer_text = f"Michito B2B Intent Engine™ • Dossier Confidencial de Prospección • Página {curr_page} de {page_count}"
         self.drawString(36, 24, footer_text)
         guarantee_text = "Garantía 2-por-1 Fair Replacement activa para rebotes duros >3%"
         self.drawRightString(letter[0] - 36, 24, guarantee_text)
@@ -244,14 +250,14 @@ class PdfDossierAdapter:
         elements.append(Spacer(1, 14))
 
         # 3. Master Summary Table
-        elements.append(Paragraph("📋 Resumen Maestro de Cuentas Calificadas", h2_style))
+        elements.append(Paragraph("Resumen Maestro de Cuentas Calificadas", h2_style))
         summary_headers = [
             Paragraph("<b>#</b>", table_cell_bold),
             Paragraph("<b>Empresa / Razón Social</b>", table_cell_bold),
             Paragraph("<b>Ciudad</b>", table_cell_bold),
             Paragraph("<b>Contacto Clave</b>", table_cell_bold),
             Paragraph("<b>Email Corporativo</b>", table_cell_bold),
-            Paragraph("<b>Celular / WhatsApp</b>", table_cell_bold),
+            Paragraph("<b>Teléfono / Canal</b>", table_cell_bold),
             Paragraph("<b>Señal Detectada</b>", table_cell_bold),
         ]
         summary_rows = [summary_headers]
@@ -264,13 +270,23 @@ class PdfDossierAdapter:
             contracts = lead.get("contracts_data", {})
             signal = contracts.get("intent_level") or lead.get("expansion_flag") or "Operación Activa"
 
+            phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+            phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
+            wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
+            if wa_url:
+                phone_cell = f"<b>{phone_val}</b><br/><font color='#059669'>Móvil / WA Directo</font>"
+            elif "PBX" in phone_type or "Fija" in phone_type:
+                phone_cell = f"<b>{phone_val}</b><br/><font color='#64748B'>Línea PBX</font>"
+            else:
+                phone_cell = f"<b>{phone_val}</b>"
+
             row = [
                 Paragraph(str(idx), table_cell_style),
                 Paragraph(f"<b>{c_name}</b><br/><font color='#64748B'>{c_tax}</font>", table_cell_style),
                 Paragraph(lead.get("city", ""), table_cell_style),
                 Paragraph(f"<b>{rep}</b><br/><font color='#64748B'>{title[:25]}</font>", table_cell_style),
                 Paragraph(lead.get("email", ""), table_cell_style),
-                Paragraph(lead.get("phone", ""), table_cell_style),
+                Paragraph(phone_cell, table_cell_style),
                 Paragraph(f"<font color='#0284C7'>{signal[:25]}</font>", table_cell_style),
             ]
             summary_rows.append(row)
@@ -296,7 +312,7 @@ class PdfDossierAdapter:
         elements.append(Spacer(1, 16))
 
         # 4. Detailed Profiles & 5-Touch Cadences
-        elements.append(Paragraph("🎯 Perfiles Detallados & Cadencias de Contacto Multicanal (5-Touch)", h2_style))
+        elements.append(Paragraph("Perfiles Detallados & Cadencias de Contacto Multicanal (5-Touch)", h2_style))
         elements.append(Paragraph("A continuación se presenta la ficha técnica de cada cuenta con sus canales verificados y la estrategia multitoque recomendada:", subtitle_style))
         elements.append(Spacer(1, 10))
 
@@ -320,7 +336,7 @@ class PdfDossierAdapter:
             salutation = f"Hola {lead.get('first_name', 'Líder')}"
 
             def _safe_format(tmpl: str) -> str:
-                res = str(tmpl or "")
+                res = tmpl or ""
                 res = res.replace("{salutation}", salutation)
                 res = res.replace("{clean_name}", clean_name)
                 res = res.replace("{city}", city)
@@ -352,7 +368,13 @@ class PdfDossierAdapter:
             profile_elements.append(Paragraph(id_text, body_style))
 
             # Contact Strip
-            contact_text = f"<b>Contacto Registrado:</b> <b>{rep_name}</b> ({rep_title}) • <b>Email:</b> <font color='#0284C7'>{email}</font> • <b>Celular:</b> <b>{phone}</b>"
+            phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+            phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
+            wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
+            wa_badge = " (Móvil / WhatsApp)" if wa_url else (f" ({phone_type})" if phone_type else "")
+            target_persona = lead.get("Targeted Campaign Persona") or lead.get("targeted_campaign_persona", "")
+            persona_badge = f" • <b>Objetivo Campaña:</b> {target_persona}" if target_persona else ""
+            contact_text = f"<b>Firmante Registrado:</b> <b>{rep_name}</b> ({rep_title}){persona_badge} • <b>Email:</b> <font color='#0284C7'>{email}</font> • <b>Teléfono:</b> <b>{phone_val}</b>{wa_badge}"
             profile_elements.append(Paragraph(contact_text, body_style))
 
             # Triggers Strip
@@ -363,22 +385,22 @@ class PdfDossierAdapter:
             # Underwriting Strip (Tier 3)
             if tier == 3 and "underwriting" in lead:
                 uw = lead["underwriting"]
-                uw_text = f"<b>🏛️ Suscripción NIIF:</b> Calificación: <b>{uw.get('underwriting_grade')}</b> | Solvencia: <b>Tier {uw.get('solvency_tier')}</b> | Semáforo Legal: <b>{uw.get('litigation_risk_status')}</b>"
+                uw_text = f"<b>Suscripción NIIF:</b> Calificación: <b>{uw.get('underwriting_grade')}</b> | Solvencia: <b>Tier {uw.get('solvency_tier')}</b> | Semáforo Legal: <b>{uw.get('litigation_risk_status')}</b>"
                 profile_elements.append(Paragraph(uw_text, body_style))
 
             profile_elements.append(Spacer(1, 4))
 
             # Cadence Callout Box
             cadence_rows = [
-                [Paragraph("<b>🔹 Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)],
+                [Paragraph("<b>Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)],
                 [Paragraph(t1.replace('\n', ' '), cadence_body_style)],
-                [Paragraph(f"<b>🔹 Touch 2: Cold Email (Día 1) — Asunto:</b> <i>{t2_sub}</i>", cadence_header_style)],
+                [Paragraph(f"<b>Touch 2: Cold Email (Día 1) — Asunto:</b> <i>{t2_sub}</i>", cadence_header_style)],
                 [Paragraph(t2_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>🔹 Touch 3: Seguimiento Operativo (Día 4) — Asunto:</b> <i>{t3_sub}</i>", cadence_header_style)],
+                [Paragraph(f"<b>Touch 3: Seguimiento Operativo (Día 4) — Asunto:</b> <i>{t3_sub}</i>", cadence_header_style)],
                 [Paragraph(t3_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>🔹 Touch 4: Prueba Social / VIP (Día 8) — Asunto:</b> <i>{t4_sub}</i>", cadence_header_style)],
+                [Paragraph(f"<b>Touch 4: Prueba Social / VIP (Día 8) — Asunto:</b> <i>{t4_sub}</i>", cadence_header_style)],
                 [Paragraph(t4_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>🔹 Touch 5: Cierre / Catálogo (Día 14) — Asunto:</b> <i>{t5_sub}</i>", cadence_header_style)],
+                [Paragraph(f"<b>Touch 5: Cierre / Catálogo (Día 14) — Asunto:</b> <i>{t5_sub}</i>", cadence_header_style)],
                 [Paragraph(t5_body.replace('\n', '<br/>'), cadence_body_style)],
             ]
             cadence_table = Table(cadence_rows, colWidths=[540])

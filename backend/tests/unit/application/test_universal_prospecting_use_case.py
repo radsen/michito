@@ -312,7 +312,7 @@ def test_education_schools_scenario_without_ciiu_code(mock_web_auditor, mock_con
         ciiu = lead["ciiu"]
         assert ciiu.code.startswith("85")
         assert "Colegios" in ciiu.sector_macro or "Educación" in ciiu.sector_macro
-        assert lead["phone"].startswith("3")
+        assert lead["is_mobile"] is True or lead["phone"].startswith("+57 3") or lead["phone"].startswith("3")
         assert "@" in lead["email"]
         assert ".edu.co" in lead["email"] or ".co" in lead["email"]
 

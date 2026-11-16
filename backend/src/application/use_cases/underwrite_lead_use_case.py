@@ -7,6 +7,7 @@ Corporate Underwriting Profile.
 
 from dataclasses import dataclass
 from decimal import Decimal
+import re
 from typing import List, Dict, Any, Optional
 
 from src.domain.entities.litigation_record import LitigationRecord
@@ -44,11 +45,15 @@ class UnderwritingResult:
     composite_score: float
     underwriting_grade: str
     credit_recommendation: str
+    has_audited_financials: bool = False
+    financial_source: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "tax_id": self.tax_id,
             "company_name": self.company_name,
+            "has_audited_financials": self.has_audited_financials,
+            "financial_source": self.financial_source,
             "operating_revenue": float(self.operating_revenue),
             "cost_of_sales": float(self.cost_of_sales),
             "operating_expenses": float(self.operating_expenses),
@@ -99,48 +104,74 @@ class UnderwriteLeadUseCase:
 
         # 1. Financial Statements & EBITDA Analysis
         raw_financials = self.financial_statements.fetch_raw_financials(clean_nit)
+        has_audited_financials = raw_financials.get("has_audited_financials", False)
         op_rev = raw_financials.get("operating_revenue", 0)
+        financial_source = raw_financials.get("financial_source", "")
 
-        # Baseline fallback based on company segment if not in audited top-corp registry
-        if not op_rev or op_rev == 0:
-            segment = (lead.get("segment") or "Mediana").lower()
-            contracts_won_cop = 0
-            if "contracts_data" in lead:
-                contracts_won_cop = lead["contracts_data"].get("total_value_cop", 0)
+        contracts = lead.get("contracts_data", {})
+        has_contracts = bool(contracts.get("has_contracts", False))
+        contracts_won_cop = float(contracts.get("total_value_cop", 0)) if has_contracts else 0.0
+        if has_contracts and contracts_won_cop == 0.0:
+            disp_digits = re.sub(r"\D", "", str(contracts.get("total_value_display") or ""))
+            if disp_digits:
+                try:
+                    contracts_won_cop = float(disp_digits)
+                except ValueError:
+                    contracts_won_cop = 0.0
+        contracts_display = contracts.get("total_value_display", "$0 COP")
 
-            if "grande" in segment:
-                base_revenue = 85_000_000_000
-            elif "peque" in segment:
-                base_revenue = 5_500_000_000
-            elif "micro" in segment:
-                base_revenue = 1_200_000_000
+        if has_audited_financials and op_rev > 0:
+            ebitda_res = self.ebitda_calculator.execute(raw_financials)
+            ebit = Decimal(str(ebitda_res["ebit"]))
+            ebitda = Decimal(str(ebitda_res["ebitda"]))
+            margin: EbitdaMargin = ebitda_res["ebitda_margin"]
+            solvency_tier = margin.tier
+            margin_percent = float(margin.value * 100)
+
+            if solvency_tier == SolvencyTier.AAA:
+                solvency_summary = f"Rentabilidad sobresaliente auditada (Margen EBITDA {margin_percent:.1f}%). Alta liquidez operativa. Fuente: {financial_source}."
+            elif solvency_tier == SolvencyTier.AA:
+                solvency_summary = f"Operación saludable y solvente (Margen EBITDA {margin_percent:.1f}%). Fuente: {financial_source}."
+            elif solvency_tier == SolvencyTier.A:
+                solvency_summary = f"Margen operativo estándar ({margin_percent:.1f}%). Fuente: {financial_source}."
             else:
-                base_revenue = 25_000_000_000
+                solvency_summary = f"Alerta financiera: Margen EBITDA deficitario ({margin_percent:.1f}%). Quema de caja operativa. Fuente: {financial_source}."
 
-            estimated_revenue = max(base_revenue, contracts_won_cop * 3)
-            raw_financials = {
-                "operating_revenue": estimated_revenue,
-                "cost_of_sales": int(estimated_revenue * 0.62),
-                "operating_expenses": int(estimated_revenue * 0.22),
-                "depreciation": int(estimated_revenue * 0.03),
-                "amortization": int(estimated_revenue * 0.02),
-            }
-
-        ebitda_res = self.ebitda_calculator.execute(raw_financials)
-        ebit = Decimal(str(ebitda_res["ebit"]))
-        ebitda = Decimal(str(ebitda_res["ebitda"]))
-        margin: EbitdaMargin = ebitda_res["ebitda_margin"]
-        solvency_tier = margin.tier
-        margin_percent = float(margin.value * 100)
-
-        if solvency_tier == SolvencyTier.AAA:
-            solvency_summary = f"Rentabilidad sobresaliente (Margen EBITDA {margin_percent:.1f}%). Alta liquidez operativa."
-        elif solvency_tier == SolvencyTier.AA:
-            solvency_summary = f"Operación saludable y estable (Margen EBITDA {margin_percent:.1f}%)."
-        elif solvency_tier == SolvencyTier.A:
-            solvency_summary = f"Flujo de caja ajustado (Margen EBITDA {margin_percent:.1f}%). Sensible a fluctuaciones de costos."
+            revenue_score = min(max((float(op_rev) / 10_000_000_000.0) * 100.0, 20.0), 100.0)
+            if margin_percent > 15.0:
+                ebitda_score = 100.0
+            elif margin_percent >= 8.0:
+                ebitda_score = 80.0
+            elif margin_percent >= 1.0:
+                ebitda_score = 55.0
+            elif margin_percent >= 0.0:
+                ebitda_score = 40.0
+            else:
+                ebitda_score = 10.0
         else:
-            solvency_summary = f"Alerta financiera: Margen EBITDA deficitario ({margin_percent:.1f}%). Quema de caja operativa."
+            # Fact-based solvency without financial hallucinations:
+            # Avoids fabricating artificial billions in revenue or synthetic cost ratios.
+            ebit = Decimal("0")
+            ebitda = Decimal("0")
+            margin = EbitdaMargin(Decimal("0.0"))
+            margin_percent = 0.0
+
+            if contracts_won_cop > 0:
+                solvency_tier = SolvencyTier.AA if contracts_won_cop >= 500_000_000 else SolvencyTier.A
+                solvency_summary = (
+                    f"Capacidad operativa respaldada en contratación pública ({contracts_display}). "
+                    "Empresa comercial activa en Cámara de Comercio sin balance NIIF centralizado en Supersociedades."
+                )
+                revenue_score = min(max((contracts_won_cop / 1_000_000_000.0) * 100.0, 40.0), 90.0)
+                ebitda_score = 75.0
+            else:
+                solvency_tier = SolvencyTier.A
+                solvency_summary = (
+                    "Empresa comercial activa en Cámara de Comercio (RUES / SECOP). "
+                    "No obligada a reporte público centralizado NIIF ante Supersociedades (PYME no supervisada)."
+                )
+                revenue_score = 45.0
+                ebitda_score = 50.0
 
         # 2. Legal Litigation & Fiscal Sanction Screening
         litigation_records = self.litigation_screener.execute(clean_nit)
@@ -169,8 +200,8 @@ class UnderwriteLeadUseCase:
             litigation_score = 65.0
         else:
             litigation_risk_status = "CLEAN"
-            litigation_summary = "Limpio: Sin demandas ejecutivas de cobro activas ni sanciones en Contraloría BDME."
-            credit_recommendation = "Solvente y sin antecedentes judiciales ni fiscales. Aprobado para términos de crédito a 30-60 días."
+            litigation_summary = "Paz y salvo en registros mercantiles oficiales. Sin sanciones, multas ni inhabilidades en SECOP II."
+            credit_recommendation = "Solvente y con operación comercial activa. Aprobado para términos de crédito estándar a 30-60 días."
             litigation_score = 100.0
 
         # 3. Composite Scoring Algorithm
@@ -236,5 +267,7 @@ class UnderwriteLeadUseCase:
             composite_score=composite_score,
             underwriting_grade=underwriting_grade,
             credit_recommendation=credit_recommendation,
+            has_audited_financials=has_audited_financials,
+            financial_source=financial_source,
         )
 

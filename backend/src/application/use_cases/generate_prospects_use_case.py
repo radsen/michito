@@ -26,6 +26,8 @@ from src.adapters.export.excel_dossier_adapter import ExcelDossierAdapter
 from src.adapters.export.pdf_dossier_adapter import PdfDossierAdapter
 from src.domain.value_objects.ciiu_code import CiiuCode
 from src.application.use_cases.underwrite_lead_use_case import UnderwriteLeadUseCase
+from src.application.ports.mailbox_verifier_port import MailboxVerifierPort
+from src.adapters.verifiers.socket_smtp_verifier_adapter import SocketSmtpVerifierAdapter
 
 # Outputs root relative to workspace root (canonical repo root outputs/)
 _candidate_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -194,16 +196,29 @@ def mask_teaser_email(email: str) -> str:
 def mask_teaser_phone(phone: str, country: str = "CO") -> str:
     digits = re.sub(r"\D", "", phone or "")
     if country == "DO":
-        last2 = digits[-2:] if len(digits) >= 2 else "••"
+        clean_do = digits[1:] if digits.startswith("1") and len(digits) == 11 else digits
+        last2 = clean_do[-2:] if len(clean_do) >= 2 else "••"
         return f"+1 (809) ••• ••{last2}"
     if country == "EC":
-        last2 = digits[-2:] if len(digits) >= 2 else "••"
+        clean_ec = digits[3:] if digits.startswith("593") and len(digits) >= 12 else digits
+        last2 = clean_ec[-2:] if len(clean_ec) >= 2 else "••"
         return f"+593 9• ••• ••{last2}"
-    if len(digits) >= 10:
-        prefix = digits[:3]
-        last2 = digits[-2:]
-        return f"+57 {prefix} ••• ••{last2}"
-    return "+57 3•• ••• ••••"
+    if country == "CO":
+        clean = digits[2:] if digits.startswith("57") and len(digits) >= 12 else digits
+        last2 = clean[-2:] if len(clean) >= 2 else "••"
+        if len(clean) == 10 and clean.startswith("3"):
+            prefix = clean[:3]
+            return f"+57 {prefix} ••• ••{last2}"
+        elif len(clean) == 10 and clean.startswith("60"):
+            prefix = clean[:3]
+            return f"+57 ({prefix}) ••• ••{last2} (PBX)"
+        elif len(clean) == 7:
+            return f"+57 ••• ••{last2} (PBX)"
+        elif len(clean) >= 7:
+            return f"+57 {clean[:3]} ••• ••{last2}"
+        return "+57 ••• ••• ••••"
+    last2 = digits[-2:] if len(digits) >= 2 else "••"
+    return f"+{digits[:3]} ••• ••{last2}" if len(digits) >= 5 else "••••••••••"
 
 
 def mask_teaser_nit(raw_nit: str) -> str:
@@ -219,6 +234,90 @@ def mask_teaser_nit(raw_nit: str) -> str:
             return f"{parts[0]}.•••.•••-{dv}"
         return f"{base[:3]}••••••-{dv}"
     return clean[:3] + "••••••"
+
+
+def classify_phone(phone: str, country: str = "CO") -> Dict[str, Any]:
+    """
+    Transparently classifies and standardizes corporate contact phone numbers.
+    Distinguishes direct corporate mobile lines (WhatsApp-enabled) from corporate
+    landlines, PBX switchboards, and institutional reception lines without false claims.
+    """
+    digits = re.sub(r"\D", "", phone or "")
+    if country == "CO":
+        clean = digits[2:] if digits.startswith("57") and len(digits) >= 12 else digits
+        if len(clean) == 10 and clean.startswith("3"):
+            return {
+                "raw": phone,
+                "formatted": f"+57 {clean[:3]} {clean[3:6]} {clean[6:]}",
+                "line_type": "Móvil Corporativo (WhatsApp)",
+                "is_mobile": True,
+                "whatsapp_url": f"https://wa.me/57{clean}",
+                "whatsapp_display": f"+57 {clean[:3]} {clean[3:6]} {clean[6:]}",
+            }
+        elif len(clean) == 10 and clean.startswith("60"):
+            return {
+                "raw": phone,
+                "formatted": f"+57 ({clean[:3]}) {clean[3:6]} {clean[6:]}",
+                "line_type": "Línea Fija / Conmutador (PBX)",
+                "is_mobile": False,
+                "whatsapp_url": "",
+                "whatsapp_display": "No aplica (Línea Fija PBX)",
+            }
+        elif len(clean) == 7:
+            return {
+                "raw": phone,
+                "formatted": f"+57 {clean[:3]} {clean[3:]}",
+                "line_type": "Línea Fija Local (PBX)",
+                "is_mobile": False,
+                "whatsapp_url": "",
+                "whatsapp_display": "No aplica (Línea Fija)",
+            }
+        elif len(clean) >= 7:
+            is_mob = clean.startswith("3")
+            return {
+                "raw": phone,
+                "formatted": f"+57 {clean}",
+                "line_type": "Móvil Corporativo (WhatsApp)" if is_mob else "Línea Corporativa (PBX)",
+                "is_mobile": is_mob,
+                "whatsapp_url": f"https://wa.me/57{clean}" if is_mob else "",
+                "whatsapp_display": f"+57 {clean}" if is_mob else "No aplica (Línea Fija)",
+            }
+    elif country == "DO":
+        clean = digits[1:] if digits.startswith("1") and len(digits) == 11 else digits
+        is_mob = clean.startswith("829") or clean.startswith("849") or clean.startswith("809")
+        formatted = f"+1 ({clean[:3]}) {clean[3:6]}-{clean[6:]}" if len(clean) == 10 else f"+1 {clean}"
+        return {
+            "raw": phone,
+            "formatted": formatted,
+            "line_type": "Móvil Corporativo (WhatsApp)" if is_mob else "Línea Corporativa / Centralita",
+            "is_mobile": is_mob,
+            "whatsapp_url": f"https://wa.me/1{clean}" if is_mob else "",
+            "whatsapp_display": formatted if is_mob else "No aplica (Línea Fija)",
+        }
+    elif country == "EC":
+        clean = digits[3:] if digits.startswith("593") and len(digits) >= 12 else digits
+        if clean.startswith("0"):
+            clean = clean[1:]
+        is_mob = clean.startswith("9")
+        formatted = f"+593 {clean[:2]} {clean[2:5]} {clean[5:]}" if len(clean) >= 9 else f"+593 {clean}"
+        return {
+            "raw": phone,
+            "formatted": formatted,
+            "line_type": "Móvil Corporativo (WhatsApp)" if is_mob else "Línea Fija / Centralita (PBX)",
+            "is_mobile": is_mob,
+            "whatsapp_url": f"https://wa.me/593{clean}" if is_mob else "",
+            "whatsapp_display": formatted if is_mob else "No aplica (Línea Fija)",
+        }
+
+    is_mob = len(digits) >= 10 and digits.startswith("3")
+    return {
+        "raw": phone,
+        "formatted": f"+{digits}" if digits else "",
+        "line_type": "Móvil Corporativo (WhatsApp)" if is_mob else "Línea Corporativa",
+        "is_mobile": is_mob,
+        "whatsapp_url": f"https://wa.me/{digits}" if is_mob else "",
+        "whatsapp_display": f"+{digits}" if is_mob else "No aplica",
+    }
 
 
 class GenerateProspectsUseCase:
@@ -240,6 +339,7 @@ class GenerateProspectsUseCase:
         ledger: Optional[DeduplicationLedger] = None,
         verify_mx_fn: Optional[Any] = None,
         underwriter: Optional[Any] = None,
+        mailbox_verifier: Optional[MailboxVerifierPort] = None,
     ):
         self.harvester_co = harvester_co
         self.harvester_dr = harvester_dr
@@ -249,6 +349,7 @@ class GenerateProspectsUseCase:
         self.ledger = ledger
         self.verify_mx_fn = verify_mx_fn or verify_mx
         self.underwriter = underwriter
+        self.mailbox_verifier = mailbox_verifier or SocketSmtpVerifierAdapter()
 
     def execute(
         self,
@@ -668,29 +769,38 @@ class GenerateProspectsUseCase:
                 email = item["email"]
                 phone = item["phone"]
 
-                # Phone Gate: Tier-adaptive validation
+                # Phone Gate: Tier-adaptive validation and line classification
+                phone_info = classify_phone(phone, country=c_code)
                 digits_phone = re.sub(r"\D", "", phone or "")
-                if tier == 1:
-                    if len(digits_phone) < 7:
-                        continue
-                else:
+                if len(digits_phone) < 7:
+                    continue
+
+                if tier >= 2:
                     if c_code == "DO":
                         clean_do = digits_phone[1:] if digits_phone.startswith("1") and len(digits_phone) == 11 else digits_phone
-                        if len(clean_do) < 10:
+                        if len(clean_do) < 7:
                             continue
                     elif c_code == "EC":
                         clean_ec = digits_phone[3:] if digits_phone.startswith("593") and len(digits_phone) >= 12 else digits_phone
-                        if len(clean_ec) < 9 or not clean_ec.startswith("9"):
+                        if len(clean_ec) < 7:
                             continue
                     else:
-                        clean_co = digits_phone[2:] if digits_phone.startswith("57") and len(digits_phone) == 12 else digits_phone
-                        if not phone or len(clean_co) < 10 or not clean_co.startswith("3"):
+                        clean_co = digits_phone[2:] if digits_phone.startswith("57") and len(digits_phone) >= 12 else digits_phone
+                        if len(clean_co) < 7:
                             continue
 
-                # Deliverability Gate: DNS MX verification
+                # Deliverability Gate: DNS MX verification & Socket SMTP handshake
                 ok_mx, mx_host = self.verify_mx_fn(email)
                 if not ok_mx:
                     continue
+
+                if self.mailbox_verifier and tier >= 2:
+                    try:
+                        mb_status = self.mailbox_verifier.verify_email(email, mx_host=mx_host)
+                        if mb_status == "invalid":
+                            continue
+                    except Exception:
+                        pass
 
                 is_corporate_domain = not any(
                     pub in email for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")
@@ -804,6 +914,12 @@ class GenerateProspectsUseCase:
                     target_roles=roles_to_pass,
                 )
 
+                targeted_persona = (
+                    roles_to_pass[0]
+                    if roles_to_pass
+                    else "Dirección General / Gerencia General"
+                )
+
                 lead_record = {
                     "company_name": company_name,
                     "clean_name": clean_name,
@@ -827,8 +943,16 @@ class GenerateProspectsUseCase:
                     "decision_maker_name": rep_name,
                     "decision_maker_title": rep_title,
                     "decision_maker_category": default_title,
+                    "registered_contact_name": rep_name,
+                    "registered_contact_title": rep_title,
+                    "targeted_campaign_persona": targeted_persona,
                     "email": email,
-                    "phone": phone,
+                    "phone": phone_info.get("formatted") or phone,
+                    "raw_phone": phone,
+                    "phone_line_type": phone_info.get("line_type", "Línea Corporativa"),
+                    "is_mobile": phone_info.get("is_mobile", False),
+                    "whatsapp_url": phone_info.get("whatsapp_url", ""),
+                    "whatsapp_display": phone_info.get("whatsapp_display", ""),
                     "mx_host": mx_host,
                     "linkedin_xray_url": targeted_xray,
                     "contracts_data": contracts_data,
@@ -880,6 +1004,8 @@ class GenerateProspectsUseCase:
         # 4. Lead Quality & Intent Ranking (Ensure highest intent & solvency appear first)
         def compute_lead_rank(lead: Dict[str, Any]) -> int:
             score = 0
+            if lead.get("is_mobile"):
+                score += 25
             contracts = lead.get("contracts_data", {})
             if contracts.get("has_contracts"):
                 score += 35
@@ -999,11 +1125,17 @@ class GenerateProspectsUseCase:
                 "Address": lead["address"],
                 "Website": lead["website_url"],
                 "Website Audit Status": lead["website_audit_status"],
-                "Decision Maker Name": lead["decision_maker_name"],
-                "Official Title": lead["decision_maker_title"],
+                "Official Registered Contact": lead["decision_maker_name"],
+                "Official Statutory Title": lead["decision_maker_title"],
                 "Contact Category": lead.get("decision_maker_category", "Representante Legal Estatutario (RUES / SECOP)"),
+                "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
+                "Decision Maker Name": lead["decision_maker_name"],  # Backward-compatible alias
+                "Official Title": lead["decision_maker_title"],  # Backward-compatible alias
                 "Verified Work Email": lead["email"],
-                "Direct Mobile Phone": lead["phone"],
+                "Corporate Phone": lead["phone"],
+                "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
+                "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
+                "Direct Mobile Phone": lead["phone"],  # Backward-compatible alias
                 "Mail Server (MX)": lead["mx_host"],
                 "Trigger 1: Total Contracts Won": contracts["total_value_display"],
                 "Trigger 1: Currency": lead_curr,
@@ -1074,10 +1206,16 @@ class GenerateProspectsUseCase:
                 "Economic Activity": ciiu.description,
                 "Activity Code": ciiu.code,
                 "Company Size": lead["segment_name"],
-                "Decision Maker Name": lead["decision_maker_name"],
-                "Official Title": lead["decision_maker_title"],
+                "Official Registered Contact": lead["decision_maker_name"],
+                "Official Statutory Title": lead["decision_maker_title"],
+                "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
+                "Decision Maker Name": lead["decision_maker_name"],  # Backward compatibility
+                "Official Title": lead["decision_maker_title"],  # Backward compatibility
                 "Verified Work Email": lead["email"],
-                "Direct Mobile Phone": lead["phone"],
+                "Corporate Phone": lead["phone"],
+                "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
+                "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
+                "Direct Mobile Phone": lead["phone"],  # Backward compatibility
                 "Website": lead["website_url"],
                 "Commercial Trigger": trigger_summary,
                 "Recommended Angle": recommended_angle,
@@ -1102,8 +1240,12 @@ class GenerateProspectsUseCase:
                 "website": lead["website_url"],
                 "decision_maker_name": lead["decision_maker_name"],
                 "decision_maker_title": lead["decision_maker_title"],
+                "targeted_campaign_persona": lead.get("targeted_campaign_persona", "Dirección General"),
                 "email": lead["email"],
                 "phone": lead["phone"],
+                "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
+                "is_mobile": lead.get("is_mobile", False),
+                "whatsapp_url": lead.get("whatsapp_url", ""),
                 "recommended_angle": recommended_angle,
                 "touches": {
                     "touch1_linkedin": t1,
@@ -1239,27 +1381,35 @@ class GenerateProspectsUseCase:
             for r in csv_rows:
                 c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
                 web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                phone_cell = f"`{r['Corporate Phone']}`"
+                if r.get('WhatsApp Direct Link'):
+                    phone_cell += "<br><small>Móvil / WhatsApp</small>"
+                elif r.get('Phone Line Type'):
+                    phone_cell += f"<br><small>{r['Phone Line Type']}</small>"
+
                 md_content.append(
                     f"| {r['Index']} | {c_icon} `{r['Country']}` | **{r['Company Name']}**<br><small>{r['Tax ID Type']}: {r['Tax ID']}</small> | "
                     f"**{r['Activity Code']}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
-                    f"**{r['Decision Maker Name']}**<br><small>{r['Official Title']}</small> | "
-                    f"`{r['Verified Work Email']}`<br>`{r['Direct Mobile Phone']}` | "
+                    f"**{r['Official Registered Contact']}**<br><small>{r['Official Statutory Title']}</small> | "
+                    f"`{r['Verified Work Email']}`<br>{phone_cell} | "
                     f"{web_display} | **{r['Trigger 1: Total Contracts Won']}**<br><small>{r['Trigger 1: Top Contracting Entity'][:30]}</small> | "
                     f"<small>{r['Trigger 3: Regional Expansion Flag']}</small> |"
                 )
 
             md_content.append("\n---\n")
-            md_content.append("## [ANGLE] Detailed Profiles & 5-Touch Cadence\n")
+            md_content.append("## Detailed Profiles & 5-Touch Cadence\n")
 
             for r in csv_rows:
                 c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
                 web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                wa_link = f" • [WhatsApp Directo]({r['WhatsApp Direct Link']})" if r.get('WhatsApp Direct Link') else ""
                 md_content.append(f"### {r['Index']}. {c_icon} {r['Company Name']} ({r['City']}, {r['Country Name']})")
                 md_content.append(f"* **Actividad Económica**: **{r['Activity Code']}** — {r['Economic Activity']}")
                 md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r['Company Size']} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
                 md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
-                md_content.append(f"* **Contacto Registrado (Posible Decisor)**: **{r['Decision Maker Name']}** ({r['Official Title']})")
-                md_content.append(f"* **Email Verificado**: `{r['Verified Work Email']}` | **Celular**: `{r['Direct Mobile Phone']}` | **Servidor MX**: `{r['Mail Server (MX)']}`")
+                md_content.append(f"* **Firmante Estatutario Registrado**: **{r['Official Registered Contact']}** ({r['Official Statutory Title']})")
+                md_content.append(f"* **Persona Objetivo de Campaña**: **{r['Targeted Campaign Persona']}**")
+                md_content.append(f"* **Email Corporativo**: `{r['Verified Work Email']}` | **Teléfono ({r['Phone Line Type']})**: `{r['Corporate Phone']}`{wa_link} | **Servidor MX**: `{r['Mail Server (MX)']}`")
                 md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{r['Tax ID Type']}**: `{r['Tax ID']}`")
                 md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r['Trigger 1: Total Contracts Won']}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
                 if r['Trigger 1: Top Contract Object']:
@@ -1268,31 +1418,31 @@ class GenerateProspectsUseCase:
                 md_content.append(f"* **Trigger 3 (Expansión)**: {r['Trigger 3: Regional Expansion Flag']}")
                 md_content.append(f"* [ Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
 
-                md_content.append("####  Touch 1: LinkedIn Connection Note (<300 chars)")
+                md_content.append("#### Touch 1: LinkedIn Connection Note (<300 chars)")
                 md_content.append(f"> \"{r['Touch 1: LinkedIn Connection Note']}\"\n")
 
-                md_content.append(f"####  Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
+                md_content.append(f"#### Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 2: Cold Email Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"####  Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
+                md_content.append(f"#### Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 3: Operational Follow-up Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"####  Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
+                md_content.append(f"#### Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 4: Social Proof / VIP Body"])
                 md_content.append("```\n")
 
-                md_content.append(f"####  Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
+                md_content.append(f"#### Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
                 md_content.append("```text")
                 md_content.append(r["Touch 5: Breakup / Catalog Body"])
                 md_content.append("```\n")
 
                 if tier == 3 and "Underwriting Grade" in r:
-                    md_content.append("####  Suscripción Financiera y Riesgo Legal (Tier 3)")
+                    md_content.append("#### Suscripción Financiera y Riesgo Legal (Tier 3)")
                     md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
                     md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {r['Trigger 1: Currency']}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
                     md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
@@ -1399,8 +1549,11 @@ class GenerateProspectsUseCase:
                 "decision_maker_name": rep_name,
                 "decision_maker_role": rep_role,
                 "decision_maker_title": rep_role,
+                "targeted_role": lead.get("targeted_campaign_persona", "Dirección General"),
                 "email": mask_teaser_email(raw_email),
                 "phone": mask_teaser_phone(raw_phone, country=lead_c),
+                "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
+                "is_mobile": lead.get("is_mobile", False),
                 "intent_trigger": intent_msg,
                 "intent_level": intent_msg,
                 "has_contracts": contracts.get("has_contracts", False),

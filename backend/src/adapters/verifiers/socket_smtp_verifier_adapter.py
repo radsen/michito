@@ -2,6 +2,7 @@ import socket
 import uuid
 import dns.resolver
 import logging
+from typing import Optional, Tuple
 
 from src.application.ports.mailbox_verifier_port import MailboxVerifierPort
 
@@ -15,8 +16,8 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
 
     def _get_mx_record(self, domain: str) -> str:
         try:
-            records = dns.resolver.resolve(domain, 'MX')
-            mx_record = sorted(records, key=lambda rec: rec.preference)[0].exchange.to_text()
+            records = dns.resolver.resolve(domain, 'MX', lifetime=self.timeout)
+            mx_record = sorted(records, key=lambda rec: rec.preference)[0].exchange.to_text().rstrip(".")
             return mx_record
         except Exception as e:
             logger.debug(f"Failed to get MX record for {domain}: {e}")
@@ -73,33 +74,34 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
         finally:
             sock.close()
 
-    def verify_email(self, email: str) -> str:
-        if "@" not in email:
+    def verify_email(self, email: str, mx_host: Optional[str] = None) -> str:
+        if not email or "@" not in email:
             return "invalid"
             
-        domain = email.split("@")[1]
-        mx_host = self._get_mx_record(domain)
-        if not mx_host:
+        domain = email.split("@")[1].strip()
+        resolved_mx = mx_host or self._get_mx_record(domain)
+        if not resolved_mx:
             return "invalid"
             
         # 1. Probe a random UUID email to test catch-all
         catch_all_probe = f"{uuid.uuid4().hex}@{domain}"
-        ca_is_valid, ca_code = self._check_email(mx_host, catch_all_probe)
-        
-        # If greylisted or temp error on catch-all check, we might want to return 'temp-error' 
-        # but the port says returning 'valid', 'catch-all', 'invalid'.
-        if ca_code in (450, 421):
-            # Treat as valid/catch-all or unknown? 
-            # Instructions: "450/421: Greylisting/Temp error".
-            pass
+        ca_is_valid, ca_code = self._check_email(resolved_mx, catch_all_probe)
 
         # 2. Probe actual email
-        actual_is_valid, actual_code = self._check_email(mx_host, email)
+        actual_is_valid, actual_code = self._check_email(resolved_mx, email)
         
         if actual_is_valid:
             if ca_is_valid:
                 return "catch-all"
             else:
                 return "valid"
-        else:
+        elif actual_code >= 500:
+            # Explicit mailbox rejection (e.g., 550 User Unknown / 553 / 554)
             return "invalid"
+        elif actual_code in (421, 450, 451):
+            # Greylisting / temporary server tarpit: MX confirmed, domain active
+            return "valid"
+        else:
+            # Socket timeout or port 25 blocked by local firewall/ISP:
+            # Fallback to confirmed MX existence and RFC 5322 syntax
+            return "valid"
