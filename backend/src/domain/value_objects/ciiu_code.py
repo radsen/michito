@@ -304,7 +304,10 @@ class CiiuCode:
 
         # Dynamic semantic search using Universal ISIC Index
         try:
-            from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            try:
+                from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            except ImportError:
+                from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
             entry = GLOBAL_ISIC_INDEX.resolve_best_match(text)
             if entry:
                 return cls.from_code(entry.code)

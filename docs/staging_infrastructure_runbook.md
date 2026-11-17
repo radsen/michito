@@ -1,0 +1,371 @@
+# Michito Staging Infrastructure & Deployment Runbook 🇨🇴
+
+This document contains the complete step-by-step log of commands executed to provision the staging environment for Michito on Google Cloud Platform (GCP). All secrets, passwords, tokens, and sensitive identifiers have been sanitized and obfuscated.
+
+---
+
+## 1. Project Initialization & Billing Setup
+
+### 1.1 Verify Active Authentication
+Verify the active GCP identity executing the setup:
+```bash
+# List authenticated accounts and active credential
+gcloud auth list
+```
+
+### 1.2 Locate Billing Account
+Locate the valid billing account ID linked to your identity:
+```bash
+# Retrieve available billing accounts
+gcloud billing accounts list
+```
+
+### 1.3 Create the Staging GCP Project
+Create the isolated GCP project for staging workloads:
+```bash
+# Create project with a human-readable name
+gcloud projects create michito-staging --name="Michito Staging"
+```
+
+### 1.4 Link Billing Account
+Attach billing to enable resource creation (Cloud SQL, Cloud Run, Cloud Build):
+```bash
+# Link the project to your billing account ID (obfuscated)
+gcloud billing projects link michito-staging --billing-account=[REDACTED_BILLING_ACCOUNT_ID]
+```
+
+### 1.5 Set Active Project Context
+Set the default active project in gcloud CLI configuration:
+```bash
+# Set default project context
+gcloud config set project michito-staging
+```
+
+---
+
+## 2. Enable Required Google Cloud APIs
+
+Enable all managed services required for serverless compute, relational storage, secret storage, remote image builds, object storage, and messaging:
+```bash
+# Enable foundational APIs in a single batch operation
+gcloud services enable \
+  run.googleapis.com \
+  sqladmin.googleapis.com \
+  secretmanager.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  storage.googleapis.com \
+  pubsub.googleapis.com \
+  compute.googleapis.com \
+  --project=michito-staging
+```
+
+---
+
+## 3. Artifact Registry (Container Storage)
+
+Create an Artifact Registry repository in `us-central1` to store container images built remotely by Cloud Build:
+```bash
+# Create Docker repository for backend and web containers
+gcloud artifacts repositories create michito-repo \
+  --repository-format=docker \
+  --location=us-central1 \
+  --description="Michito Docker Repository" \
+  --project=michito-staging
+```
+
+---
+
+## 4. Google Cloud Storage Bucket
+
+Create a dedicated bucket for order deliverable files (CSVs, XLSX files, executive teaser PDFs):
+```bash
+# Create bucket in us-central1 with uniform bucket-level access policy
+gcloud storage buckets create gs://michito-staging-deliverables \
+  --location=us-central1 \
+  --uniform-bucket-level-access \
+  --project=michito-staging
+```
+
+---
+
+## 5. Google Cloud Pub/Sub Topic
+
+Create the Pub/Sub topic used for asynchronous order fulfillment and queue processing:
+```bash
+# Create topic for incoming and processed orders
+gcloud pubsub topics create michito-orders-staging --project=michito-staging
+```
+
+*(Note: The push subscription to the API endpoint is created after the backend Cloud Run service is deployed).*
+
+---
+
+## 6. Google Cloud SQL (PostgreSQL 16)
+
+### 6.1 Provision Cloud SQL Instance
+Provision a cost-optimized, persistent PostgreSQL 16 database (`db-f1-micro` Enterprise Edition) to eliminate cold-start latencies on payment webhooks:
+```bash
+# Provision PostgreSQL 16 micro instance in us-central1
+gcloud sql instances create michito-pg-staging \
+  --database-version=POSTGRES_16 \
+  --tier=db-f1-micro \
+  --edition=ENTERPRISE \
+  --region=us-central1 \
+  --storage-type=SSD \
+  --storage-size=10GB \
+  --storage-auto-increase \
+  --project=michito-staging
+```
+
+### 6.2 Create Database
+Create the application database inside the instance:
+```bash
+# Create logical database 'michito'
+gcloud sql databases create michito \
+  --instance=michito-pg-staging \
+  --project=michito-staging
+```
+
+### 6.3 Create Application User (Secure Password Injection)
+To avoid exposing plain-text passwords in command history or process inspection tables, inject the password via a temporary JSON flags file:
+```bash
+# Step 1: Write an ephemeral JSON payload containing the database password
+cat <<EOF > /tmp/sql_user_flags.json
+{
+  "password": "[REDACTED_POSTGRES_APP_PASSWORD]"
+}
+EOF
+
+# Step 2: Create the database user using the flags file
+gcloud sql users create michito_app \
+  --instance=michito-pg-staging \
+  --flags-file=/tmp/sql_user_flags.json \
+  --project=michito-staging
+
+# Step 3: Immediately remove the ephemeral file
+rm -f /tmp/sql_user_flags.json
+```
+
+---
+
+## 7. Google Secret Manager
+
+Store all sensitive environment variables in Secret Manager. Passing secrets via standard input (`--data-file=-`) prevents secret values from appearing in shell command logs.
+
+### 7.1 Database Connection String
+```bash
+# Unix socket connection string utilized by Cloud Run Cloud SQL Proxy
+echo -n "postgresql+asyncpg://michito_app:[REDACTED_POSTGRES_APP_PASSWORD]@/michito?host=/cloudsql/michito-staging:us-central1:michito-pg-staging" | \
+  gcloud secrets create DATABASE_URL --data-file=- --project=michito-staging
+```
+
+### 7.2 Payment Gateway Secrets (Wompi 🇨🇴)
+```bash
+# Wompi sandbox public key
+echo -n "[REDACTED_WOMPI_PUBLIC_KEY]" | \
+  gcloud secrets create WOMPI_PUBLIC_KEY --data-file=- --project=michito-staging
+
+# Wompi integrity secret used to sign transaction integrity hashes
+echo -n "[REDACTED_WOMPI_INTEGRITY_SECRET]" | \
+  gcloud secrets create WOMPI_INTEGRITY_SECRET --data-file=- --project=michito-staging
+
+# Wompi event secret used to validate incoming webhook HMAC signatures
+echo -n "[REDACTED_WOMPI_EVENTS_SECRET]" | \
+  gcloud secrets create WOMPI_EVENTS_SECRET --data-file=- --project=michito-staging
+```
+
+### 7.3 Operational Webhooks & AI Services
+```bash
+# Critical alert webhook (Slack / Discord / Telegram)
+echo -n "[REDACTED_ALERT_WEBHOOK_URL]" | \
+  gcloud secrets create ALERT_WEBHOOK_URL --data-file=- --project=michito-staging
+
+# Commercial orders feed webhook
+echo -n "[REDACTED_ORDERS_FEED_WEBHOOK_URL]" | \
+  gcloud secrets create ORDERS_FEED_WEBHOOK_URL --data-file=- --project=michito-staging
+
+# Google Gemini API key for automated lead scoring and copy generation
+echo -n "[REDACTED_GEMINI_API_KEY]" | \
+  gcloud secrets create GEMINI_API_KEY --data-file=- --project=michito-staging
+```
+
+---
+
+## 8. IAM Role Bindings & Permissions
+
+### 8.1 Identify Project Number & Service Accounts
+```bash
+# Extract numeric project identifier
+PROJECT_NUMBER=$(gcloud projects describe michito-staging --format='value(projectNumber)')
+```
+
+### 8.2 Grant Permissions to Cloud Run Compute Service Account
+Cloud Run executes under the Compute default service account (`${PROJECT_NUMBER}-compute@developer.gserviceaccount.com`). Grant it access to Secret Manager, Cloud SQL, Cloud Storage, and Pub/Sub:
+```bash
+# Secret Manager Secret Accessor (to read secrets on container startup)
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# Cloud SQL Client (to connect via Cloud SQL Proxy unix socket)
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudsql.client"
+
+# Storage Object Admin (to write and read deliverables in GCS)
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+
+# Pub/Sub Publisher & Subscriber (to publish and consume order messages)
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/pubsub.publisher"
+
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/pubsub.subscriber"
+```
+
+### 8.3 Grant Permissions to Cloud Build Service Account
+Cloud Build requires permission to push built container images to Artifact Registry:
+```bash
+# Artifact Registry Writer role for Cloud Build
+gcloud projects add-iam-policy-binding michito-staging \
+  --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+```
+
+---
+
+## 9. Remote Container Builds via Cloud Build
+
+Because local Docker was not installed on the development workstation, all container images were built remotely on Google Cloud Build using `gcloud builds submit`.
+
+### 9.1 Build Backend API Container
+```bash
+# Submit backend context to Cloud Build and tag image in Artifact Registry
+gcloud builds submit \
+  --tag us-central1-docker.pkg.dev/michito-staging/michito-repo/michito-api:latest \
+  -f backend/Dockerfile . \
+  --project=michito-staging
+```
+
+### 9.2 Build Web Client Container
+```bash
+# Submit web client context to Cloud Build and tag image in Artifact Registry
+gcloud builds submit \
+  --tag us-central1-docker.pkg.dev/michito-staging/michito-repo/michito-web:latest \
+  -f clients/web/Dockerfile . \
+  --project=michito-staging
+```
+
+---
+
+## 10. Cloud Run Service Deployment
+
+### 10.1 Deploy Backend API Service
+Deploy `michito-api` with Cloud SQL connection socket and secrets mapped to container environment variables:
+```bash
+gcloud run deploy michito-api \
+  --image=us-central1-docker.pkg.dev/michito-staging/michito-repo/michito-api:latest \
+  --region=us-central1 \
+  --platform=managed \
+  --allow-unauthenticated \
+  --min-instances=0 \
+  --max-instances=5 \
+  --memory=1Gi \
+  --cpu=1 \
+  --add-cloudsql-instances=michito-staging:us-central1:michito-pg-staging \
+  --set-env-vars=ENVIRONMENT=staging,DEFAULT_COUNTRY=CO,DELIVERABLES_BUCKET=michito-staging-deliverables,PUBSUB_ORDER_TOPIC=michito-orders-staging \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,WOMPI_PUBLIC_KEY=WOMPI_PUBLIC_KEY:latest,WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET:latest,WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET:latest,ALERT_WEBHOOK_URL=ALERT_WEBHOOK_URL:latest,ORDERS_FEED_WEBHOOK_URL=ORDERS_FEED_WEBHOOK_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest \
+  --project=michito-staging
+```
+*Resulting Endpoint*: `https://michito-api-limgi3puaq-uc.a.run.app`
+
+### 10.2 Deploy Web Client Service
+Deploy `michito-web` pointing its Nginx reverse proxy to the backend API URL:
+```bash
+gcloud run deploy michito-web \
+  --image=us-central1-docker.pkg.dev/michito-staging/michito-repo/michito-web:latest \
+  --region=us-central1 \
+  --platform=managed \
+  --allow-unauthenticated \
+  --port=8080 \
+  --min-instances=0 \
+  --max-instances=5 \
+  --memory=256Mi \
+  --cpu=1 \
+  --set-env-vars=BACKEND_URL=https://michito-api-limgi3puaq-uc.a.run.app \
+  --project=michito-staging
+```
+*Resulting Endpoint*: `https://michito-web-limgi3puaq-uc.a.run.app`
+
+---
+
+## 11. Wire Pub/Sub Push Subscription
+
+Configure Pub/Sub to push queued order events directly into the backend API webhook:
+```bash
+# Create push subscription delivering to Cloud Run API endpoint
+gcloud pubsub subscriptions create michito-worker-sub-staging \
+  --topic=michito-orders-staging \
+  --push-endpoint=https://michito-api-limgi3puaq-uc.a.run.app/api/v1/pubsub/orders \
+  --ack-deadline=60 \
+  --project=michito-staging
+```
+
+---
+
+## 12. Automated Deployment Script (`deploy.sh`)
+
+All the build and deployment steps above have been unified into `deploy.sh`. For subsequent staging updates, simply run:
+
+```bash
+# Deploy both backend and web to staging
+./deploy.sh staging
+
+# Deploy only the backend API
+./deploy.sh staging --only-api
+
+# Deploy only the web frontend
+./deploy.sh staging --only-web
+```
+
+---
+
+## 13. Health & Connectivity Verification
+
+### 13.1 Backend Health & Docs
+```bash
+# Verify API OpenAPI documentation availability
+curl -s -o /dev/null -w "%{http_code}\n" https://michito-api-limgi3puaq-uc.a.run.app/docs
+# Expected: 200
+```
+
+### 13.2 Web Frontpage & Reverse Proxy Check
+```bash
+# Verify SPA index delivery
+curl -s -o /dev/null -w "%{http_code}\n" https://michito-web-limgi3puaq-uc.a.run.app/
+# Expected: 200
+
+# Verify Nginx reverse proxy to database query through Cloud SQL
+curl -s https://michito-web-limgi3puaq-uc.a.run.app/api/v1/taxonomy/roles?limit=2
+# Expected: JSON response containing role definitions
+```
+
+### 13.3 Test Order Creation & Processing
+```bash
+# Submit sample order to test full quotation, database persistence, and deliverable creation
+curl -s -X POST https://michito-api-limgi3puaq-uc.a.run.app/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_email": "test@michito.co",
+    "client_name": "Staging Verification Test",
+    "city": "Medellin",
+    "tier": 2,
+    "lead_count": 3
+  }'
+```
+Expected output: JSON containing order ID (e.g. `ord_...`), calculated price, teaser summary, and deliverable file paths.

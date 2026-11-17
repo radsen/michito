@@ -10,7 +10,10 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 import unicodedata
 
-from backend.src.domain.taxonomy.isic_catalog import UNIVERSAL_ISIC_CATALOG, IsicEntry
+try:
+    from src.domain.taxonomy.isic_catalog import UNIVERSAL_ISIC_CATALOG, IsicEntry
+except ImportError:
+    from backend.src.domain.taxonomy.isic_catalog import UNIVERSAL_ISIC_CATALOG, IsicEntry
 
 
 def normalize_text(text: str) -> str:

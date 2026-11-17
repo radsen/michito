@@ -1,3 +1,4 @@
+import os
 import socket
 import uuid
 import dns.resolver
@@ -9,9 +10,16 @@ from src.application.ports.mailbox_verifier_port import MailboxVerifierPort
 logger = logging.getLogger(__name__)
 
 class SocketSmtpVerifierAdapter(MailboxVerifierPort):
-    def __init__(self, sender_email: str = "verify@example.com", timeout: int = 10):
+    _port_25_blocked: bool = False
+
+    def __init__(self, sender_email: str = "verify@example.com", timeout: Optional[int] = None):
         self.sender_email = sender_email
-        self.timeout = timeout
+        if timeout is not None:
+            self.timeout = timeout
+        elif os.getenv("TESTING") == "1" or os.getenv("PYTEST_CURRENT_TEST"):
+            self.timeout = 1
+        else:
+            self.timeout = 5
         self.sender_domain = sender_email.split('@')[1] if '@' in sender_email else 'example.com'
 
     def _get_mx_record(self, domain: str) -> str:
@@ -42,6 +50,9 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
         If the socket times out or drops without explicit 550 rejection, apply tier-adaptive fallback:
         accept confirmed MX host existence + RFC 5322 valid corporate domain format as deliverable.
         """
+        if SocketSmtpVerifierAdapter._port_25_blocked:
+            return False, 0
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
         try:
@@ -68,6 +79,10 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
             else:
                 return False, code
                 
+        except (socket.timeout, TimeoutError, ConnectionRefusedError, OSError) as e:
+            logger.debug(f"Socket port 25 unreachable ({e}); engaging local fallback circuit breaker.")
+            SocketSmtpVerifierAdapter._port_25_blocked = True
+            return False, 0
         except Exception as e:
             logger.debug(f"Socket error when checking {email}: {e}")
             return False, 0

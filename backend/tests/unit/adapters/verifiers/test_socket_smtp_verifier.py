@@ -4,6 +4,12 @@ import socket
 
 from src.adapters.verifiers.socket_smtp_verifier_adapter import SocketSmtpVerifierAdapter
 
+@pytest.fixture(autouse=True)
+def reset_port_25_circuit_breaker():
+    SocketSmtpVerifierAdapter._port_25_blocked = False
+    yield
+    SocketSmtpVerifierAdapter._port_25_blocked = False
+
 @pytest.fixture
 def adapter():
     return SocketSmtpVerifierAdapter(sender_email="test@example.com")
