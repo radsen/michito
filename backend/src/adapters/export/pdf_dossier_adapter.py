@@ -215,12 +215,17 @@ class PdfDossierAdapter:
         elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#0284C7"), spaceAfter=10))
 
         # 2. Key Metrics Strip Box
-        contracts_count = sum(1 for l in leads if l.get("contracts_data", {}).get("has_contracts"))
+        contracts_count = sum(
+            1 for l in leads
+            if (l.get("contracts_data") and l.get("contracts_data", {}).get("has_contracts"))
+            or (l.get("Trigger 1: Total Contracts Won") and l.get("Trigger 1: Total Contracts Won") not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""))
+        )
         contracts_val_str = ""
         for l in leads:
             cd = l.get("contracts_data", {})
-            if cd.get("has_contracts") and cd.get("total_value_display") and cd.get("total_value_display") != "$0 COP":
-                contracts_val_str = cd.get("total_value_display")
+            val = cd.get("total_value_display") or l.get("Trigger 1: Total Contracts Won")
+            if val and val not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
+                contracts_val_str = val
                 break
 
         kpi_data = [
@@ -263,14 +268,36 @@ class PdfDossierAdapter:
         summary_rows = [summary_headers]
 
         for idx, lead in enumerate(leads, start=1):
-            c_name = lead.get("clean_name") or lead.get("company_name", "")
-            c_tax = f"{lead.get('tax_id_type', 'NIT')}: {lead.get('nit', '')}"
-            rep = lead.get("decision_maker_name", "")
-            title = lead.get("decision_maker_title", "")
-            contracts = lead.get("contracts_data", {})
-            signal = contracts.get("intent_level") or lead.get("expansion_flag") or "Operación Activa"
+            c_name = lead.get("Company Name") or lead.get("clean_name") or lead.get("company_name", "")
+            tax_type = lead.get("Tax ID Type") or lead.get("tax_id_type", "NIT")
+            tax_id = lead.get("Tax ID") or lead.get("nit") or lead.get("tax_id", "")
+            c_tax = f"{tax_type}: {tax_id}" if tax_id else ""
+            rep = (
+                lead.get("Official Registered Contact")
+                or lead.get("Decision Maker Name")
+                or lead.get("decision_maker_name", "")
+            )
+            title = (
+                lead.get("Official Statutory Title")
+                or lead.get("Official Title")
+                or lead.get("decision_maker_title", "")
+            )
+            contracts = lead.get("contracts_data") or {}
+            contracts_won = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
+            contracts_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
+            expansion = lead.get("Trigger 3: Regional Expansion Flag") or lead.get("expansion_flag")
 
-            phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+            if expansion and expansion != "Operación Local":
+                signal = expansion
+            elif contracts_won and contracts_won not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
+                entity_short = f" ({contracts_entity[:15]})" if contracts_entity else ""
+                signal = f"Contratos: {contracts_won}{entity_short}"
+            elif contracts.get("intent_level"):
+                signal = contracts.get("intent_level")
+            else:
+                signal = "Operación Activa"
+
+            phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
             phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
             wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
             if wa_url and phone_val:
@@ -284,8 +311,9 @@ class PdfDossierAdapter:
 
             rep_clean = rep if rep else "Representante Registrado"
             title_clean = f"<br/><font color='#64748B'>{title[:25]}</font>" if title else ""
-            city_clean = lead.get("city") or "Sede Principal"
-            email_clean = lead.get("email") or "<font color='#94A3B8'>No provisto</font>"
+            city_clean = lead.get("City") or lead.get("city") or "Sede Principal"
+            email_val = lead.get("Verified Work Email") or lead.get("email") or lead.get("verified_email")
+            email_clean = email_val if email_val else "<font color='#94A3B8'>No provisto</font>"
             tax_clean = f"<br/><font color='#64748B'>{c_tax}</font>" if c_tax else ""
 
             row = [
@@ -295,7 +323,7 @@ class PdfDossierAdapter:
                 Paragraph(f"<b>{rep_clean}</b>{title_clean}", table_cell_style),
                 Paragraph(email_clean, table_cell_style),
                 Paragraph(phone_cell, table_cell_style),
-                Paragraph(f"<font color='#0284C7'>{signal[:25]}</font>", table_cell_style),
+                Paragraph(f"<font color='#0284C7'>{signal}</font>", table_cell_style),
             ]
             summary_rows.append(row)
 
@@ -325,53 +353,83 @@ class PdfDossierAdapter:
         elements.append(Spacer(1, 10))
 
         for idx, lead in enumerate(leads, start=1):
-            clean_name = lead.get("clean_name") or lead.get("company_name", "")
-            city = lead.get("city", "")
+            clean_name = (
+                lead.get("Company Name")
+                or lead.get("clean_name")
+                or lead.get("company_name", "")
+            )
+            city = lead.get("City") or lead.get("city", "")
             ciiu = lead.get("ciiu")
-            activity_desc = getattr(ciiu, "description", str(ciiu or ""))
-            sector_macro = getattr(ciiu, "sector_macro", "")
-            rep_name = lead.get("decision_maker_name", "")
-            rep_title = lead.get("decision_maker_title", "")
-            email = lead.get("email", "")
-            phone = lead.get("phone", "")
-            website = lead.get("website_url", "")
-            tax_type = lead.get("tax_id_type", "NIT")
-            tax_val = lead.get("nit", "")
-            contracts = lead.get("contracts_data", {})
+            activity_desc = (
+                lead.get("Economic Activity")
+                or getattr(ciiu, "description", None)
+                or lead.get("activity_description")
+                or (str(ciiu) if ciiu else "")
+            )
+            sector_macro = getattr(ciiu, "sector_macro", "") or lead.get("Sector Macro") or lead.get("sector_macro", "")
+            rep_name = (
+                lead.get("Official Registered Contact")
+                or lead.get("Decision Maker Name")
+                or lead.get("decision_maker_name", "")
+            )
+            rep_title = (
+                lead.get("Official Statutory Title")
+                or lead.get("Official Title")
+                or lead.get("decision_maker_title", "")
+            )
+            email = lead.get("Verified Work Email") or lead.get("email") or lead.get("verified_email", "")
+            phone = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
+            website = lead.get("Website") or lead.get("website_url", "")
+            tax_type = lead.get("Tax ID Type") or lead.get("tax_id_type", "NIT")
+            tax_val = lead.get("Tax ID") or lead.get("nit") or lead.get("tax_id", "")
+            contracts = lead.get("contracts_data") or {}
 
-            # Format touches safely
-            touches = campaign_cfg.get("touches", {})
-            salutation = f"Hola {lead.get('first_name', 'Líder')}"
+            # First extract touches pre-rendered in csv_rows
+            t1 = lead.get("Touch 1: LinkedIn Connection Note") or ""
+            t2_sub = lead.get("Touch 2: Cold Email Subject") or ""
+            t2_body = lead.get("Touch 2: Cold Email Body") or ""
+            t3_sub = lead.get("Touch 3: Operational Follow-up Subject") or ""
+            t3_body = lead.get("Touch 3: Operational Follow-up Body") or ""
+            t4_sub = lead.get("Touch 4: Social Proof / VIP Subject") or lead.get("Touch 4: Case Study Subject") or ""
+            t4_body = lead.get("Touch 4: Social Proof / VIP Body") or lead.get("Touch 4: Case Study Body") or ""
+            t5_sub = lead.get("Touch 5: Breakup / Catalog Subject") or ""
+            t5_body = lead.get("Touch 5: Breakup / Catalog Body") or ""
 
-            def _safe_format(tmpl: str) -> str:
-                res = tmpl or ""
-                res = res.replace("{salutation}", salutation)
-                res = res.replace("{clean_name}", clean_name)
-                res = res.replace("{city}", city)
-                res = res.replace("{contact_title}", rep_title)
-                return res.strip()
+            # Fallback to campaign_cfg touches if not pre-rendered
+            if not (t1 or t2_body or t3_body):
+                touches = campaign_cfg.get("touches", {})
+                first_name = lead.get("first_name") or (rep_name.split()[0] if rep_name else "Líder")
+                salutation = f"Hola {first_name}"
 
-            t1 = _safe_format(touches.get("touch1_linkedin_invite", ""))
-            t2_sub = _safe_format(touches.get("touch2_email_subject", ""))
-            t2_body = _safe_format(touches.get("touch2_email_body", ""))
+                def _safe_format(tmpl: str) -> str:
+                    res = tmpl or ""
+                    res = res.replace("{salutation}", salutation)
+                    res = res.replace("{clean_name}", clean_name)
+                    res = res.replace("{city}", city)
+                    res = res.replace("{contact_title}", rep_title)
+                    return res.strip()
+
+                t1 = _safe_format(touches.get("touch1_linkedin_invite", ""))
+                t2_sub = _safe_format(touches.get("touch2_email_subject", ""))
+                t2_body = _safe_format(touches.get("touch2_email_body", ""))
+                t3_sub = _safe_format(touches.get("touch3_email_subject", ""))
+                t3_body = _safe_format(touches.get("touch3_email_body", ""))
+                t4_sub = _safe_format(touches.get("touch4_email_subject", ""))
+                t4_body = _safe_format(touches.get("touch4_email_body", ""))
+                t5_sub = _safe_format(touches.get("touch5_email_subject", ""))
+                t5_body = _safe_format(touches.get("touch5_email_body", ""))
 
             # Contract mention inject
-            if contracts.get("has_contracts") and contracts.get("total_value_cop", 0) > 0:
-                t2_body += f"\n\n[Trigger: Adjudicación de contrato con {contracts.get('top_contract_entity')} por {contracts.get('total_value_display')}]."
-
-            t3_sub = _safe_format(touches.get("touch3_email_subject", ""))
-            t3_body = _safe_format(touches.get("touch3_email_body", ""))
-            t4_sub = _safe_format(touches.get("touch4_email_subject", ""))
-            t4_body = _safe_format(touches.get("touch4_email_body", ""))
-            t5_sub = _safe_format(touches.get("touch5_email_subject", ""))
-            t5_body = _safe_format(touches.get("touch5_email_body", ""))
+            contracts_won = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
+            top_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
+            if contracts_won and top_entity and top_entity not in t2_body:
+                t2_body += f"\n\n[Trigger: Adjudicación de contrato con {top_entity} por {contracts_won}]."
 
             profile_elements = []
 
             # Account Title Line
             profile_elements.append(Paragraph(f"<b>{idx}. {clean_name}</b> ({city})", h3_style))
             
-            # Identity Strip
             # Identity Strip
             id_parts = []
             if tax_val:
@@ -390,7 +448,7 @@ class PdfDossierAdapter:
             profile_elements.append(Paragraph(id_text, body_style))
 
             # Contact Strip
-            phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+            phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
             phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
             wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
             wa_badge = " (Móvil / WhatsApp)" if wa_url else (f" ({phone_type})" if phone_type else "")
@@ -404,15 +462,25 @@ class PdfDossierAdapter:
             profile_elements.append(Paragraph(contact_text, body_style))
 
             # Triggers Strip
-            if contracts.get("has_contracts"):
-                trig_text = f"<b>Trigger 1 (Contratos Ganados):</b> <font color='#059669'><b>{contracts.get('total_value_display')}</b></font> — {contracts.get('top_contract_entity')} (<i>{contracts.get('intent_level')}</i>)"
+            trig_contracts = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
+            trig_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
+            trig_intent = lead.get("Trigger 1: Intent Score") or contracts.get("intent_level") or "Activo"
+            if trig_contracts and trig_contracts not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
+                trig_text = f"<b>Trigger 1 (Contratos Ganados):</b> <font color='#059669'><b>{trig_contracts}</b></font> — {trig_entity} (<i>{trig_intent}</i>)"
+                profile_elements.append(Paragraph(trig_text, body_style))
+            elif lead.get("Trigger 3: Regional Expansion Flag") and lead.get("Trigger 3: Regional Expansion Flag") != "Operación Local":
+                trig_text = f"<b>Trigger Comercial:</b> <font color='#0284C7'><b>{lead.get('Trigger 3: Regional Expansion Flag')}</b></font>"
                 profile_elements.append(Paragraph(trig_text, body_style))
 
             # Underwriting Strip (Tier 3)
-            if tier == 3 and "underwriting" in lead:
-                uw = lead["underwriting"]
-                uw_text = f"<b>Suscripción NIIF:</b> Calificación: <b>{uw.get('underwriting_grade')}</b> | Solvencia: <b>Tier {uw.get('solvency_tier')}</b> | Semáforo Legal: <b>{uw.get('litigation_risk_status')}</b>"
-                profile_elements.append(Paragraph(uw_text, body_style))
+            if tier == 3:
+                uw = lead.get("underwriting") or {}
+                uw_grade = lead.get("Underwriting Grade") or uw.get("underwriting_grade")
+                solv_tier = lead.get("Solvency: Tier") or lead.get("Solvency Tier") or uw.get("solvency_tier")
+                lit_risk = lead.get("Legal Risk: Litigation Status") or lead.get("Litigation Risk") or uw.get("litigation_risk_status")
+                if uw_grade or solv_tier:
+                    uw_text = f"<b>Suscripción NIIF:</b> Calificación: <b>{uw_grade or 'A'}</b> | Solvencia: <b>Tier {solv_tier or 'Solvente'}</b> | Semáforo Legal: <b>{lit_risk or 'Bajo Riesgo'}</b>"
+                    profile_elements.append(Paragraph(uw_text, body_style))
 
             profile_elements.append(Spacer(1, 4))
 
