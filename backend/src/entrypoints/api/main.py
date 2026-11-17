@@ -31,12 +31,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Michito B2B Intelligence Engine API", version="2.0.0")
 
-# Enable Cross-Origin Resource Sharing (CORS) for Firebase Hosting (:5000) & Local Dev
+# Enable Cross-Origin Resource Sharing (CORS) with explicit trusted origins
+allowed_origins_raw = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "https://michito-web-limgi3puaq-uc.a.run.app,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:3000,http://127.0.0.1:5000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:3000"
+)
+allowed_origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if allowed_origins else ["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -381,11 +387,18 @@ def parse_prospecting_brief(payload: ParseBriefRequest, request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to parse brief: {str(e)}")
 
 @app.post("/api/v1/orders", status_code=201)
-def create_prospecting_order(payload: CreateOrderRequest):
+def create_prospecting_order(payload: CreateOrderRequest, request: Request):
     """
     Ingests an on-demand prospecting order from Web Portal or WhatsApp,
     creates the client record, persists order in PostgreSQL, and queues it for the worker.
+    Protected by IP rate limiting and quota verification.
     """
+    ai_agent_rate_limiter.check_rate_limit(request, endpoint_name="create_order")
+
+    limit = payload.request.limit or 10
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="Requested lead limit must be between 1 and 500.")
+
     try:
         if payload.request.country_allocations:
             currency = "USD"
@@ -563,10 +576,30 @@ def get_order_quote_summary(order_id: str):
     return quote_summary
 
 @app.post("/api/v1/orders/{order_id}/pay")
-def pay_prospecting_order(order_id: str):
+def pay_prospecting_order(order_id: str, request: Request):
     """
     Confirms simulated or webhook payment, transitions status to 'paid', and unlocks downloads.
+    Protected: Only allowed in development/test environments or when provided with an authorized X-Admin-Key.
     """
+    import sys
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_dev_or_test = (
+        "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or os.environ.get("TESTING") == "1"
+        or env in ("local", "dev", "test")
+    )
+    admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
+    provided_key = request.headers.get("X-Admin-Key", "").strip()
+
+    if not is_dev_or_test:
+        if not admin_key or provided_key != admin_key:
+            logger.warning(f"Unauthorized payment simulation attempt for order {order_id} in {env} environment.")
+            raise HTTPException(
+                status_code=403,
+                detail="Manual payment simulation is disabled in non-development environments. Payments must be processed via payment gateway webhook."
+            )
+
     order = sql_adapter.get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -609,10 +642,21 @@ def pay_prospecting_order(order_id: str):
 def download_deliverable(order_id: str, file_type: str):
     """
     Serves the generated CSV, XLSX, PDF, or Markdown executive dossier.
+    Enforces payment verification: Deliverables are strictly blocked unless order is paid.
     """
     order = sql_adapter.get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    order_status = (order.get("status") or "").lower()
+    payment_status = (order.get("payment", {}).get("status") or "").lower()
+    is_paid = (order_status in ("paid", "completed", "fulfilled")) or (payment_status in ("approved", "paid"))
+
+    if not is_paid:
+        raise HTTPException(
+            status_code=402,
+            detail="Payment required. Full intelligence deliverables are only available for paid orders."
+        )
 
     delivery = order.get("delivery", {})
     ft = file_type.lower()
@@ -736,7 +780,20 @@ def calculate_ebitda(request: EbitdaRequest, container: Container = Depends(get_
 
 @app.post("/api/v1/webhooks/wompi")
 def wompi_webhook(request: Request, event_data: dict, container: Container = Depends(get_container)):
-    WOMPI_EVENTS_SECRET = "test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK"
+    import sys
+    is_dev_or_test = (
+        "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or os.environ.get("TESTING") == "1"
+        or os.environ.get("ENVIRONMENT") in ("local", "dev", "test")
+    )
+    wompi_events_secret = os.environ.get("WOMPI_EVENTS_SECRET", "").strip()
+    if not wompi_events_secret:
+        if is_dev_or_test:
+            wompi_events_secret = "test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK"
+        else:
+            logger.error("[WompiWebhook] WOMPI_EVENTS_SECRET is not configured on the server.")
+            raise HTTPException(status_code=500, detail="Webhook signature verification is not configured.")
     
     signature = event_data.get("signature", {}).get("checksum", "")
     data = event_data.get("data", {})
@@ -747,7 +804,7 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
     amount_in_cents = transaction.get("amount_in_cents", "")
     timestamp = event_data.get("timestamp", "")
     
-    raw_str = f"{tx_id}{status}{amount_in_cents}{timestamp}{WOMPI_EVENTS_SECRET}"
+    raw_str = f"{tx_id}{status}{amount_in_cents}{timestamp}{wompi_events_secret}"
     expected_checksum = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
     
     if not signature or not hmac.compare_digest(expected_checksum, signature):
@@ -854,3 +911,75 @@ def whatsapp_webhook(payload: dict):
     if payload.get("echo_responses") or payload.get("debug"):
         res["responses"] = responses
     return res
+
+
+@app.post("/api/v1/pubsub/orders")
+async def pubsub_order_handler(request: Request):
+    """
+    Intakes Google Cloud Pub/Sub push messages containing orders for asynchronous fulfillment.
+    Standard Cloud Run Pub/Sub push event intake pattern.
+    """
+    import base64
+    import json
+    from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
+
+    try:
+        envelope = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Malformed JSON body")
+
+    if not envelope or "message" not in envelope:
+        raise HTTPException(status_code=400, detail="Invalid Pub/Sub envelope")
+
+    msg = envelope["message"]
+    data_str = base64.b64decode(msg.get("data", "")).decode("utf-8") if msg.get("data") else "{}"
+    try:
+        data = json.loads(data_str)
+    except Exception:
+        data = {}
+
+    order_id = data.get("order_id")
+    if not order_id:
+        return {"status": "ignored", "reason": "no order_id in message payload"}
+
+    order = sql_adapter.get_order(str(order_id))
+    if not order:
+        return {"status": "ignored", "reason": f"order {order_id} not found in database"}
+
+    daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+    success = daemon.process_order(order)
+    return {"status": "processed" if success else "failed", "order_id": order_id}
+
+
+@app.post("/api/v1/orders/{order_id}/process")
+def trigger_order_processing(order_id: str, request: Request):
+    """
+    Manual webhook or background trigger to process a pending order immediately.
+    Protected: Restricted to local/test environments or requests with authorized internal admin keys.
+    """
+    import sys
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_dev_or_test = (
+        "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or os.environ.get("TESTING") == "1"
+        or env in ("local", "dev", "test")
+    )
+    admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
+    provided_key = request.headers.get("X-Admin-Key", "").strip()
+    auth_header = request.headers.get("Authorization", "").strip()
+    bearer = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
+
+    if not is_dev_or_test:
+        if not admin_key or (provided_key != admin_key and bearer != admin_key):
+            logger.warning(f"Unauthorized trigger_order_processing attempt for order {order_id}.")
+            raise HTTPException(status_code=403, detail="Unauthorized to trigger manual order processing.")
+
+    from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+    success = daemon.process_order(order)
+    return {"status": "success" if success else "failed", "order_id": order_id}
+

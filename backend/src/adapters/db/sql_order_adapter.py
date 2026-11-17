@@ -291,11 +291,12 @@ class SqlOrderAdapter:
                 d["amount_in_cents"] = payment.get("amount_in_cents") or 0
                 d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
                 d["error_message"] = getattr(order_obj, "error_message", None)
-                d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if delivery.get("csv_path") else None
-                d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if delivery.get("full_csv_path") else None
-                d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if delivery.get("xlsx_path") else None
-                d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if delivery.get("dossier_path") else None
-                d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if delivery.get("pdf_path") else None
+                is_paid = (d.get("status") in ("paid", "completed", "fulfilled")) or (payment.get("status") in ("approved", "paid"))
+                d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if (delivery.get("csv_path") and is_paid) else None
+                d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if (delivery.get("full_csv_path") and is_paid) else None
+                d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if (delivery.get("xlsx_path") and is_paid) else None
+                d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if (delivery.get("dossier_path") and is_paid) else None
+                d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if (delivery.get("pdf_path") and is_paid) else None
                 d["playbook"] = delivery.get("playbook") or []
                 return d
             return None
@@ -1181,7 +1182,10 @@ class SqlOrderAdapter:
             resolved_ciiu = list(ciiu_codes or [])
             if not resolved_ciiu:
                 try:
-                    from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    try:
+                        from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    except ImportError:
+                        from backend.src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
                     entry = GLOBAL_ISIC_INDEX.resolve_best_match(clean_name)
                     if entry:
                         resolved_ciiu.append(entry.code)

@@ -171,8 +171,10 @@ class TestOrdersApi(unittest.TestCase):
             temp_path = f.name
 
         try:
+            # 1. Complete order with an amount requiring payment
             sql.complete_order(
                 order_id=oid,
+                amount_in_cents=9000000,
                 worker_result={
                     "csv_path": temp_path,
                     "xlsx_path": temp_path,
@@ -182,21 +184,29 @@ class TestOrdersApi(unittest.TestCase):
                 }
             )
 
-            # 1. Download CSV (served as FileResponse from local path)
+            # 2. Security Check: Unpaid order must return 402 Payment Required
+            res_blocked = self.client.get(f"/api/v1/orders/{oid}/download/csv")
+            self.assertEqual(res_blocked.status_code, 402)
+            self.assertIn("Payment required", res_blocked.json()["detail"])
+
+            # 3. Simulate Payment Approval
+            sql.mark_order_paid(oid, transaction_id="tx_sec_test_123", amount_in_cents=9000000)
+
+            # 4. Download CSV (served as FileResponse from local path)
             res_csv = self.client.get(f"/api/v1/orders/{oid}/download/csv")
             self.assertEqual(res_csv.status_code, 200)
             self.assertIn("Acme S.A.S.", res_csv.text)
 
-            # 2. Download XLSX (served as FileResponse from local path)
+            # 5. Download XLSX (served as FileResponse from local path)
             res_xlsx = self.client.get(f"/api/v1/orders/{oid}/download/xlsx")
             self.assertEqual(res_xlsx.status_code, 200)
 
-            # 3. Download MD (redirects to GCS signed URL)
+            # 6. Download MD (redirects to GCS signed URL)
             res_md = self.client.get(f"/api/v1/orders/{oid}/download/md", follow_redirects=False)
             self.assertEqual(res_md.status_code, 307)
             self.assertIn("michito-deliverables", res_md.headers["location"])
 
-            # 4. Download PDF (redirects to GCS signed URL)
+            # 7. Download PDF (redirects to GCS signed URL)
             res_pdf = self.client.get(f"/api/v1/orders/{oid}/download/pdf", follow_redirects=False)
             self.assertEqual(res_pdf.status_code, 307)
             self.assertIn("michito-deliverables", res_pdf.headers["location"])
