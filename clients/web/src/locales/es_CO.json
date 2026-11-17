@@ -291,6 +291,8 @@
     "tierAuditName": "Auditoría Completa",
     "tierRecBadge": "Rec.",
     "tierUnitAccount": "/ cta",
+    "tier3ColombiaOnlyBadge": "Solo Colombia",
+    "tier3CountryNotice": "Tier 3 (Auditoría Financiera NIIF & Litigios) está disponible exclusivamente para entidades registradas en Colombia debido a la centralización pública de estados contables en la Superintendencia de Sociedades. Para pedidos con cobertura en Ecuador o República Dominicana, el nivel estándar de prospección comercial es Tier 2 (Contactos Directos Verificados).",
     "exclusionsToggle": "Excluir Clientes Actuales o Competidores (Opcional)",
     "activeExclusionSingle": "exclusión activa",
     "activeExclusionPlural": "exclusiones activas",

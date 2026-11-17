@@ -402,6 +402,20 @@ def create_prospecting_order(payload: CreateOrderRequest):
                 if item not in merged_exclusions:
                     merged_exclusions.append(item)
 
+        target_tier = payload.request.tier or 2
+        # Restrict Tier 3 exclusively to 100% Colombian campaigns
+        locations = payload.request.location_allocations or []
+        req_country = (payload.request.country or "CO").upper()
+        has_non_co = req_country != "CO"
+        if isinstance(locations, list):
+            for l in locations:
+                if isinstance(l, dict) and (l.get("country") or "").upper() not in ("", "CO"):
+                    has_non_co = True
+                    break
+        if target_tier == 3 and has_non_co:
+            logger.info("Order contains non-Colombian locations. Setting Tier 2 to guarantee verified data without assumptions.")
+            target_tier = 2
+
         order = sql_adapter.create_order(
             client_name=payload.client.name,
             client_email=payload.client.email,
@@ -417,7 +431,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             sector=payload.request.sector,
             keywords_include=payload.request.keywords_include,
             keywords_exclude=merged_exclusions or None,
-            tier=payload.request.tier or 2,
+            tier=target_tier,
             country_allocations=payload.request.country_allocations,
             offer_description=payload.request.offer_description,
             target_roles=payload.request.target_roles,

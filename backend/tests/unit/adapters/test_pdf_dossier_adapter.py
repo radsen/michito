@@ -68,3 +68,27 @@ def test_pdf_dossier_adapter_generation(tmp_path):
     assert os.path.exists(res)
     assert os.path.getsize(res) > 2000  # ReportLab generates a multi-kilobyte PDF
 
+
+def test_pdf_dossier_adapter_empty_touches_and_sparse_fields(tmp_path):
+    adapter = PdfDossierAdapter()
+
+    sparse_rows = [
+        {
+            "company_name": "Inversiones Quito Cia Ltda",
+            "city": "Quito",
+            "country": "EC",
+            # No website, no touches, no contracts
+        }
+    ]
+
+    output_pdf = os.path.join(tmp_path, "sparse_dossier.pdf")
+    res = adapter.generate_dossier_pdf(
+        campaign_cfg={"name": "Custom Sourcing", "id": "custom", "touches": {}},
+        leads=sparse_rows,
+        output_path=output_pdf,
+        tier=2
+    )
+
+    assert os.path.exists(res)
+    assert os.path.getsize(res) > 1000
+

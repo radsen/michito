@@ -219,3 +219,51 @@ def test_whatsapp_bot_order_status_inquiry():
         assert "AWAITING_PAYMENT" in reply["message"]
         assert "Prospectos Validados: *2*" in reply["message"]
         assert "ord_20261113_abc123" in reply["message"]
+
+
+def test_brief_parser_cross_border_tier_cap():
+    """
+    Tests that a mixed brief with Colombia and Ecuador automatically caps Tier 3 to Tier 2
+    and attaches an informational notice explaining statutory NIIF availability.
+    """
+    parser = BriefParserService()
+    brief = "Búscame 30 empresas de logística en Medellín y Quito con balance auditado y EBITDA"
+    res = parser.parse_brief(brief, force_fallback=True)
+
+    # Must be capped at Tier 2 because Quito is outside Colombia
+    assert res["tier"] == 2
+    assert res["tier_notice"] is not None
+    assert "exclusivamente para entidades registradas en Colombia" in res["tier_notice"]
+    countries = {loc["country"] for loc in res["locations"]}
+    assert "CO" in countries
+    assert "EC" in countries
+
+
+def test_brief_parser_colombia_tier3_preserved():
+    """
+    Tests that a 100% Colombian brief asking for audited financial statements retains Tier 3.
+    """
+    parser = BriefParserService()
+    brief = "Búscame 20 empresas de transporte en Cali y Bogotá con balance auditado y EBITDA"
+    res = parser.parse_brief(brief, force_fallback=True)
+
+    assert res["tier"] == 3
+    assert res.get("tier_notice") is None
+    countries = {loc["country"] for loc in res["locations"]}
+    assert countries == {"CO"}
+
+
+def test_brief_parser_city_disambiguation():
+    """
+    Tests that multi-word city names like 'Santiago de Cali' resolve to CO/Cali,
+    while 'Santiago de los Caballeros' resolves to DO/Santiago.
+    """
+    parser = BriefParserService()
+
+    cali_res = parser.parse_brief("15 proveedores en Santiago de Cali para transporte", force_fallback=True)
+    cali_cities = [(loc["country"], loc["city"]) for loc in cali_res["locations"]]
+    assert ("CO", "Cali") in cali_cities
+
+    dr_res = parser.parse_brief("15 proveedores en Santiago de los Caballeros para colegios", force_fallback=True)
+    dr_cities = [(loc["country"], loc["city"]) for loc in dr_res["locations"]]
+    assert ("DO", "Santiago") in dr_cities

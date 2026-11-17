@@ -273,19 +273,27 @@ class PdfDossierAdapter:
             phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
             phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
             wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
-            if wa_url:
+            if wa_url and phone_val:
                 phone_cell = f"<b>{phone_val}</b><br/><font color='#059669'>Móvil / WA Directo</font>"
-            elif "PBX" in phone_type or "Fija" in phone_type:
+            elif phone_val and ("PBX" in phone_type or "Fija" in phone_type):
                 phone_cell = f"<b>{phone_val}</b><br/><font color='#64748B'>Línea PBX</font>"
-            else:
+            elif phone_val:
                 phone_cell = f"<b>{phone_val}</b>"
+            else:
+                phone_cell = "<font color='#94A3B8'>Línea institucional</font>"
+
+            rep_clean = rep if rep else "Representante Registrado"
+            title_clean = f"<br/><font color='#64748B'>{title[:25]}</font>" if title else ""
+            city_clean = lead.get("city") or "Sede Principal"
+            email_clean = lead.get("email") or "<font color='#94A3B8'>No provisto</font>"
+            tax_clean = f"<br/><font color='#64748B'>{c_tax}</font>" if c_tax else ""
 
             row = [
                 Paragraph(str(idx), table_cell_style),
-                Paragraph(f"<b>{c_name}</b><br/><font color='#64748B'>{c_tax}</font>", table_cell_style),
-                Paragraph(lead.get("city", ""), table_cell_style),
-                Paragraph(f"<b>{rep}</b><br/><font color='#64748B'>{title[:25]}</font>", table_cell_style),
-                Paragraph(lead.get("email", ""), table_cell_style),
+                Paragraph(f"<b>{c_name}</b>{tax_clean}", table_cell_style),
+                Paragraph(city_clean, table_cell_style),
+                Paragraph(f"<b>{rep_clean}</b>{title_clean}", table_cell_style),
+                Paragraph(email_clean, table_cell_style),
                 Paragraph(phone_cell, table_cell_style),
                 Paragraph(f"<font color='#0284C7'>{signal[:25]}</font>", table_cell_style),
             ]
@@ -364,7 +372,21 @@ class PdfDossierAdapter:
             profile_elements.append(Paragraph(f"<b>{idx}. {clean_name}</b> ({city})", h3_style))
             
             # Identity Strip
-            id_text = f"<b>{tax_type}:</b> {tax_val} • <b>Actividad:</b> {activity_desc[:40]} ({sector_macro}) • <b>Web:</b> {website[:35]}"
+            # Identity Strip
+            id_parts = []
+            if tax_val:
+                id_parts.append(f"<b>{tax_type}:</b> {tax_val}")
+            if activity_desc:
+                sec_txt = f" ({sector_macro})" if sector_macro else ""
+                id_parts.append(f"<b>Actividad:</b> {activity_desc[:40]}{sec_txt}")
+            elif sector_macro:
+                id_parts.append(f"<b>Sector:</b> {sector_macro}")
+            if website:
+                id_parts.append(f"<b>Web:</b> {website[:35]}")
+            else:
+                id_parts.append("<b>Web:</b> <font color='#94A3B8'>En verificación</font>")
+            
+            id_text = " • ".join(id_parts)
             profile_elements.append(Paragraph(id_text, body_style))
 
             # Contact Strip
@@ -374,7 +396,11 @@ class PdfDossierAdapter:
             wa_badge = " (Móvil / WhatsApp)" if wa_url else (f" ({phone_type})" if phone_type else "")
             target_persona = lead.get("Targeted Campaign Persona") or lead.get("targeted_campaign_persona", "")
             persona_badge = f" • <b>Objetivo Campaña:</b> {target_persona}" if target_persona else ""
-            contact_text = f"<b>Firmante Registrado:</b> <b>{rep_name}</b> ({rep_title}){persona_badge} • <b>Email:</b> <font color='#0284C7'>{email}</font> • <b>Teléfono:</b> <b>{phone_val}</b>{wa_badge}"
+            rep_clean = rep_name or "Representante Registrado"
+            rep_title_clean = f" ({rep_title})" if rep_title else ""
+            email_clean = f"<font color='#0284C7'>{email}</font>" if email else "<font color='#94A3B8'>No provisto</font>"
+            phone_clean = f"<b>{phone_val}</b>{wa_badge}" if phone_val else "<font color='#94A3B8'>Línea institucional</font>"
+            contact_text = f"<b>Firmante Registrado:</b> <b>{rep_clean}</b>{rep_title_clean}{persona_badge} • <b>Email:</b> {email_clean} • <b>Teléfono:</b> {phone_clean}"
             profile_elements.append(Paragraph(contact_text, body_style))
 
             # Triggers Strip
@@ -390,35 +416,43 @@ class PdfDossierAdapter:
 
             profile_elements.append(Spacer(1, 4))
 
-            # Cadence Callout Box
-            cadence_rows = [
-                [Paragraph("<b>Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)],
-                [Paragraph(t1.replace('\n', ' '), cadence_body_style)],
-                [Paragraph(f"<b>Touch 2: Cold Email (Día 1) — Asunto:</b> <i>{t2_sub}</i>", cadence_header_style)],
-                [Paragraph(t2_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>Touch 3: Seguimiento Operativo (Día 4) — Asunto:</b> <i>{t3_sub}</i>", cadence_header_style)],
-                [Paragraph(t3_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>Touch 4: Prueba Social / VIP (Día 8) — Asunto:</b> <i>{t4_sub}</i>", cadence_header_style)],
-                [Paragraph(t4_body.replace('\n', '<br/>'), cadence_body_style)],
-                [Paragraph(f"<b>Touch 5: Cierre / Catálogo (Día 14) — Asunto:</b> <i>{t5_sub}</i>", cadence_header_style)],
-                [Paragraph(t5_body.replace('\n', '<br/>'), cadence_body_style)],
-            ]
-            cadence_table = Table(cadence_rows, colWidths=[540])
-            cadence_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#E2E8F0")),
-                ("LINEBELOW", (0, 2), (-1, 2), 0.5, colors.HexColor("#E2E8F0")),
-                ("LINEBELOW", (0, 4), (-1, 4), 0.5, colors.HexColor("#E2E8F0")),
-                ("LINEBELOW", (0, 6), (-1, 6), 0.5, colors.HexColor("#E2E8F0")),
-                ("LINEBELOW", (0, 8), (-1, 8), 0.5, colors.HexColor("#E2E8F0")),
-                ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            profile_elements.append(cadence_table)
-            profile_elements.append(Spacer(1, 10))
+            # Cadence Callout Box (Only render non-empty touches)
+            cadence_rows = []
+            if t1 and len(t1.strip()) > 5:
+                cadence_rows.append([Paragraph("<b>Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)])
+                cadence_rows.append([Paragraph(t1.replace('\n', ' '), cadence_body_style)])
+            if t2_body and len(t2_body.strip()) > 5:
+                sub_txt = f" — Asunto: <i>{t2_sub}</i>" if t2_sub else ""
+                cadence_rows.append([Paragraph(f"<b>Touch 2: Cold Email (Día 1){sub_txt}</b>", cadence_header_style)])
+                cadence_rows.append([Paragraph(t2_body.replace('\n', '<br/>'), cadence_body_style)])
+            if t3_body and len(t3_body.strip()) > 5:
+                sub_txt = f" — Asunto: <i>{t3_sub}</i>" if t3_sub else ""
+                cadence_rows.append([Paragraph(f"<b>Touch 3: Seguimiento Operativo (Día 4){sub_txt}</b>", cadence_header_style)])
+                cadence_rows.append([Paragraph(t3_body.replace('\n', '<br/>'), cadence_body_style)])
+            if t4_body and len(t4_body.strip()) > 5:
+                sub_txt = f" — Asunto: <i>{t4_sub}</i>" if t4_sub else ""
+                cadence_rows.append([Paragraph(f"<b>Touch 4: Prueba Social / VIP (Día 8){sub_txt}</b>", cadence_header_style)])
+                cadence_rows.append([Paragraph(t4_body.replace('\n', '<br/>'), cadence_body_style)])
+            if t5_body and len(t5_body.strip()) > 5:
+                sub_txt = f" — Asunto: <i>{t5_sub}</i>" if t5_sub else ""
+                cadence_rows.append([Paragraph(f"<b>Touch 5: Cierre / Catálogo (Día 14){sub_txt}</b>", cadence_header_style)])
+                cadence_rows.append([Paragraph(t5_body.replace('\n', '<br/>'), cadence_body_style)])
+
+            if cadence_rows:
+                cadence_table = Table(cadence_rows, colWidths=[540])
+                table_styles = [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]
+                for r_idx in range(len(cadence_rows) - 1):
+                    table_styles.append(("LINEBELOW", (0, r_idx), (-1, r_idx), 0.5, colors.HexColor("#E2E8F0")))
+                cadence_table.setStyle(TableStyle(table_styles))
+                profile_elements.append(cadence_table)
+                profile_elements.append(Spacer(1, 10))
 
             # Keep individual account blocks together on the page when possible
             elements.append(KeepTogether(profile_elements))

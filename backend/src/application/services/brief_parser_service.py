@@ -34,6 +34,7 @@ GEO_CITY_REGISTRY = {
     "bogota": {"country": "CO", "city": "Bogotá", "department": "Bogotá D.C."},
     "bogotá": {"country": "CO", "city": "Bogotá", "department": "Bogotá D.C."},
     "cundinamarca": {"country": "CO", "city": "Bogotá", "department": "Bogotá D.C."},
+    "santiago de cali": {"country": "CO", "city": "Cali", "department": "Valle del Cauca"},
     "cali": {"country": "CO", "city": "Cali", "department": "Valle del Cauca"},
     "valle del cauca": {"country": "CO", "city": "Cali", "department": "Valle del Cauca"},
     "barranquilla": {"country": "CO", "city": "Barranquilla", "department": "Atlántico"},
@@ -184,8 +185,10 @@ class BriefParserService:
         seen_cities = set()
         primary_country = "CO"
 
-        # Search for exact city/country tokens
-        for token, geo_info in GEO_CITY_REGISTRY.items():
+        # Search for exact city/country tokens, prioritizing longer multi-word tokens first
+        sorted_tokens = sorted(GEO_CITY_REGISTRY.keys(), key=len, reverse=True)
+        for token in sorted_tokens:
+            geo_info = GEO_CITY_REGISTRY[token]
             if re.search(rf"\b{re.escape(token)}\b", lower):
                 city_key = f"{geo_info['country']}_{geo_info['city']}"
                 if city_key not in seen_cities:
@@ -216,12 +219,23 @@ class BriefParserService:
                 "allocated_leads": allocation,
             })
 
-        # 4. Tier Detection
+        # 4. Tier Detection & Cross-Border Cap
         tier = 2
         if any(term in lower for term in ["ebitda", "balance", "financiero", "solvencia", "litigio", "demanda", "deuda", "superintendencia", "debida diligencia"]):
             tier = 3
         elif any(term in lower for term in ["directorio", "masivo", "tier 1", "base basica", "pbx"]):
             tier = 1
+
+        # Restrict Tier 3 exclusively to 100% Colombian campaigns
+        has_non_co = any(loc["country"] != "CO" for loc in location_allocations)
+        tier_notice = None
+        if tier == 3 and has_non_co:
+            tier = 2
+            tier_notice = (
+                "Tier 3 (Auditoría Financiera NIIF & Litigios) está disponible exclusivamente para entidades registradas en Colombia "
+                "debido a la centralización pública de estados contables en la Superintendencia de Sociedades. Para pedidos con "
+                "cobertura en Ecuador o República Dominicana, el nivel estándar de prospección comercial es Tier 2 (Contactos Directos Verificados)."
+            )
 
         # 5. Local BM25 CIIU Resolution
         matches = self.isic_index.search(prompt, limit=4)
@@ -281,6 +295,7 @@ class BriefParserService:
             "locations": location_allocations,
             "limit": limit,
             "tier": tier,
+            "tier_notice": tier_notice,
             "rfq_specifications": rfq_specifications,
             "keywords_include": keywords_include,
             "keywords_exclude": keywords_exclude,
@@ -312,12 +327,13 @@ class BriefParserService:
             '  "roles": ["Target executive titles"],\n'
             '  "locations": [{"country": "CO"|"DO"|"EC", "region": "Department/State", "city": "City name", "allocated_leads": 15}],\n'
             '  "limit": integer total volume (default 25),\n'
-            '  "tier": 1 (directory) | 2 (decision maker email+phone) | 3 (financial EBITDA / litigation audit),\n'
+            '  "tier": 1 (directory) | 2 (decision maker email+phone) | 3 (financial EBITDA / litigation audit, ONLY if all locations are in CO),\n'
             '  "rfq_specifications": "tender requirements or null",\n'
             '  "keywords_include": ["key terms"],\n'
             '  "keywords_exclude": ["terms to exclude"],\n'
             '  "confidence_score": float between 0.0 and 1.0\n'
-            "}"
+            "}\n"
+            "NOTE: Tier 3 is strictly restricted to orders where 100% of locations are in Colombia ('CO'). If locations include 'DO', 'EC', or are mixed, tier MUST be 2 or 1."
         )
 
         body = {
@@ -340,6 +356,16 @@ class BriefParserService:
         # Basic sanitization
         if "directionality" not in result or result["directionality"] not in ("vendor_to_clients", "client_to_vendors"):
             result["directionality"] = "vendor_to_clients"
+
+        # Sanitize cross-border Tier 3 restriction
+        locs = result.get("locations", [])
+        if any(l.get("country") != "CO" for l in locs) and result.get("tier") == 3:
+            result["tier"] = 2
+            result["tier_notice"] = (
+                "Tier 3 (Auditoría Financiera NIIF & Litigios) está disponible exclusivamente para entidades registradas en Colombia "
+                "debido a la centralización pública de estados contables en la Superintendencia de Sociedades. Para pedidos con "
+                "cobertura en Ecuador o República Dominicana, el nivel estándar de prospección comercial es Tier 2 (Contactos Directos Verificados)."
+            )
 
         result["discovered_tokens"] = {
             "gemini_parsed": True,

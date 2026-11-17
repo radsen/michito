@@ -291,6 +291,8 @@
     "tierAuditName": "Full Audit",
     "tierRecBadge": "Rec.",
     "tierUnitAccount": "/ acct",
+    "tier3ColombiaOnlyBadge": "Colombia Only",
+    "tier3CountryNotice": "Tier 3 (Audited Financial & Litigation Dossier) is available exclusively for entities registered in Colombia due to centralized statutory filings with Supersociedades. For orders covering Ecuador or the Dominican Republic, the standard commercial level is Tier 2 (Verified Direct Contacts).",
     "exclusionsToggle": "Exclude Current Clients or Competitors (Optional)",
     "activeExclusionSingle": "active exclusion",
     "activeExclusionPlural": "active exclusions",

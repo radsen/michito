@@ -356,6 +356,14 @@ export const OrderGenerator: React.FC = () => {
     }
   }, [activeOrderId]);
 
+  const hasNonColombiaLocations = locationAllocations.some((l) => l.country !== "CO");
+
+  useEffect(() => {
+    if (hasNonColombiaLocations && tier === 3) {
+      dispatch(setTier(2));
+    }
+  }, [hasNonColombiaLocations, tier, dispatch]);
+
   // Stage 1 AI Intent Discovery States
   const [aiQuery, setAiQuery] = useState("");
   const [discoveryResult, setDiscoveryResult] = useState<any>(null);
@@ -1355,11 +1363,23 @@ export const OrderGenerator: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => dispatch(setTier(3))}
-                          className={`tier-pill ${tier === 3 ? "active" : ""}`}
+                          onClick={() => {
+                            if (!hasNonColombiaLocations) {
+                              dispatch(setTier(3));
+                            }
+                          }}
+                          disabled={hasNonColombiaLocations}
+                          className={`tier-pill ${tier === 3 ? "active" : ""} ${
+                            hasNonColombiaLocations ? "opacity-50 cursor-not-allowed bg-slate-900/40" : ""
+                          }`}
                         >
                           <div className="tier-pill-title-row">
                             <span className="tier-pill-name">{g.tierAuditName}</span>
+                            {hasNonColombiaLocations && (
+                              <span className="tier-pill-badge text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
+                                {g.tier3ColombiaOnlyBadge || "Solo Colombia"}
+                              </span>
+                            )}
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
@@ -1369,6 +1389,14 @@ export const OrderGenerator: React.FC = () => {
                           </div>
                         </button>
                       </div>
+                      {hasNonColombiaLocations && (
+                        <div className="mt-3 p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs text-slate-300 flex items-start gap-2.5">
+                          <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                          <p className="leading-relaxed">
+                            {g.tier3CountryNotice}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Volume Presets & Slider */}

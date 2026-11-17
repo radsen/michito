@@ -74,6 +74,8 @@ class WhatsAppBotService:
         # 3. Tier
         tier_match = re.search(r'tier\s*([1-3])', clean_text)
         tier = int(tier_match.group(1)) if tier_match else 1
+        if tier == 3 and city.lower() in ("santo domingo", "quito"):
+            tier = 2
         
         # 4. Limit (Volume)
         numbers = re.findall(r'\b\d+\b', clean_text)
@@ -214,12 +216,14 @@ class WhatsAppBotService:
 
         mode_desc = "📋 *Solicitud de Cotización (Auto-RFQ)*" if payload["request"].get("directionality") == "client_to_vendors" else "🎯 *Prospección Comercial B2B*"
 
+        notice_line = f"\n\n_{parsed_brief['tier_notice']}_" if not is_preset and parsed_brief.get("tier_notice") else ""
+
         return {
             "action": "reply",
             "to": from_number,
             "message": (
                 f"{mode_desc}\n"
-                f"⚡ Estamos escaneando registros oficiales y validando buzones. Tu orden {order_id} está en proceso.\n"
+                f"⚡ Estamos escaneando registros oficiales y validando buzones. Tu orden {order_id} está en proceso.{notice_line}\n"
                 f"Rastrea tu pedido en vivo: http://localhost:3000/rastrear?order_id={order_id}"
             ),
             "order_id": order_id
