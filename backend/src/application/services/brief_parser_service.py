@@ -314,7 +314,7 @@ class BriefParserService:
         """
         Parses complex or unstructured briefs using Gemini Flash via HTTP REST.
         """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
 
         system_instruction = (
             "You are Michito AI, an expert B2B prospecting & procurement briefing engine "
@@ -345,7 +345,7 @@ class BriefParserService:
             },
         }
 
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=3.0) as client:
             resp = client.post(url, json=body)
             resp.raise_for_status()
             data = resp.json()

@@ -244,23 +244,10 @@ class ProfileB2BIntentUseCase:
         unit_price_cop = tier_info["unit_cop"]
         total_price_cop = unit_price_cop * volume
 
-        # 5. Query Actual Market Universe from Harvester / Registry
-        estimated_matches = 0
-        try:
-            from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
-            harvester = SecopHarvesterAdapter()
-            candidates = harvester.fetch_candidates(
-                city=target_city,
-                limit=max(volume * 2, 120),
-                include_keywords=parsed_super_query.get("keywords_include", []),
-                ciiu_codes=parsed_super_query.get("ciiu_codes", []),
-            )
-            estimated_matches = len(candidates)
-        except Exception:
-            estimated_matches = 0
-
-        if estimated_matches == 0:
-            estimated_matches = max(volume, 45)
+        # 5. Rapid Market Universe Estimation (Sub-50ms Response Guarantee)
+        # Avoid synchronous heavy SODA network scraping during interactive profiling
+        market_depth_multiplier = 4 if target_city in ("Bogotá", "Medellín") else 3
+        estimated_matches = max(volume * market_depth_multiplier, 95)
 
         # 6. Retrieve Representative Teaser Sample
         sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS["tinkko_enterprise_offices"])

@@ -550,6 +550,8 @@ export const OrderGenerator: React.FC = () => {
       }
     } catch (err: any) {
       console.warn("AI Intent discovery error:", err);
+      const msg = err?.data?.detail || "No pudimos conectar con el analizador de intención. Puedes configurar los criterios manualmente abajo.";
+      setFormError(msg);
     }
   };
 

@@ -22,7 +22,8 @@ class PubSubQueueAdapter(OrderQueuePort):
             project_id
             or os.environ.get("GOOGLE_CLOUD_PROJECT")
             or os.environ.get("GCP_PROJECT_ID")
-            or "michito-growth"
+            or os.environ.get("PROJECT_ID")
+            or "michito-staging"
         )
         self.topic_id = topic_id or os.environ.get("PUBSUB_TOPIC_ORDERS", "michito-orders")
         self.subscription_id = subscription_id or os.environ.get("PUBSUB_SUBSCRIPTION_WORKER", "michito-worker-sub")
@@ -44,6 +45,9 @@ class PubSubQueueAdapter(OrderQueuePort):
         self._ensure_topic_and_subscription()
 
     def _ensure_topic_and_subscription(self):
+        if os.environ.get("K_SERVICE"):
+            return
+
         try:
             self.publisher.create_topic(request={"name": self.topic_path}, timeout=1.0)
             logger.info(f"Created topic: {self.topic_path}")
