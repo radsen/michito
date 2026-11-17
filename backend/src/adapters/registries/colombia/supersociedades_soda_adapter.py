@@ -18,9 +18,9 @@ from src.application.dto.search_request_dto import CompanyFilterDto
 
 logger = logging.getLogger(__name__)
 
-# Curated Colombian Corporate Registry (Factual financial baselines for top enterprises)
-# Sourced from Supersociedades NIIF and official corporate disclosure filings.
-CURATED_COLOMBIAN_REGISTRY = [
+# Test Fixture Corporate Registry (STRICTLY for offline unit tests and sandboxed CI/CD)
+# Never served in live production queries.
+TEST_FIXTURE_COLOMBIAN_REGISTRY = [
     {
         "nit": "830.076.432-1",
         "name": "MTS Administración e Inversiones S.A.S.",
@@ -49,6 +49,9 @@ CURATED_COLOMBIAN_REGISTRY = [
         "source": "Supersociedades Reporte Financiero",
     },
 ]
+
+# Backward compatibility alias for test suites
+CURATED_COLOMBIAN_REGISTRY = TEST_FIXTURE_COLOMBIAN_REGISTRY
 
 
 class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPort):
@@ -115,8 +118,10 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
                 return companies
             except Exception as e:
                 logger.debug(f"SODA fetch_companies error: {e}")
+                return []
 
-        for item in CURATED_COLOMBIAN_REGISTRY:
+        # Offline test fixture (STRICTLY when use_live_api=False in unit tests)
+        for item in TEST_FIXTURE_COLOMBIAN_REGISTRY:
             if filter_dto.industry and item["sector"] != filter_dto.industry:
                 continue
             if filter_dto.city and item["city"] != filter_dto.city:
@@ -341,19 +346,32 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
             if top10k_data:
                 return top10k_data
 
-        # 3. Check Curated Verified Colombian Filers
-        for item in CURATED_COLOMBIAN_REGISTRY:
-            if str(item["nit"]).replace(".", "").split("-")[0] == tax_id_base:
-                revenue_num = float(item["revenue_cop"])
-                return {
-                    "has_audited_financials": True,
-                    "financial_source": item.get("source", "Supersociedades NIIF Oficial"),
-                    "operating_revenue": revenue_num,
-                    "cost_of_sales": revenue_num * 0.6,
-                    "operating_expenses": revenue_num * 0.2,
-                    "depreciation": revenue_num * 0.05,
-                    "amortization": revenue_num * 0.05,
-                }
+            # In live production mode: If company does not have an official SODA filing,
+            # return factual non-presence (ZERO assumption, NEVER fall back to hardcoded data).
+            return {
+                "has_audited_financials": False,
+                "financial_source": "Empresa mercantil en Cámara de Comercio (RUES / SECOP) sin reporte NIIF centralizado en Supersociedades",
+                "operating_revenue": 0,
+                "cost_of_sales": 0,
+                "operating_expenses": 0,
+                "depreciation": 0,
+                "amortization": 0,
+            }
+
+        # 3. Offline Unit Test Fixtures (STRICTLY when use_live_api=False)
+        if not self.use_live_api:
+            for item in TEST_FIXTURE_COLOMBIAN_REGISTRY:
+                if str(item["nit"]).replace(".", "").split("-")[0] == tax_id_base:
+                    revenue_num = float(item["revenue_cop"])
+                    return {
+                        "has_audited_financials": True,
+                        "financial_source": item.get("source", "Supersociedades NIIF Oficial (Test Fixture)"),
+                        "operating_revenue": revenue_num,
+                        "cost_of_sales": revenue_num * 0.6,
+                        "operating_expenses": revenue_num * 0.2,
+                        "depreciation": revenue_num * 0.05,
+                        "amortization": revenue_num * 0.05,
+                    }
 
         # 4. Transparent factual non-presence (no artificial simulation)
         return {

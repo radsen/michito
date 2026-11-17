@@ -4,6 +4,7 @@ Extracts verified commercial corporations, active contract awards, legal represe
 commercial emails, and phone numbers from official open datasets on datosabiertos.dgcp.gob.do.
 """
 
+import os
 import json
 import re
 import urllib.parse
@@ -223,8 +224,9 @@ class DgcpDrAdapter:
                 if len(candidates) >= limit:
                     break
 
-        # Fallback seed if live API yielded no records or in sandboxed tests
-        if not candidates and total_raw_contracts == 0:
+        # Fallback seed strictly activated in offline test environments
+        allow_fallbacks = os.getenv("ALLOW_TEST_FALLBACKS", "false").lower() in ("true", "1", "yes") or os.getenv("TESTING") == "1"
+        if not candidates and total_raw_contracts == 0 and allow_fallbacks:
             fallbacks = self._get_fallback_candidates(
                 city=city,
                 include_keywords=expanded_keywords,

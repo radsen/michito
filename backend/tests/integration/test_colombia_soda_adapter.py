@@ -101,3 +101,24 @@ def test_soda_adapter_screen_litigation_insolvency():
         assert records[0].company_id == "CO-900123456"
         assert "Ley 1116" in records[0].case_number
         assert records[0].status == "CRITICAL"
+
+
+def test_soda_adapter_live_never_uses_hardcoded_registry():
+    """
+    Guarantees that in live production mode (use_live_api=True), the adapter NEVER
+    falls back to hardcoded test fixtures when SODA does not contain a company.
+    It must report factual non-presence (zero hallucination).
+    """
+    adapter = SupersociedadesSodaAdapter(use_live_api=True)
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        mock_response = MagicMock()
+        # SODA returns empty list (company not in live SODA)
+        mock_response.read.return_value = json.dumps([]).encode()
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        # Even though 830.076.432-1 exists in TEST_FIXTURE_COLOMBIAN_REGISTRY,
+        # in live mode it must NOT return the fixture!
+        raw = adapter.fetch_raw_financials("830.076.432-1")
+        assert raw["has_audited_financials"] is False
+        assert raw["operating_revenue"] == 0
+        assert "sin reporte NIIF centralizado" in raw["financial_source"]

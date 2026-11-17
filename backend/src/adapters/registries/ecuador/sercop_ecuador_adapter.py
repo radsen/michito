@@ -4,6 +4,7 @@ Extracts verified commercial contractors, OCDS tenders, awards, legal representa
 corporate emails, and direct mobile phones from Ecuador's official Open Contracting API.
 """
 
+import os
 import json
 import logging
 import re
@@ -227,8 +228,9 @@ class SercopEcuadorAdapter:
             }
             candidates.append(lead_dict)
 
-        # Fallback seed if live API yielded no records or in sandboxed tests
-        if not candidates:
+        # Fallback seed strictly activated in offline test environments
+        allow_fallbacks = os.getenv("ALLOW_TEST_FALLBACKS", "false").lower() in ("true", "1", "yes") or os.getenv("TESTING") == "1"
+        if not candidates and allow_fallbacks:
             fallbacks = self._get_fallback_candidates(
                 city=norm_city,
                 include_keywords=expanded_keywords,

@@ -5,6 +5,7 @@ direct emails, and cell phone numbers from statutory public disclosures
 on datos.gov.co (SECOP II Proveedores Registrados - Resource ID: qmzu-gj57).
 """
 
+import os
 import json
 import re
 import urllib.parse
@@ -396,9 +397,10 @@ class SecopHarvesterAdapter:
 
         # -------------------------------------------------------------
         # SODA LADDER TIER 4: Guaranteed Resilient Fallback Pool
-        # (Activated when SODA API is unreachable, offline, or returns 0 matches)
+        # (Activated STRICTLY in test mode when ALLOW_TEST_FALLBACKS or TESTING is set)
         # -------------------------------------------------------------
-        if not qualified_leads:
+        allow_fallbacks = os.getenv("ALLOW_TEST_FALLBACKS", "false").lower() in ("true", "1", "yes") or os.getenv("TESTING") == "1"
+        if not qualified_leads and allow_fallbacks:
             fallback_items = self._get_fallback_candidates(
                 city=city,
                 include_keywords=include_keywords,
