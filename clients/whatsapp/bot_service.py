@@ -155,6 +155,7 @@ class WhatsAppBotService:
         # 3. Determine if using legacy presets or intelligent BriefParserService
         preset_keywords = ["tinkko", "hebi", "chiketto", "blueoil", "facility", "aburra", "warehouse"]
         is_preset = any(kw in clean_text for kw in preset_keywords) or clean_text.strip() in [str(i) for i in range(1, 7)]
+        parsed_brief: Optional[Dict[str, Any]] = None
 
         if is_preset or not self.brief_parser:
             parsed_params = self._parse_message(clean_text)
@@ -216,7 +217,7 @@ class WhatsAppBotService:
 
         mode_desc = "📋 *Solicitud de Cotización (Auto-RFQ)*" if payload["request"].get("directionality") == "client_to_vendors" else "🎯 *Prospección Comercial B2B*"
 
-        notice_line = f"\n\n_{parsed_brief['tier_notice']}_" if not is_preset and parsed_brief.get("tier_notice") else ""
+        notice_line = f"\n\n_{parsed_brief['tier_notice']}_" if parsed_brief and parsed_brief.get("tier_notice") else ""
 
         return {
             "action": "reply",

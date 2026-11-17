@@ -416,6 +416,16 @@ def create_prospecting_order(payload: CreateOrderRequest):
             logger.info("Order contains non-Colombian locations. Setting Tier 2 to guarantee verified data without assumptions.")
             target_tier = 2
 
+        normalized_locations: Optional[List[Dict[str, Any]]] = None
+        raw_locs = payload.request.location_allocations
+        if isinstance(raw_locs, list):
+            normalized_locations = raw_locs
+        elif isinstance(raw_locs, dict):
+            normalized_locations = [
+                {"city": city_name, "allocated_leads": count, "country": req_country}
+                for city_name, count in raw_locs.items()
+            ]
+
         order = sql_adapter.create_order(
             client_name=payload.client.name,
             client_email=payload.client.email,
@@ -436,7 +446,7 @@ def create_prospecting_order(payload: CreateOrderRequest):
             offer_description=payload.request.offer_description,
             target_roles=payload.request.target_roles,
             target_ciiu_codes=payload.request.target_ciiu_codes,
-            location_allocations=payload.request.location_allocations,
+            location_allocations=normalized_locations,
             directionality=payload.request.directionality or "vendor_to_clients",
             rfq_specifications=payload.request.rfq_specifications,
         )
@@ -840,7 +850,7 @@ def whatsapp_webhook(payload: dict):
         logger.error(f"Error processing WhatsApp Webhook: {e}")
         return {"status": "error", "error": str(e)}
 
-    res = {"status": "ok"}
+    res: Dict[str, Any] = {"status": "ok"}
     if payload.get("echo_responses") or payload.get("debug"):
         res["responses"] = responses
     return res
