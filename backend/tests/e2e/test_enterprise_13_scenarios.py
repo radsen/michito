@@ -374,6 +374,115 @@ class TestEnterprise13Scenarios(unittest.TestCase):
         default_ledger = DeduplicationLedger()
         self.assertTrue(default_ledger.is_bounced(bounced_email) or self.test_ledger.is_bounced(bounced_email))
 
+    def test_15_procurement_auto_rfq_buyer_mode(self):
+        """Scenario 15: 🇨🇴 Auto-RFQ / Procurement Mode (Client to Vendors) - Tier 2 (10 leads)"""
+        payload = {
+            "client": {"name": "Industrias Metálicas del Valle", "email": "compras@metalicasvalle.com.co"},
+            "request": {
+                "campaign_id": "auto_rfq_mantenimiento",
+                "directionality": "client_to_vendors",
+                "rfq_specifications": "Cotización urgente de reparación y retapizado para 150 puestos operativos en tela antifluido",
+                "country": "CO",
+                "city": "Cali",
+                "target_sectors": ["Mantenimiento y Reparación de Mobiliario"],
+                "target_ciiu_codes": ["9524", "3100"],
+                "limit": 10,
+                "tier": 2
+            }
+        }
+        order_id, order = self._execute_order_lifecycle("15_procurement_auto_rfq_buyer_mode", payload, expected_tier=2)
+        directionality = order.get("directionality") or order.get("request", {}).get("directionality")
+        self.assertEqual(directionality, "client_to_vendors")
+        specs = order.get("rfq_specifications") or order.get("request", {}).get("rfq_specifications", "")
+        self.assertIn("150 puestos", specs)
+
+    def test_16_chiketto_school_carnetizacion_co(self):
+        """Scenario 16: 🇨🇴 Chiketto School Carnetization & PVC ID Cards - Tier 2 (10 leads)"""
+        payload = {
+            "client": {"name": "Chiketto Carnetización Escolar", "email": "carnets@chiketto.com"},
+            "request": {
+                "campaign_id": "chiketto_school_ids",
+                "country": "CO",
+                "city": "Medellín",
+                "target_sectors": ["Educación y Colegios Privados"],
+                "target_ciiu_codes": ["8521", "8530"],
+                "target_roles": ["Rector", "Director General", "Coordinador Administrativo"],
+                "keywords_include": ["colegios", "carnets estudiantiles"],
+                "limit": 10,
+                "tier": 2
+            }
+        }
+        order_id, order = self._execute_order_lifecycle("16_chiketto_school_carnetizacion_co", payload, expected_tier=2)
+        self.assertEqual(order["tier"], 2)
+
+    def test_17_whatsapp_webhook_e2e_intake(self):
+        """Scenario 17: 🇨🇴 WhatsApp Conversational Bot Intake to Paid Order Lifecycle - Tier 2"""
+        wa_payload = {
+            "from": "+573007654321",
+            "text": "Vendo dotaciones industriales y calzado de seguridad en Bogotá para 10 empresas",
+            "debug": True
+        }
+        res_wa = self.client.post("/api/v1/webhooks/whatsapp", json=wa_payload)
+        self.assertEqual(res_wa.status_code, 200)
+        wa_data = res_wa.json()
+        self.assertEqual(wa_data["status"], "ok")
+        self.assertIn("responses", wa_data)
+        bot_response = wa_data["responses"][0]
+        order_id = bot_response.get("order_id")
+        self.assertIsNotNone(order_id)
+        self.assertTrue(order_id.startswith("ord_"))
+
+        # Process through worker
+        order_doc = self.sql_adapter.get_order(order_id)
+        self.assertIsNotNone(order_doc)
+        process_ok = self.worker.process_order(order_doc)
+        self.assertTrue(process_ok)
+
+        # Pay and verify manifest
+        res_pay = self.client.post(f"/api/v1/orders/{order_id}/pay")
+        self.assertEqual(res_pay.status_code, 200)
+        leads = self.sql_adapter.get_order_manifest(order_id)
+        self.assertGreaterEqual(len(leads), 1)
+
+    def test_18_cross_border_tier3_auto_downgrade_e2e(self):
+        """Scenario 18: 🌎 Cross-Border Multi-Country Request with Tier 3 Auto-Capped to Tier 2 (Zero Hallucination)"""
+        payload = {
+            "client": {"name": "Multinational Asset Group", "email": "assets@multi-group.com"},
+            "request": {
+                "campaign_id": "corporate_sourcing_crossborder",
+                "country": "CO",
+                "location_allocations": [
+                    {"country": "CO", "city": "Medellín", "allocated_leads": 5},
+                    {"country": "EC", "city": "Quito", "allocated_leads": 5}
+                ],
+                "limit": 10,
+                "tier": 3  # Attempt Tier 3 on cross-border order
+            }
+        }
+        # Ingestion API must automatically cap tier to 2
+        order_id, order = self._execute_order_lifecycle("18_crossborder_tier3_auto_downgrade", payload, expected_tier=2)
+        self.assertEqual(order["tier"], 2)
+
+    def test_19_healthcare_dispositivos_medicos_crossborder(self):
+        """Scenario 19: 🇪🇨 Healthcare & Hospital Equipment Procurement B2B - Tier 2 (10 leads)"""
+        payload = {
+            "client": {"name": "Biomédica Andina Cia Ltda", "email": "ventas@biomedicaandina.ec"},
+            "request": {
+                "campaign_id": "healthcare_medical_devices",
+                "country": "EC",
+                "city": "Quito",
+                "target_sectors": ["Salud y Dispositivos Médicos"],
+                "target_ciiu_codes": ["8610", "3250"],
+                "target_roles": ["Director Médico", "Gerente de Compras Hospitalarias"],
+                "limit": 10,
+                "tier": 2
+            }
+        }
+        order_id, order = self._execute_order_lifecycle("19_healthcare_medical_devices_ec", payload, expected_tier=2)
+        self.assertEqual(order["request"]["country"], "EC")
+        currency = order.get("currency") or order.get("request", {}).get("currency") or order.get("payment", {}).get("currency")
+        self.assertEqual(currency, "USD")
+
 
 if __name__ == "__main__":
     unittest.main()

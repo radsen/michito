@@ -834,7 +834,7 @@ def whatsapp_webhook(payload: dict):
                             from_number = msg.get("from")
                             text = msg.get("text", {}).get("body", "")
                             
-                            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter))
+                            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter), sql_adapter=sql_adapter)
                             response = bot.handle_incoming_message(from_number, text)
                             logger.info(f"[WhatsAppWebhook] Bot response for {from_number}: {response}")
                             responses.append(response)
@@ -842,7 +842,7 @@ def whatsapp_webhook(payload: dict):
         elif "from" in payload and "text" in payload:
             from_number = payload["from"]
             text = payload["text"]
-            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter))
+            bot = WhatsAppBotService(brief_parser=BriefParserService(sql_adapter=sql_adapter), sql_adapter=sql_adapter)
             response = bot.handle_incoming_message(from_number, text)
             logger.info(f"[WhatsAppWebhook] Bot response for {from_number}: {response}")
             responses.append(response)

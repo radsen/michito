@@ -214,8 +214,8 @@ class SecopHarvesterAdapter:
                 re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet|zebra", kw.lower())
                 for kw in include_keywords
             ))
-            or (ciiu_codes and any(str(c).startswith(("85", "1811")) for c in ciiu_codes))
-            or (sectors and any(re.search(r"educa|colegio|school", str(s).lower()) for s in sectors))
+            or (ciiu_codes and any(c.startswith(("85", "1811")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"educa|colegio|school", s.lower()) for s in sectors))
         )
 
         params: Dict[str, str] = {
@@ -445,8 +445,8 @@ class SecopHarvesterAdapter:
                 re.search(r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet|zebra", kw.lower())
                 for kw in include_keywords
             ))
-            or (ciiu_codes and any(str(c).startswith(("85", "1811")) for c in ciiu_codes))
-            or (sectors and any(re.search(r"educa|colegio|school", str(s).lower()) for s in sectors))
+            or (ciiu_codes and any(c.startswith(("85", "1811")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"educa|colegio|school", s.lower()) for s in sectors))
         )
 
         is_furniture = bool(

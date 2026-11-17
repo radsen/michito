@@ -18,6 +18,7 @@ class WhatsAppBotService:
         api_token: Optional[str] = None,
         api_base_url: Optional[str] = None,
         brief_parser: Optional[Any] = None,
+        sql_adapter: Optional[Any] = None,
     ):
         self.api_token = api_token or os.environ.get("WHATSAPP_API_TOKEN", "")
         self.api_base_url = api_base_url or os.environ.get("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -27,6 +28,7 @@ class WhatsAppBotService:
             self.brief_parser = BriefParserService()
         else:
             self.brief_parser = None
+        self.sql_adapter = sql_adapter or getattr(self.brief_parser, "sql_adapter", None)
 
     def _parse_message(self, text: str) -> Dict[str, Any]:
         """Parses natural language text to extract order parameters."""
@@ -206,14 +208,42 @@ class WhatsAppBotService:
                 }
             }
 
-        # Send to API
+        # Send to API or fall back directly to sql_adapter if unreachable
+        order_id = "desconocida"
         try:
-            response = requests.post(f"{self.api_base_url}/orders", json=payload, timeout=5.0)
+            response = requests.post(f"{self.api_base_url}/orders", json=payload, timeout=2.0)
             response.raise_for_status()
             data = response.json()
             order_id = data.get("order_id", "desconocida")
-        except Exception as e:
-            order_id = "desconocida"
+        except Exception:
+            if self.sql_adapter:
+                try:
+                    client_info = payload.get("client", {})
+                    req_info = payload.get("request", {})
+                    created = self.sql_adapter.create_order(
+                        client_name=client_info.get("name"),
+                        client_email=client_info.get("email"),
+                        client_phone=client_info.get("phone"),
+                        client_channel=client_info.get("channel", "whatsapp_bot"),
+                        referral_partner=client_info.get("referral_partner", "direct"),
+                        campaign_id=req_info.get("campaign_id", "universal_prospecting"),
+                        city=req_info.get("city", "Bogotá"),
+                        limit=req_info.get("limit", 10),
+                        country=req_info.get("country", "CO"),
+                        sector=req_info.get("sector"),
+                        tier=req_info.get("tier", 2),
+                        offer_description=req_info.get("offer_description"),
+                        target_roles=req_info.get("target_roles"),
+                        target_ciiu_codes=req_info.get("target_ciiu_codes"),
+                        location_allocations=req_info.get("location_allocations"),
+                        directionality=req_info.get("directionality", "vendor_to_clients"),
+                        rfq_specifications=req_info.get("rfq_specifications"),
+                        keywords_include=req_info.get("keywords_include"),
+                        keywords_exclude=req_info.get("keywords_exclude"),
+                    )
+                    order_id = created.get("order_id", "desconocida")
+                except Exception:
+                    order_id = "desconocida"
 
         mode_desc = "📋 *Solicitud de Cotización (Auto-RFQ)*" if payload["request"].get("directionality") == "client_to_vendors" else "🎯 *Prospección Comercial B2B*"
 
