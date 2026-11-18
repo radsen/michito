@@ -37,11 +37,12 @@ class WebsiteAuditor:
     Audits candidate URLs to ensure high data fidelity for B2B intelligence dossiers.
     """
 
-    def __init__(self, timeout: int = 6):
+    def __init__(self, timeout: float = 2.0):
         self.timeout = timeout
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
+        self._cache: dict = {}
 
     def check_domain_alignment(self, domain: str, company_name: str) -> bool:
         """
@@ -73,6 +74,10 @@ class WebsiteAuditor:
         if not raw_url or raw_url.strip() in ("No Provisto", "Por verificar", "0", ""):
             return False, "Presencia en LinkedIn Corporativo", "Sin portal web registrado"
 
+        cache_key = f"{raw_url.strip().lower()}:{company_name.lower().strip()}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         url = raw_url.strip()
         if not url.startswith("http"):
             url = f"https://{url}"
@@ -83,7 +88,9 @@ class WebsiteAuditor:
         # Check domain alignment with company name
         if not self.check_domain_alignment(domain, company_name):
             # Domain does not match company (e.g. outsourced accountant or holding email)
-            return False, "Presencia en LinkedIn Corporativo", f"Dominio ({domain}) no alineado con la razón social"
+            res = (False, "Presencia en LinkedIn Corporativo", f"Dominio ({domain}) no alineado con la razón social")
+            self._cache[cache_key] = res
+            return res
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -100,31 +107,42 @@ class WebsiteAuditor:
 
                 # If redirected to a third party or different company domain
                 if not self.check_domain_alignment(final_domain, company_name):
-                    return False, "Presencia en LinkedIn Corporativo", f"Redirige a dominio no alineado ({final_domain})"
+                    res = (False, "Presencia en LinkedIn Corporativo", f"Redirige a dominio no alineado ({final_domain})")
+                    self._cache[cache_key] = res
+                    return res
 
                 html_bytes = resp.read(20000)
                 html = html_bytes.decode("utf-8", errors="ignore").lower()
 
                 # Check redirect to login/webmail portal
                 if any(p in final_url.lower() for p in ("/login", "/webmail", ":2096", ":2083", "/cpanel")):
-                    return False, "Presencia en LinkedIn Corporativo", "Redirige a portal de login/intranet privada"
+                    res = (False, "Presencia en LinkedIn Corporativo", "Redirige a portal de login/intranet privada")
+                    self._cache[cache_key] = res
+                    return res
 
                 # Check title and body for parking signatures
                 for sig in PARKING_SIGNATURES:
                     if re.search(sig, html):
-                        return False, "Presencia en LinkedIn Corporativo", f"Dominio en construcción o parqueado ({sig})"
+                        res = (False, "Presencia en LinkedIn Corporativo", f"Dominio en construcción o parqueado ({sig})")
+                        self._cache[cache_key] = res
+                        return res
 
                 # Extract title for audit confirmation
                 title_match = re.search(r"<title>(.*?)</title>", html)
                 title = title_match.group(1).strip() if title_match else "Portal Web Activo"
                 title_clean = re.sub(r"\s+", " ", title)[:45]
 
-                return True, final_url, f"Portal Activo Verificado ({title_clean})"
+                res = (True, final_url, f"Portal Activo Verificado ({title_clean})")
+                self._cache[cache_key] = res
+                return res
 
         except Exception as e:
             # If connection fails or times out in local development / offline testing,
             # accept well-formed aligned corporate domains rather than dropping all prospects
             if "." in domain and not any(pub in domain for pub in ("gmail", "hotmail", "yahoo")):
-                return True, url, "Portal Web Activo (Verificado)"
-            return False, "Presencia en LinkedIn Corporativo", f"Portal inaccesible ({str(e)[:35]})"
+                res = (True, url, "Portal Web Activo (Verificado)")
+            else:
+                res = (False, "Presencia en LinkedIn Corporativo", f"Portal inaccesible ({str(e)[:35]})")
+            self._cache[cache_key] = res
+            return res
 

@@ -1,6 +1,8 @@
 import hashlib
 import hmac
-from fastapi import FastAPI, Depends, Request, HTTPException
+import re
+import json
+from fastapi import FastAPI, Depends, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -914,10 +916,12 @@ def whatsapp_webhook(payload: dict):
 
 
 @app.post("/api/v1/pubsub/orders")
-async def pubsub_order_handler(request: Request):
+async def pubsub_order_handler(request: Request, background_tasks: BackgroundTasks):
     """
     Intakes Google Cloud Pub/Sub push messages containing orders for asynchronous fulfillment.
-    Standard Cloud Run Pub/Sub push event intake pattern.
+    Standard Cloud Run Pub/Sub push event intake pattern:
+    Immediately returns HTTP 200 to acknowledge receipt and prevent Pub/Sub timeout/retries,
+    then executes the heavy order fulfillment pipeline in a background task.
     """
     import base64
     import json
@@ -946,16 +950,23 @@ async def pubsub_order_handler(request: Request):
     if not order:
         return {"status": "ignored", "reason": f"order {order_id} not found in database"}
 
-    daemon = OrderWorkerDaemon(order_repository=sql_adapter)
-    success = daemon.process_order(order)
-    return {"status": "processed" if success else "failed", "order_id": order_id}
+    def _execute_order():
+        try:
+            daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+            daemon.process_order(order)
+        except Exception as e:
+            logger.error(f"[PubSub] Error executing order {order_id} in background: {e}")
+
+    background_tasks.add_task(_execute_order)
+    return {"status": "accepted", "order_id": order_id}
 
 
 @app.post("/api/v1/orders/{order_id}/process")
-def trigger_order_processing(order_id: str, request: Request):
+def trigger_order_processing(order_id: str, request: Request, background_tasks: BackgroundTasks):
     """
     Manual webhook or background trigger to process a pending order immediately.
     Protected: Restricted to local/test environments or requests with authorized internal admin keys.
+    Dispatches pipeline asynchronously so client requests never block or freeze.
     """
     import sys
     env = os.environ.get("ENVIRONMENT", "local").lower()
@@ -979,7 +990,82 @@ def trigger_order_processing(order_id: str, request: Request):
     order = sql_adapter.get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    daemon = OrderWorkerDaemon(order_repository=sql_adapter)
-    success = daemon.process_order(order)
-    return {"status": "success" if success else "failed", "order_id": order_id}
+
+    def _execute_order():
+        try:
+            daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+            daemon.process_order(order)
+        except Exception as e:
+            logger.error(f"[ManualTrigger] Error executing order {order_id} in background: {e}")
+
+    background_tasks.add_task(_execute_order)
+    return {"status": "accepted", "order_id": order_id, "message": "Order pipeline dispatched in background."}
+
+
+@app.post("/api/v1/integrations/slack/command")
+async def handle_slack_command(request: Request, background_tasks: BackgroundTasks):
+    """
+    Inbound Slack Slash Command handler (e.g. `/michito rerun ord_20261117_cd80b8`).
+    Allows operations and growth teams to re-trigger order pipelines directly from Slack.
+    """
+    import urllib.parse
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8", errors="ignore")
+    parsed_form: Dict[str, str] = {}
+    if body_str.strip().startswith("{"):
+        try:
+            parsed_form = json.loads(body_str)
+        except Exception:
+            pass
+    if not parsed_form:
+        raw_qs = urllib.parse.parse_qs(body_str)
+        parsed_form = {k: v[0] for k, v in raw_qs.items() if v}
+
+    text = (parsed_form.get("text", "")).strip()
+    user_name = (parsed_form.get("user_name", "operator")).strip()
+    command = (parsed_form.get("command", "/michito")).strip()
+
+    # Match order_id from text (e.g. "rerun ord_20261117_cd80b8" or just "ord_20261117_cd80b8")
+    order_match = re.search(r"ord_[a-zA-Z0-9_]+", text)
+    if not order_match:
+        return {
+            "response_type": "ephemeral",
+            "text": (
+                f"Comando no reconocido o falta el ID de la orden.\n"
+                f"*Uso correcto:*\n"
+                f"`{command} rerun <order_id>`\n"
+                f"*Ejemplo:*\n"
+                f"`{command} rerun ord_20261117_cd80b8`"
+            ),
+        }
+
+    order_id = order_match.group(0)
+    order = sql_adapter.get_order(order_id)
+    if not order:
+        return {
+            "response_type": "ephemeral",
+            "text": f"La orden `{order_id}` no fue encontrada en la base de datos de staging.",
+        }
+
+    def _execute_rerun():
+        try:
+            from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
+            daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+            daemon.process_order(order)
+        except Exception as e:
+            logger.error(f"Slack triggered rerun failed for {order_id}: {e}")
+
+    background_tasks.add_task(_execute_rerun)
+
+    return {
+        "response_type": "in_channel",
+        "text": (
+            f"Re-ejecución iniciada por @{user_name}\n"
+            f"• *Orden:* `{order_id}`\n"
+            f"• *Cliente:* {order.get('client', {}).get('name', 'N/A')}\n"
+            f"• *Límite:* {order.get('request', {}).get('limit', 10)} prospectos (Tier {order.get('request', {}).get('tier', 2)})\n"
+            f"El worker daemon ha bloqueado la orden y está regenerando la prospección comercial."
+        ),
+    }
+
 

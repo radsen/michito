@@ -168,6 +168,26 @@ class TestSecopHarvesterAdapter(unittest.TestCase):
             self.assertTrue(sch["email"].endswith(".edu.co") or sch["email"].endswith(".co"))
             self.assertTrue(sch["phone"].startswith("3"))
 
+    @patch("urllib.request.urlopen")
+    def test_fetch_candidates_coworking_and_workspaces(self, mock_urlopen):
+        mock_urlopen.side_effect = Exception("Simulated SODA timeout")
+        # Querying for coworkings in Medellín
+        coworkings = self.adapter.fetch_candidates(
+            city="Medellín",
+            limit=20,
+            include_keywords=["coworking"]
+        )
+        self.assertGreaterEqual(len(coworkings), 15)
+        for cw in coworkings[:5]:
+            self.assertTrue(
+                "cowork" in cw["company_name"].lower()
+                or "workspace" in cw["company_name"].lower()
+                or "oficina" in cw["company_name"].lower()
+                or "espacio" in cw["company_name"].lower()
+            )
+            self.assertTrue(cw["phone"].startswith("3"))
+            self.assertTrue(cw["email"].endswith(".co") or cw["email"].endswith(".com"))
+
 if __name__ == "__main__":
     unittest.main()
 

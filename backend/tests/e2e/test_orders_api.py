@@ -486,6 +486,26 @@ class TestOrdersApi(unittest.TestCase):
         self.assertIn("materiales_construccion", preset_ids)
         self.assertIn("tinkko_enterprise_offices", preset_ids)
 
+    def test_slack_command_rerun(self):
+        # 1. Create Order
+        payload = {
+            "client": {"name": "Slack Rerun User", "email": "slack@rerun.com"},
+            "request": {"campaign_id": "universal_prospecting", "city": "Medellín", "limit": 10}
+        }
+        res_post = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res_post.status_code, 201)
+        order_id = res_post.json()["order_id"]
+
+        # 2. Trigger Slack rerun command
+        res_slack = self.client.post(
+            "/api/v1/integrations/slack/command",
+            data={"text": f"rerun {order_id}", "user_name": "andres", "command": "/michito"}
+        )
+        self.assertEqual(res_slack.status_code, 200)
+        data = res_slack.json()
+        self.assertEqual(data["response_type"], "in_channel")
+        self.assertIn(order_id, data["text"])
+
 if __name__ == "__main__":
     unittest.main()
 

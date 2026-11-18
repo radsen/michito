@@ -153,19 +153,21 @@ class FirestoreOrderAdapter:
             ref = self.db.collection("orders").document(order_id)
             doc = ref.get()
             doc_data = doc.to_dict() or {}
-            if not doc.exists or doc_data.get("status") != "queued":
+            if not doc.exists or doc_data.get("status") not in ("queued", "failed", "awaiting_payment"):
                 return False
             ref.update({
                 "status": "processing",
+                "error_message": None,
                 "started_processing_at": now_iso,
                 "updated_at": now_iso,
             })
             return True
         else:
             doc = self._in_memory_orders.get(order_id)
-            if not doc or doc.get("status") != "queued":
+            if not doc or doc.get("status") not in ("queued", "failed", "awaiting_payment"):
                 return False
             doc["status"] = "processing"
+            doc["error_message"] = None
             doc["started_processing_at"] = now_iso
             doc["updated_at"] = now_iso
             return True

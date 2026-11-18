@@ -661,8 +661,8 @@ class GenerateProspectsUseCase:
         seen_nits = ledger.get_seen_nits(campaign=campaign_id)
         print(f"[Ledger] Tracking {len(seen_nits)} previously prospected accounts. Exclusions active.")
 
-        contracts_adapter = self.contracts_adapter or SecopContractsAdapter(timeout=6)
-        web_auditor = self.web_auditor or WebsiteAuditor(timeout=5)
+        contracts_adapter = self.contracts_adapter or SecopContractsAdapter(timeout=4)
+        web_auditor = self.web_auditor or WebsiteAuditor(timeout=2.0)
 
         all_selected: List[Dict[str, Any]] = []
         overall_start_time = time.time()
@@ -831,7 +831,12 @@ class GenerateProspectsUseCase:
                 if target_ciiu_codes and len(target_ciiu_codes) > 0:
                     ciiu_clean = [str(c).upper().strip() for c in target_ciiu_codes]
                     cand_ciiu = ciiu_obj.code.upper()
-                    if cand_ciiu not in ciiu_clean and not any(cand_ciiu.startswith(prefix) for prefix in ciiu_clean):
+                    matches_ciiu = (
+                        cand_ciiu in ciiu_clean
+                        or any(cand_ciiu.startswith(prefix) for prefix in ciiu_clean)
+                        or any(cand_ciiu[:2] == prefix[:2] for prefix in ciiu_clean)
+                    )
+                    if not matches_ciiu:
                         if kw_include and not any(kw.lower() in company_name.lower() or kw.lower() in str(item.get("sector", "")).lower() for kw in kw_include):
                             continue
 

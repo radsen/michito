@@ -289,6 +289,7 @@ class CiiuCode:
             (r"fintech|invers|fondos|credito|valores", "6499"),
             (r"arquitect|ingenier|civil|obras|interventor|diseno tecnico", "7110"),
             (r"facility|limpieza|aseo|mantenimiento locativo|seguridad fisica|conserj", "8110"),
+            (r"cowork|oficinas flexibles|espacios compartidos|espacios de trabajo", "6820"),
             (r"inmobiliari|bienes raices|propiedad horizontal|arrendamiento", "6810"),
             (r"publicid|marketing|btl|eventos|comunicacion|medios|agencia", "7310"),
             (r"medical|salud|ips|clinic|farmaceut|biomed|odontol|dispositiv", "3250"),

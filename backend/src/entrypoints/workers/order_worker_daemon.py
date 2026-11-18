@@ -146,13 +146,25 @@ class OrderWorkerDaemon:
             if req.get("target_roles"):
                 exec_kwargs["target_roles"] = req.get("target_roles")
             if req.get("sector"):
-                exec_kwargs["target_sectors"] = [req.get("sector")]
+                raw_sec = req.get("sector")
+                if isinstance(raw_sec, list):
+                    exec_kwargs["target_sectors"] = raw_sec
+                elif isinstance(raw_sec, str):
+                    exec_kwargs["target_sectors"] = [s.strip() for s in raw_sec.split(",") if s.strip()]
             if req.get("target_ciiu_codes"):
                 exec_kwargs["target_ciiu_codes"] = req.get("target_ciiu_codes")
             if req.get("location_allocations"):
                 exec_kwargs["location_allocations"] = req.get("location_allocations")
             if req.get("keywords_include"):
-                exec_kwargs["keywords_include"] = req.get("keywords_include")
+                raw_kws = req.get("keywords_include")
+                if isinstance(raw_kws, list):
+                    from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+                    clean_kws = []
+                    for k in raw_kws:
+                        k_clean = str(k).strip().lower()
+                        if k_clean and k_clean not in QUERY_STOP_WORDS:
+                            clean_kws.append(k_clean)
+                    exec_kwargs["keywords_include"] = clean_kws
             if req.get("keywords_exclude"):
                 exec_kwargs["keywords_exclude"] = req.get("keywords_exclude")
             if req.get("directionality"):

@@ -277,6 +277,11 @@ class SqlOrderAdapter:
         with self._get_session() as session:
             order_obj = session.get(OrderModel, order_id)
             if order_obj:
+                # Self-healing safeguard: if fulfillment completed with full quota but status was in processing
+                if order_obj.status == "processing" and order_obj.completed_at is not None and (order_obj.delivery_total_qualified or 0) >= (order_obj.requested_limit or 1):
+                    order_obj.status = "awaiting_payment"
+                    session.commit()
+
                 d = order_obj.to_dict()
                 delivery = d.get("delivery", {})
                 payment = d.get("payment", {})
@@ -399,14 +404,15 @@ class SqlOrderAdapter:
                 return {"status": "dead-lettered", "order": ord_obj.to_dict()}
 
     def mark_processing(self, order_id: str) -> bool:
-        """Transitions order from 'queued' to 'processing' atomically."""
+        """Transitions order from 'queued', 'failed', or 'awaiting_payment' to 'processing' atomically."""
         now = datetime.now(timezone.utc)
         with self._get_session() as session:
             order_obj = session.get(OrderModel, order_id)
-            if not order_obj or order_obj.status != "queued":
+            if not order_obj or order_obj.status not in ("queued", "failed", "awaiting_payment"):
                 return False
 
             order_obj.status = "processing"
+            order_obj.error_message = None
             order_obj.started_processing_at = now
             order_obj.updated_at = now
             session.commit()
@@ -557,21 +563,23 @@ class SqlOrderAdapter:
                         existing_lead.direct_mobile_phone = lead["phone"]
 
                 # 2. Add to Order Manifest (Products by Order)
-                manifest_entry = OrderLeadModel(
-                    order_id=order_id,
-                    lead_id=lead_id,
-                    touch_1_linkedin=lead.get("touch1_copy"),
-                    touch_2_cold_email_sub=lead.get("touch2_sub"),
-                    touch_2_cold_email_body=lead.get("touch2_body"),
-                    touch_3_followup_sub=lead.get("touch3_sub"),
-                    touch_3_followup_body=lead.get("touch3_body"),
-                    touch_4_social_proof_sub=lead.get("touch4_sub"),
-                    touch_4_social_proof_body=lead.get("touch4_body"),
-                    touch_5_breakup_sub=lead.get("touch5_sub"),
-                    touch_5_breakup_body=lead.get("touch5_body"),
-                    assigned_at=now,
-                )
-                session.add(manifest_entry)
+                existing_link = session.query(OrderLeadModel).filter_by(order_id=order_id, lead_id=lead_id).first()
+                if not existing_link:
+                    manifest_entry = OrderLeadModel(
+                        order_id=order_id,
+                        lead_id=lead_id,
+                        touch_1_linkedin=lead.get("touch1_copy"),
+                        touch_2_cold_email_sub=lead.get("touch2_sub"),
+                        touch_2_cold_email_body=lead.get("touch2_body"),
+                        touch_3_followup_sub=lead.get("touch3_sub"),
+                        touch_3_followup_body=lead.get("touch3_body"),
+                        touch_4_social_proof_sub=lead.get("touch4_sub"),
+                        touch_4_social_proof_body=lead.get("touch4_body"),
+                        touch_5_breakup_sub=lead.get("touch5_sub"),
+                        touch_5_breakup_body=lead.get("touch5_body"),
+                        assigned_at=now,
+                    )
+                    session.add(manifest_entry)
 
             # 3. Update Order Summary
             order_obj.status = "awaiting_payment" if amount_in_cents > 0 else "completed"
@@ -715,6 +723,12 @@ class SqlOrderAdapter:
                     allocated_leads=2,
                 )]
 
+            existing_lead_rows = session.execute(
+                select(LeadModel.tax_id)
+                .join(OrderLeadModel, OrderLeadModel.lead_id == LeadModel.lead_id)
+                .where(OrderLeadModel.order_id == order_id)
+            ).scalars().all()
+            existing_nits = [t for t in existing_lead_rows if t]
             req = UniversalProspectingRequest(
                 offer_description=order_obj.offer_description or f"Replacement leads for {order_obj.campaign_id}",
                 sectors=[s.strip() for s in order_obj.sector.split(",") if s.strip()] if order_obj.sector else [],
@@ -722,6 +736,7 @@ class SqlOrderAdapter:
                 roles=order_obj.target_roles or ["Gerente General", "Director de Operaciones"],
                 keywords_include=order_obj.keywords_include,
                 keywords_exclude=[k for k in (list(order_obj.keywords_exclude or []) + [clean_email, company_name or ""]) if k],
+                excluded_nits=existing_nits,
                 total_leads=2,
                 tier=order_obj.tier or 2,
             )
@@ -792,21 +807,23 @@ class SqlOrderAdapter:
                     )
                     session.add(existing_lead)
 
-                manifest_entry = OrderLeadModel(
-                    order_id=order_id,
-                    lead_id=lead_id,
-                    touch_1_linkedin=lead.get("touch1_copy"),
-                    touch_2_cold_email_sub=lead.get("touch2_sub"),
-                    touch_2_cold_email_body=lead.get("touch2_body"),
-                    touch_3_followup_sub=lead.get("touch3_sub"),
-                    touch_3_followup_body=lead.get("touch3_body"),
-                    touch_4_social_proof_sub=lead.get("touch4_sub"),
-                    touch_4_social_proof_body=lead.get("touch4_body"),
-                    touch_5_breakup_sub=lead.get("touch5_sub"),
-                    touch_5_breakup_body=lead.get("touch5_body"),
-                    assigned_at=now,
-                )
-                session.add(manifest_entry)
+                existing_link = session.query(OrderLeadModel).filter_by(order_id=order_id, lead_id=lead_id).first()
+                if not existing_link:
+                    manifest_entry = OrderLeadModel(
+                        order_id=order_id,
+                        lead_id=lead_id,
+                        touch_1_linkedin=lead.get("touch1_copy"),
+                        touch_2_cold_email_sub=lead.get("touch2_sub"),
+                        touch_2_cold_email_body=lead.get("touch2_body"),
+                        touch_3_followup_sub=lead.get("touch3_sub"),
+                        touch_3_followup_body=lead.get("touch3_body"),
+                        touch_4_social_proof_sub=lead.get("touch4_sub"),
+                        touch_4_social_proof_body=lead.get("touch4_body"),
+                        touch_5_breakup_sub=lead.get("touch5_sub"),
+                        touch_5_breakup_body=lead.get("touch5_body"),
+                        assigned_at=now,
+                    )
+                    session.add(manifest_entry)
 
                 rep_dict = {
                     "company_name": lead.get("company_name"),

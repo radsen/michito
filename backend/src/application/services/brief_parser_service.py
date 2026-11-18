@@ -18,6 +18,39 @@ from src.domain.taxonomy.isic_index import get_isic_index, IsicEntry
 
 logger = logging.getLogger(__name__)
 
+# Prompt meta-words and Spanish stopwords to purge from search intent
+QUERY_STOP_WORDS = {
+    # Functional Spanish prepositions & articles
+    "para", "con", "por", "que", "los", "las", "una", "uno", "unos", "unas",
+    "del", "al", "en", "de", "y", "o", "a", "el", "la", "un", "su", "sus",
+    "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas", "como",
+    "cual", "cuales", "cuál", "cuáles", "donde", "dónde", "quien", "quién",
+    "sobre", "entre", "tras", "hacia", "hasta", "desde", "segun", "según",
+    # Imperative / Intent request verbs
+    "dame", "dar", "deme", "busca", "buscar", "busco", "buscamos", "consigue",
+    "conseguir", "consigan", "necesito", "necesitamos", "quiero", "queremos",
+    "solicito", "solicitar", "solicitamos", "pasa", "pasar", "envia", "enviar",
+    "obten", "obtener", "obtenga", "trae", "traer", "recomienda", "generar",
+    "genera", "crear", "arma", "entregar",
+    # Entity & dataset meta-words
+    "empresas", "empresa", "prospectos", "prospecto", "clientes", "cliente",
+    "proveedores", "proveedor", "cuentas", "cuenta", "leads", "lead",
+    "contactos", "contacto", "datos", "base", "bases", "lista", "listas",
+    "listado", "registro", "registros", "informacion", "información",
+    "directorio", "directorios", "perfil", "perfiles",
+    # Field & channel meta-words
+    "telefono", "telefonos", "teléfono", "teléfonos", "correo", "correos",
+    "email", "emails", "cargo", "cargos", "directivo", "directivos", "celular",
+    "celulares", "direccion", "direcciones", "dirección", "pbx",
+    "whatsapp", "nombre", "nombres", "apellido", "apellidos", "nit", "ruc", "rnc",
+    # Geography meta-words
+    "colombia", "ecuador", "dominicana", "medellin", "medellín", "bogota",
+    "bogotá", "cali", "barranquilla", "quito", "guayaquil", "santo", "domingo",
+    "ciudad", "ciudades", "pais", "país", "nacional", "todo", "toda", "todos", "todas",
+    # Generic filler words
+    "espacio", "espacios", "servicio", "servicios", "sector", "sectores", "alta", "buena"
+}
+
 
 # Supported geographic dictionaries
 GEO_CITY_REGISTRY = {
@@ -238,7 +271,10 @@ class BriefParserService:
             )
 
         # 5. Local BM25 CIIU Resolution
-        matches = self.isic_index.search(prompt, limit=4)
+        # Purge prompt meta-words so terms like "cargos directivos" don't trigger freight cargo
+        clean_tokens = [w for w in re.findall(r"\b[a-záéíóúñ]{3,}\b", lower) if w not in QUERY_STOP_WORDS]
+        search_query = " ".join(clean_tokens) if clean_tokens else prompt
+        matches = self.isic_index.search(search_query, limit=4)
         ciiu_codes = [m[0].code for m in matches]
         
         # Sector keys
@@ -266,14 +302,15 @@ class BriefParserService:
                 roles = ["Gerente General", "Director de Operaciones", "Director de Compras", "Jefe de Compras"]
 
         # 7. Keywords Include / Exclude
-        # Remove common functional Spanish words
-        stop_words = {
-            "para", "con", "por", "que", "los", "las", "una", "uno", "unos", "unas",
-            "del", "al", "en", "de", "y", "o", "a", "el", "la", "necesito", "quiero",
-            "busco", "buscamos", "empresas", "prospectos", "clientes", "proveedores"
-        }
-        words = [w for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", lower) if w not in stop_words]
-        keywords_include = list(dict.fromkeys(words))[:6]
+        # Remove prompt meta-words and Spanish stopwords
+        raw_words = [w for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", lower) if w not in QUERY_STOP_WORDS]
+        # Normalize plurals (e.g. coworkings -> coworking)
+        words = []
+        for w in raw_words:
+            norm_w = w[:-1] if w.endswith("s") and len(w) > 5 and not w.endswith("ss") else w
+            if norm_w not in QUERY_STOP_WORDS and norm_w not in words:
+                words.append(norm_w)
+        keywords_include = words[:6]
 
         # Exclusions (e.g. "sin colegios publicos", "no intermediarios")
         keywords_exclude = []
