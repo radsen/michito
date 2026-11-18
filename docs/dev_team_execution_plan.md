@@ -235,6 +235,36 @@ Traditional scraping tools (Apollo, ZoomInfo) fail in Latin America because heav
 
 ---
 
+### Track E: Vulnerability Hardening & Operational Resilience (Pre-Production Gate)
+
+Before expanding to public commercial traffic and production, consider these 5 operational vectors:
+
+#### E.1: Pub/Sub Push Authentication (OIDC Token)
+* **Current State**: Cloud Run accepts Pub/Sub push messages on `/api/v1/pubsub/orders`.
+* **Risk**: An attacker who discovers the endpoint could send fake Pub/Sub envelopes to trigger unnecessary processing.
+* **Remediation**: Configure Google Cloud Pub/Sub push subscription to attach an OIDC Identity Token bound to a dedicated service account, validating the Google JWT on intake.
+
+#### E.2: WhatsApp Webhook Signature Verification (`X-Hub-Signature-256`)
+* **Current State**: The WhatsApp intake parses incoming chat payloads.
+* **Risk**: External attackers could post spoofed WhatsApp messages directly to `/api/v1/webhooks/whatsapp`.
+* **Remediation**: Verify Meta's SHA-256 HMAC header (`X-Hub-Signature-256`) against `WHATSAPP_APP_SECRET`.
+
+#### E.3: PostgreSQL Connection Pool Sizing (`db-f1-micro`)
+* **Current State**: `db-f1-micro` has a 25–50 connection limit.
+* **Risk**: If Cloud Run scales to 5 concurrent container instances under a traffic spike, simultaneous DB connection attempts could trigger `OperationalError: too many connections`.
+* **Remediation**: Ensure SQLAlchemy `pool_size` is capped at 3 with `max_overflow=2` per container instance.
+
+#### E.4: Mailserver Rate-Throttling on Socket Verifier
+* **Current State**: The worker directly connects to target MX hosts on port 25 to verify inboxes.
+* **Risk**: Querying multiple emails at the same domain (e.g. 50 emails `@bancolombia.com.co`) simultaneously could cause corporate firewalls to greylist our Cloud Run egress IP.
+* **Remediation**: Maintain an in-memory per-domain token bucket or 1-second delay between checks to the same MX server.
+
+#### E.5: Statutory Habeas Data Compliance (Ley 1581 de 2012 🇨🇴)
+* **Risk**: Regulatory non-compliance with the Superintendencia de Industria y Comercio (SIC) on personal data handling.
+* **Remediation**: Include a public self-service opt-out page (`/privacidad/opt-out`) where corporate officers can request exclusion, automatically appending them to the persistent `DeduplicationLedger` blacklist.
+
+---
+
 ## 4. Execution Sequence & Prioritization
 
 ```text
@@ -257,4 +287,11 @@ STEP 3: Track C — Production Containerization & Dev Parity
 STEP 4: Track D — Cloud Infrastructure & Cloud Run Deployment
         • Provision Cloud SQL and configure Google Secret Manager.
         • Execute deployment to Google Cloud Run.
+
+STEP 5: Track E — Vulnerability Hardening & Operational Resilience
+        • Enforce OIDC token validation on Pub/Sub push endpoints.
+        • Validate Meta X-Hub-Signature-256 HMAC on incoming WhatsApp webhooks.
+        • Cap SQLAlchemy connection pool size to protect db-f1-micro.
+        • Add per-domain token bucket throttling on Port 25 socket verifier.
+        • Deploy self-service statutory Habeas Data opt-out portal.
 ```
