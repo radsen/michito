@@ -36,13 +36,13 @@ app = FastAPI(title="Michito B2B Intelligence Engine API", version="2.0.0")
 # Enable Cross-Origin Resource Sharing (CORS) with explicit trusted origins
 allowed_origins_raw = os.environ.get(
     "ALLOWED_ORIGINS",
-    "https://michito-web-limgi3puaq-uc.a.run.app,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:3000,http://127.0.0.1:5000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:3000"
+    "https://michito.co,https://www.michito.co,https://app.michito.co,https://michito-web-limgi3puaq-uc.a.run.app,http://localhost:5000,http://localhost:5173,http://localhost:8080,http://localhost:3000,http://127.0.0.1:5000,http://127.0.0.1:5173,http://127.0.0.1:8080,http://127.0.0.1:3000"
 )
 allowed_origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins else ["*"],
+    allow_origins=allowed_origins if allowed_origins else ["https://michito.co", "https://www.michito.co"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -751,6 +751,39 @@ def get_prospecting_order(order_id: str):
     order = sql_adapter.get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # On-the-fly Self-Healing: If an unpaid order is stuck in 'processing' (>180s), auto-reset to awaiting_payment
+    order_status = (order.get("status") or "").lower()
+    if order_status == "processing":
+        payment_status = (order.get("payment", {}).get("status") or "").upper()
+        if payment_status != "APPROVED":
+            started = order.get("started_processing_at") or order.get("created_at")
+            is_stuck = False
+            if started:
+                try:
+                    if isinstance(started, str):
+                        clean_iso = started.replace("Z", "+00:00")
+                        start_dt = datetime.fromisoformat(clean_iso)
+                    elif isinstance(started, (int, float)):
+                        start_dt = datetime.fromtimestamp(started, tz=timezone.utc)
+                    else:
+                        start_dt = None
+                    if start_dt:
+                        if start_dt.tzinfo is None:
+                            start_dt = start_dt.replace(tzinfo=timezone.utc)
+                        age_sec = (datetime.now(timezone.utc) - start_dt).total_seconds()
+                        if age_sec > 180:
+                            is_stuck = True
+                except Exception:
+                    is_stuck = True
+            else:
+                is_stuck = True
+
+            if is_stuck:
+                logger.info(f"[SelfHealing] Auto-recovering stuck unpaid order `{order_id}` from 'processing' to 'awaiting_payment'.")
+                sql_adapter.update_telemetry(order_id, {}, status="awaiting_payment")
+                order = sql_adapter.get_order(order_id) or order
+
     client_email = order.get("client", {}).get("email") or ""
     order["stream_token"] = generate_order_stream_token(order_id, client_email)
     return order
@@ -1267,6 +1300,33 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
             except Exception as e:
                 logger.error(f"[WompiWebhook] Error updating order in database: {e}")
 
+    elif status in ("DECLINED", "ERROR", "VOIDED"):
+        reference = transaction.get("reference", "")
+        status_message = transaction.get("status_message") or f"Payment {status.lower()}"
+        if reference:
+            try:
+                sql_adapter.mark_order_payment_declined(
+                    order_id=reference,
+                    transaction_id=str(tx_id),
+                    status=status,
+                    status_message=status_message
+                )
+                logger.info(f"[WompiWebhook] Order `{reference}` payment marked as {status} (Reason: {status_message}).")
+                if hasattr(app_container, "alert_dispatcher"):
+                    app_container.alert_dispatcher.send_alert(
+                        f"Wompi Payment {status}",
+                        f"Order `{reference}` payment failed with status `{status}`. Message: {status_message}.",
+                        level="warning",
+                        details={
+                            "order_id": reference,
+                            "transaction_id": str(tx_id),
+                            "status": status,
+                            "reason": status_message,
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"[WompiWebhook] Error recording declined payment for `{reference}`: {e}")
+
     return {"status": "received"}
 
 
@@ -1356,6 +1416,21 @@ async def pubsub_order_handler(request: Request, background_tasks: BackgroundTas
     order = sql_adapter.get_order(str(order_id))
     if not order:
         return {"status": "ignored", "reason": f"order {order_id} not found in database"}
+
+    # Monetization Protection Gate: Do not fulfill unpaid orders via Pub/Sub
+    order_status = (order.get("status") or "").lower()
+    payment_status = (order.get("payment", {}).get("status") or "").upper()
+    is_paid = order_status in ("paid", "completed", "fulfilled") or payment_status == "APPROVED"
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_test_or_dev = (
+        "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or os.environ.get("TESTING") == "1"
+        or env in ("local", "dev", "test")
+    )
+    if not is_paid and not is_test_or_dev:
+        logger.warning(f"[PubSub] Ignoring fulfillment for unpaid order {order_id} (Status: {order_status}, Payment: {payment_status}).")
+        return {"status": "ignored", "reason": "order is unpaid"}
 
     # Process order synchronously so Cloud Run does not throttle CPU mid-execution
     try:

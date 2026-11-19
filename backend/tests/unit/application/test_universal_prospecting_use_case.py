@@ -279,42 +279,44 @@ def test_education_schools_scenario_without_ciiu_code(mock_web_auditor, mock_con
     Verifies that the engine infers Education CIIU 8530, qualifies schools, and never fails.
     """
     from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
+    from unittest.mock import patch
 
-    harvester = SecopHarvesterAdapter()
-    use_case = GenerateProspectsUseCase(
-        harvester_co=harvester,
-        web_auditor=mock_web_auditor,
-        contracts_adapter=mock_contracts_adapter,
-        verify_mx_fn=lambda email: (True, "mail.sanignacio.edu.co"),
-    )
+    with patch.object(SecopHarvesterAdapter, "_execute_soda_request", return_value=[]):
+        harvester = SecopHarvesterAdapter()
+        use_case = GenerateProspectsUseCase(
+            harvester_co=harvester,
+            web_auditor=mock_web_auditor,
+            contracts_adapter=mock_contracts_adapter,
+            verify_mx_fn=lambda email: (True, "mail.sanignacio.edu.co"),
+        )
 
-    req = UniversalProspectingRequest(
-        offer_description="Suministro de carnets estudiantiles en PVC de alta durabilidad y credenciales escolares",
-        sectors=["education_schools"],
-        ciiu_codes=[],  # Explicitly NO CIIU code supplied by the user
-        locations=[
-            LocationAllocation(country="CO", region="Antioquia", city="Medellín", allocated_leads=10),
-        ],
-        roles=["Rector / Rectora", "Coordinador Administrativo", "Director de Colegio"],
-        keywords_include=["colegios", "carnets estudiantiles"],
-        total_leads=10,
-        tier=2,
-    )
+        req = UniversalProspectingRequest(
+            offer_description="Suministro de carnets estudiantiles en PVC de alta durabilidad y credenciales escolares",
+            sectors=["education_schools"],
+            ciiu_codes=[],  # Explicitly NO CIIU code supplied by the user
+            locations=[
+                LocationAllocation(country="CO", region="Antioquia", city="Medellín", allocated_leads=10),
+            ],
+            roles=["Rector / Rectora", "Coordinador Administrativo", "Director de Colegio"],
+            keywords_include=["colegios", "carnets estudiantiles"],
+            total_leads=10,
+            tier=2,
+        )
 
-    result = use_case.execute(universal_request=req, dry_run=True)
-    assert result["status"] == "success"
-    assert result["total_qualified"] >= 10
-    leads = result["leads"]
-    assert len(leads) >= 10
+        result = use_case.execute(universal_request=req, dry_run=True)
+        assert result["status"] == "success"
+        assert result["total_qualified"] >= 10
+        leads = result["leads"]
+        assert len(leads) >= 10
 
-    # Verify that CIIU code is properly inferred as Education (85XX)
-    for lead in leads[:5]:
-        ciiu = lead["ciiu"]
-        assert ciiu.code.startswith("85")
-        assert "Colegios" in ciiu.sector_macro or "Educación" in ciiu.sector_macro
-        assert lead["is_mobile"] is True or lead["phone"].startswith("+57 3") or lead["phone"].startswith("3")
-        assert "@" in lead["email"]
-        assert ".edu.co" in lead["email"] or ".co" in lead["email"]
+        # Verify that CIIU code is properly inferred as Education (85XX)
+        for lead in leads[:5]:
+            ciiu = lead["ciiu"]
+            assert ciiu.code.startswith("85")
+            assert "Colegios" in ciiu.sector_macro or "Educación" in ciiu.sector_macro
+            assert lead["is_mobile"] is True or lead["phone"].startswith("+57 3") or lead["phone"].startswith("3")
+            assert "@" in lead["email"]
+            assert ".edu.co" in lead["email"] or ".co" in lead["email"]
 
 
 def test_schools_high_volume_100_leads_fulfillment(mock_web_auditor, mock_contracts_adapter):
@@ -323,34 +325,36 @@ def test_schools_high_volume_100_leads_fulfillment(mock_web_auditor, mock_contra
     without crashing, timing out, or dropping out to 0 qualified leads.
     """
     from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
+    from unittest.mock import patch
 
-    harvester = SecopHarvesterAdapter()
-    use_case = GenerateProspectsUseCase(
-        harvester_co=harvester,
-        web_auditor=mock_web_auditor,
-        contracts_adapter=mock_contracts_adapter,
-        verify_mx_fn=lambda email: (True, f"mail.{email.split('@')[1]}"),
-    )
+    with patch.object(SecopHarvesterAdapter, "_execute_soda_request", return_value=[]):
+        harvester = SecopHarvesterAdapter()
+        use_case = GenerateProspectsUseCase(
+            harvester_co=harvester,
+            web_auditor=mock_web_auditor,
+            contracts_adapter=mock_contracts_adapter,
+            verify_mx_fn=lambda email: (True, f"mail.{email.split('@')[1]}"),
+        )
 
-    req = UniversalProspectingRequest(
-        offer_description="Impresión y carnetización en PVC de carnets estudiantiles",
-        sectors=["education_schools"],
-        ciiu_codes=[],  # No CIIU code supplied
-        locations=[
-            LocationAllocation(country="CO", region="Antioquia", city="Medellín", allocated_leads=100),
-        ],
-        keywords_include=["colegio"],
-        total_leads=100,
-        tier=1,
-    )
+        req = UniversalProspectingRequest(
+            offer_description="Impresión y carnetización en PVC de carnets estudiantiles",
+            sectors=["education_schools"],
+            ciiu_codes=[],  # No CIIU code supplied
+            locations=[
+                LocationAllocation(country="CO", region="Antioquia", city="Medellín", allocated_leads=100),
+            ],
+            keywords_include=["colegio"],
+            total_leads=100,
+            tier=1,
+        )
 
-    result = use_case.execute(universal_request=req, dry_run=True)
-    assert result["status"] == "success"
-    assert result["total_qualified"] == 100
-    assert len(result["leads"]) == 100
+        result = use_case.execute(universal_request=req, dry_run=True)
+        assert result["status"] == "success"
+        assert result["total_qualified"] == 100
+        assert len(result["leads"]) == 100
 
-    # Ensure all NITs are unique
-    seen_nits = {lead["nit"] for lead in result["leads"]}
-    assert len(seen_nits) == 100
+        # Ensure all NITs are unique
+        seen_nits = {lead["nit"] for lead in result["leads"]}
+        assert len(seen_nits) == 100
 
 

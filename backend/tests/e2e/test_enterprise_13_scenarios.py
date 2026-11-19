@@ -21,7 +21,7 @@ os.environ.pop("STORAGE_EMULATOR_HOST", None)
 os.environ.pop("ORDERS_FEED_WEBHOOK_URL", None)
 os.environ.pop("ALERT_WEBHOOK_URL", None)
 
-from src.entrypoints.api.main import app, app_container
+from src.entrypoints.api.main import app, sql_adapter, app_container
 from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
 from src.adapters.db.sql_order_adapter import SqlOrderAdapter
 from src.adapters.storage.local_storage_adapter import LocalStorageAdapter
@@ -42,11 +42,18 @@ class TestEnterprise13Scenarios(unittest.TestCase):
             os.remove(TEST_LEDGER_PATH)
 
         cls.client = TestClient(app)
-        cls.sql_adapter = SqlOrderAdapter()
+        cls.sql_adapter = sql_adapter
         cls.storage_adapter = LocalStorageAdapter()
         cls.test_ledger = DeduplicationLedger(ledger_path=TEST_LEDGER_PATH)
         cls.sql_adapter.ledger = cls.test_ledger
-        cls.use_case = GenerateProspectsUseCase(ledger=cls.test_ledger)
+        from unittest.mock import MagicMock
+        mock_web_auditor = MagicMock()
+        mock_web_auditor.audit.side_effect = lambda *args, **kwargs: (True, args[0] if args and args[0] else "https://www.example.com", "Active Test Site")
+        cls.use_case = GenerateProspectsUseCase(
+            ledger=cls.test_ledger,
+            verify_mx_fn=lambda *args, **kwargs: (True, "mail.example.com"),
+            web_auditor=mock_web_auditor,
+        )
 
         cls.worker = OrderWorkerDaemon(
             order_repository=cls.sql_adapter,
@@ -105,6 +112,15 @@ class TestEnterprise13Scenarios(unittest.TestCase):
         xlsx_path = delivery.get("xlsx_path") or completed_order.get("xlsx_path")
         pdf_path = delivery.get("pdf_path") or completed_order.get("pdf_path")
         md_path = delivery.get("dossier_path") or completed_order.get("dossier_path")
+
+        if csv_path and csv_path.startswith("file://"):
+            csv_path = csv_path.replace("file://", "")
+        if xlsx_path and xlsx_path.startswith("file://"):
+            xlsx_path = xlsx_path.replace("file://", "")
+        if pdf_path and pdf_path.startswith("file://"):
+            pdf_path = pdf_path.replace("file://", "")
+        if md_path and md_path.startswith("file://"):
+            md_path = md_path.replace("file://", "")
 
         self.assertIsNotNone(csv_path, f"CSV path is None for {scenario_key}")
         self.assertIsNotNone(xlsx_path, f"XLSX path is None for {scenario_key}")
@@ -417,12 +433,15 @@ class TestEnterprise13Scenarios(unittest.TestCase):
 
     def test_17_whatsapp_webhook_e2e_intake(self):
         """Scenario 17: 🇨🇴 WhatsApp Conversational Bot Intake to Paid Order Lifecycle - Tier 2"""
+        from unittest.mock import patch
+        import requests
         wa_payload = {
             "from": "+573007654321",
             "text": "Vendo dotaciones industriales y calzado de seguridad en Bogotá para 10 empresas",
             "debug": True
         }
-        res_wa = self.client.post("/api/v1/webhooks/whatsapp", json=wa_payload)
+        with patch("clients.whatsapp.bot_service.requests.post", side_effect=requests.exceptions.ConnectionError("In-process test")):
+            res_wa = self.client.post("/api/v1/webhooks/whatsapp", json=wa_payload)
         self.assertEqual(res_wa.status_code, 200)
         wa_data = res_wa.json()
         self.assertEqual(wa_data["status"], "ok")

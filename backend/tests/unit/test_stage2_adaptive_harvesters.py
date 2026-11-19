@@ -5,6 +5,7 @@ and SERCOP CPC mapping (Ecuador 🇪🇨) across all economic verticals.
 """
 
 import pytest
+from unittest.mock import MagicMock, patch
 from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
 from src.adapters.registries.dominican_republic.dgcp_dr_adapter import DgcpDrAdapter
 from src.adapters.registries.ecuador.sercop_ecuador_adapter import SercopEcuadorAdapter
@@ -18,20 +19,21 @@ from src.domain.entities.universal_prospecting_request import (
 
 
 def test_colombia_soda_ladder_furniture_maintenance():
-    adapter = SecopHarvesterAdapter(timeout=5)
-    # Search for office furniture repair (Tinkko January use case)
-    candidates = adapter.fetch_candidates(
-        city="Medellín",
-        limit=5,
-        include_keywords=["reparación de muebles", "silletería"],
-        ciiu_codes=["9524", "3100"],
-    )
-    assert len(candidates) > 0
-    assert any("mueble" in c["sector"].lower() or "silleter" in c["sector"].lower() or "mantenimiento" in c["sector"].lower() for c in candidates)
-    # Verify valid mobile/phone and email
-    for c in candidates:
-        assert "@" in c["email"]
-        assert len(c["phone"]) >= 7
+    with patch.object(SecopHarvesterAdapter, "_execute_soda_request", return_value=[]):
+        adapter = SecopHarvesterAdapter(timeout=5)
+        # Search for office furniture repair (Tinkko January use case)
+        candidates = adapter.fetch_candidates(
+            city="Medellín",
+            limit=5,
+            include_keywords=["reparación de muebles", "silletería"],
+            ciiu_codes=["9524", "3100"],
+        )
+        assert len(candidates) > 0
+        assert any("mueble" in c["sector"].lower() or "silleter" in c["sector"].lower() or "mantenimiento" in c["sector"].lower() for c in candidates)
+        # Verify valid mobile/phone and email
+        for c in candidates:
+            assert "@" in c["email"]
+            assert len(c["phone"]) >= 7
 
 
 def test_dominican_republic_dgcp_rubro_mapping():
@@ -77,9 +79,12 @@ def test_ecuador_sercop_cpc_mapping():
 
 
 def test_multi_country_procurement_auto_rfq_e2e(tmp_path):
+    mock_auditor = MagicMock()
+    mock_auditor.audit.return_value = (True, "https://www.example.com", "Active Audited Site")
     use_case = GenerateProspectsUseCase(
         ledger=DeduplicationLedger(ledger_path=str(tmp_path / "test_ledger.json")),
-        verify_mx_fn=lambda domain: (True, "mail.example.com")
+        verify_mx_fn=lambda domain: (True, "mail.example.com"),
+        web_auditor=mock_auditor,
     )
     req = UniversalProspectingRequest(
         offer_description="Mantenimiento y reparación de silletería y puestos de trabajo",

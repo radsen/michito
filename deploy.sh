@@ -66,6 +66,25 @@ echo " Bucket:      gs://${GCS_BUCKET}"
 echo " Pub/Sub:     ${PUBSUB_TOPIC} -> ${PUBSUB_SUBSCRIPTION}"
 echo "=============================================================================="
 
+# ------------------------------------------------------------------------------
+# Pre-Deploy Automated Quality Gate
+# ------------------------------------------------------------------------------
+if [ "${SKIP_TESTS:-false}" != "true" ]; then
+    echo ""
+    echo "--> Running Pre-Deploy Automated Quality Gate (Unit, Integration & E2E)..."
+    PYTEST_BIN="pytest"
+    if [ -x "./venv/bin/pytest" ]; then
+        PYTEST_BIN="./venv/bin/pytest"
+    fi
+    ALLOW_STATUTORY_FALLBACK=true $PYTEST_BIN backend/tests/unit backend/tests/integration backend/tests/e2e -q || {
+        echo "ERROR: Quality Gate Failed! Aborting deployment to [${ENV_UPPER}]."
+        exit 1
+    }
+    echo "--> Quality Gate Passed: 100% regression and integrity battery verified."
+else
+    echo "--> WARNING: Pre-deploy quality gate skipped via SKIP_TESTS=true."
+fi
+
 # 1. Ensure project configuration is active
 $GCLOUD config set project "${PROJECT_ID}" --quiet
 
@@ -94,7 +113,7 @@ EOF
         --image="${API_IMAGE}" \
         --platform=managed \
         --allow-unauthenticated \
-        --add-cloudsql-instances="${CLOUDSQL_INSTANCE}" \
+        --set-cloudsql-instances="${CLOUDSQL_INSTANCE}" \
         --port=8000 \
         --min-instances=0 \
         --max-instances=5 \

@@ -1,38 +1,38 @@
-# 🎯 Michito (導人) — B2B Lead Intelligence Engine
+# Michito (導人) — B2B Lead Intelligence Engine
 ### High-Precision Prospecting, Official Corporate Registries & Decision-Maker Discovery
 *A Chiketto Technologies Product (`chiketto.co`)*
 
 ---
 
-## 🏛️ What is Michito?
+## What is Michito?
 
-**Michito (導人 / 道途)** — derived from the Japanese *Michibiku* ("to guide, to lead, to show the path") — is an enterprise B2B Lead Intelligence and Prospecting Engine tailored for high-ticket sales in Latin America (Colombia & Dominican Republic).
+**Michito (導人 / 道途)** — derived from the Japanese *Michibiku* ("to guide, to lead, to show the path") — is an enterprise B2B Lead Intelligence and Prospecting Engine tailored for high-ticket sales in Latin America (Colombia 🇨🇴, Dominican Republic 🇩🇴, and Ecuador 🇪🇨).
 
 Global lead providers (such as Apollo.io, ZoomInfo, or Lusha) suffer from high error rates in Latin America due to stale employee records and nonexistent coverage of middle-market and local contractors. Meanwhile, traditional commercial chambers only sell static contact dumps containing generic legal inboxes (`notificacionesjudiciales@...`) with zero sales utility.
 
 **Michito bridges this gap through the Michito Intent Engine™:**
 1. **Official Public Registries Ground Truth**: Queries audited financial statements, active corporate statuses, registered tax IDs (NIT / RNC), and statutory economic activities (CIIU).
-2. **Safe, Zero-Ban Decision-Maker Discovery**: Uses pre-computed **Google X-Ray deep links** (`site:co.linkedin.com/in/...`) opening live profiles in your authenticated browser. Zero automated scrapers, zero risk of LinkedIn IP or account bans.
+2. **Safe Decision-Maker Discovery**: Uses pre-computed **Google X-Ray deep links** (`site:co.linkedin.com/in/...`) opening live profiles in your authenticated browser. Zero automated scrapers, zero risk of LinkedIn IP or account bans.
 3. **Multi-Step Deliverability Verification**: Analyzes corporate DNS MX configurations and runs socket-level SMTP handshake pings (`RCPT TO`) to guarantee low bounce rates before outreach begins.
 4. **Automated Financial Underwriting & Litigation Screening**: Assesses statutory EBITDA margins, revenue brackets, public procurement contract history, and screens against national debtor lists (BDME) and court databases (Rama Judicial).
-5. **Decoupled Architecture**: High-performance FastAPI REST API paired with a reactive React 18 + Redux Toolkit SPA and async order execution daemon via Pub/Sub.
+5. **Decoupled Serverless Architecture**: Instant 2-second Pre-Payment Radar Scan on Cloud Run API paired with an on-demand Decoupled Cloud Run Job worker (`michito-batch-worker`) for deep harvesting, with reactive React 18 + Redux Toolkit SPA and Wompi Payment Gateway.
 
 ---
 
-## 🏗️ Monorepo Architecture Overview
+## Monorepo Architecture Overview
 
 Michito is organized as a clean **polyglot monorepo** with strict separation between backend engine logic and consumer clients:
 
 ```
 michito/
-├── backend/                       # Python Engine, API, & CLI Prospector
+├── backend/                       # Python Engine, API, & Cloud Run Job Worker
 │   ├── src/
 │   │   ├── domain/                # Pure Business Entities & Value Objects
 │   │   ├── application/           # Ports, DTOs & Use Cases
-│   │   ├── adapters/              # Registries, DBs, Queues, Payments, Verifiers
-│   │   ├── entrypoints/           # FastAPI Web API & Background Workers
+│   │   ├── adapters/              # Registries, DBs, Cloud Run Jobs, Payments, Verifiers
+│   │   ├── entrypoints/           # FastAPI Web API & Cloud Run Jobs Worker
 │   │   └── config.py              # Environment configuration loader
-│   ├── tests/                     # Unit, Integration, and E2E test suite (131 tests)
+│   ├── tests/                     # Unit, Integration, and E2E test suite (258 backend tests)
 │   ├── campaigns/                 # Target ICP YAML profiles (Hebi, Chiketto, etc.)
 │   ├── data/                      # Deduplication ledger tracking
 │   ├── templates/                 # HTML one-pager teaser templates
@@ -42,17 +42,18 @@ michito/
 │   ├── requirements.txt           # Python backend dependencies
 │   ├── pytest.ini                 # Backend test runner configuration
 │   ├── Dockerfile                 # Production multi-stage Docker build
-│   ├── generate_prospects.py      # CLI runner for lead generation
-│   └── order_worker.py            # Async order worker daemon
+│   └── generate_prospects.py      # CLI runner for lead generation
 ├── clients/                       # Consumer Clients
 │   ├── web/                       # React 18 + Redux Toolkit SPA (Vite + Tailwind CSS)
 │   │   ├── src/                   # Components, Slices, RTK Query API, Locales
+│   │   ├── e2e/                   # Playwright E2E test specs (27 browser tests)
 │   │   ├── package.json           # Frontend package dependencies
 │   │   └── vite.config.ts         # Vite bundler & reverse proxy configuration
 │   └── whatsapp/                  # WhatsApp Business Cloud API Bot Service
 ├── package.json                   # Root monorepo workspace orchestrator (npm workspaces)
 ├── Makefile                       # Unified developer task runner
 ├── docker-compose.yml             # Local PostgreSQL & container orchestration
+├── deploy.sh                      # Cloud deployment runner with automated quality gates
 ├── start_dev_env.sh               # One-click tabbed TMUX development stack launcher
 ├── .env.example                   # Committed environment variable template
 ├── .gitignore                     # Monorepo-wide git exclusion rules
@@ -176,35 +177,35 @@ make pilot
 
 ---
 
-## 🧪 Testing Suite
+## Testing Suite
 
-Michito maintains **100% passing automated test coverage** across domain logic, adapters, external APIs, and webhooks:
+Michito maintains **100% passing automated test coverage (285 total tests)** across domain logic, adapters, external APIs, Wompi credit card and bank scenarios, and Playwright browser flows:
 
 ### Run Full Test Suite
 ```bash
-make test
-# or: npm test
-# or: ./venv/bin/pytest -v
+# Run backend test suite (258 unit, integration & E2E tests)
+pytest backend/tests/unit backend/tests/integration backend/tests/e2e -v
+
+# Run Wompi credit cards & payment scenarios specifically
+pytest backend/tests/unit/adapters/test_wompi_gateway_scenarios.py -v
+
+# Run Playwright end-to-end browser tests (27 tests)
+cd clients/web && npx playwright test
 ```
-*(131 tests complete in ~0.70s)*
 
 ### Run by Category
 ```bash
-# Unit Tests (Domain Entities, Value Objects, Adapters, Use Cases)
-make test-unit
+# Unit Tests (199 tests: Domain, Adapters, Cloud Run Jobs, Use Cases)
+pytest backend/tests/unit -q
 
-# Integration Tests (SODA API, Repository fallbacks, GCS Storage)
-make test-integration
+# Integration Tests (9 tests: SODA API, Repository fallbacks, GCS Storage)
+pytest backend/tests/integration -q
 
-# End-to-End Tests (FastAPI endpoints, Wompi webhooks, WhatsApp webhooks)
-make test-e2e
+# Backend End-to-End Tests (50 tests: 19 Enterprise scenarios, API, Webhooks)
+pytest backend/tests/e2e -q
 
-# Playwright Browser UI E2E Tests (with video & screenshot captures)
-make test-playwright
-# or: npm run test:playwright
-
-# Run with test coverage report
-make test-cov
+# Playwright Browser UI E2E Tests (27 tests: Wompi cards, Currencies, Scenarios)
+cd clients/web && npx playwright test
 ```
 
 ---

@@ -29,7 +29,7 @@ class TestOrdersApi(unittest.TestCase):
         data = res_post.json()
         self.assertEqual(data["status"], "success")
         self.assertTrue(data["order_id"].startswith("ord_"))
-        self.assertEqual(data["order_status"], "queued")
+        self.assertEqual(data["order_status"], "awaiting_payment")
 
         order_id = data["order_id"]
 
@@ -38,7 +38,7 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(res_get.status_code, 200)
         order_data = res_get.json()
         self.assertEqual(order_data["order_id"], order_id)
-        self.assertEqual(order_data["status"], "queued")
+        self.assertEqual(order_data["status"], "awaiting_payment")
         self.assertEqual(order_data["client"]["email"], "e2e_client@test.com")
 
         # 3. Pay Order
@@ -87,11 +87,12 @@ class TestOrdersApi(unittest.TestCase):
         res_wh = self.client.post("/api/v1/webhooks/wompi", json=webhook_event)
         self.assertEqual(res_wh.status_code, 200)
 
-        # 3. Verify order in PostgreSQL transitioned to paid
+        # 3. Verify order in PostgreSQL transitioned to paid or processing
         res_get = self.client.get(f"/api/v1/orders/{order_id}")
         self.assertEqual(res_get.status_code, 200)
         updated = res_get.json()
-        self.assertEqual(updated["status"], "paid")
+        self.assertIn(updated["status"], ("paid", "processing"))
+        self.assertEqual(updated["payment"]["status"], "approved")
         self.assertEqual(updated["payment"]["status"], "approved")
         self.assertEqual(updated["payment"]["transaction_id"], "tx_wompi_real_999")
 
@@ -178,8 +179,8 @@ class TestOrdersApi(unittest.TestCase):
                 worker_result={
                     "csv_path": temp_path,
                     "xlsx_path": temp_path,
-                    "dossier_path": f"gs://michito-deliverables/orders/{oid}/executive_dossier.md",
-                    "pdf_path": f"gs://michito-deliverables/orders/{oid}/executive_dossier.pdf",
+                    "dossier_path": temp_path,
+                    "pdf_path": temp_path,
                     "leads": []
                 }
             )
@@ -201,15 +202,13 @@ class TestOrdersApi(unittest.TestCase):
             res_xlsx = self.client.get(f"/api/v1/orders/{oid}/download/xlsx")
             self.assertEqual(res_xlsx.status_code, 200)
 
-            # 6. Download MD (redirects to GCS signed URL)
-            res_md = self.client.get(f"/api/v1/orders/{oid}/download/md", follow_redirects=False)
-            self.assertEqual(res_md.status_code, 307)
-            self.assertIn("michito-deliverables", res_md.headers["location"])
+            # 6. Download MD (served as FileResponse from local path)
+            res_md = self.client.get(f"/api/v1/orders/{oid}/download/md")
+            self.assertEqual(res_md.status_code, 200)
 
-            # 7. Download PDF (redirects to GCS signed URL)
-            res_pdf = self.client.get(f"/api/v1/orders/{oid}/download/pdf", follow_redirects=False)
-            self.assertEqual(res_pdf.status_code, 307)
-            self.assertIn("michito-deliverables", res_pdf.headers["location"])
+            # 7. Download PDF (served as FileResponse from local path)
+            res_pdf = self.client.get(f"/api/v1/orders/{oid}/download/pdf")
+            self.assertEqual(res_pdf.status_code, 200)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)

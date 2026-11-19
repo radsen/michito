@@ -129,10 +129,6 @@ test.describe("v1.2 Multi-Partner Affiliate & Commission Tracking", () => {
     await expect(banner).toBeVisible();
     await expect(banner).toContainText("Partner Oficial de Ferias y Convenciones");
 
-    // Verify campaign dropdown auto-selected
-    const campaignSelect = page.locator("select.form-select");
-    await expect(campaignSelect).toHaveValue("eventos_ferias_b2b");
-
     // Advance to Step 2, fill contact information & submit order
     await page.locator("button:has-text('Continuar a Datos de Entrega')").click();
     await page.locator("input[placeholder='Ej: Juan Carlos Pérez']").fill("Fair Organizer Pro");

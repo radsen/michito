@@ -163,7 +163,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Buscar por empresa, contacto, cargo o ciudad..."
+            placeholder={(dict.playbook as any).searchPlaceholder || "Buscar por empresa, contacto, cargo o ciudad..."}
             className="playbook-search-input"
           />
           {searchQuery && (
@@ -174,7 +174,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                 setCurrentPage(1);
               }}
               className="playbook-search-clear"
-              aria-label="Limpiar búsqueda"
+              aria-label={(dict.playbook as any).clearSearch || "Limpiar búsqueda"}
             >
               <X className="w-3.5 h-3.5 text-slate-400 hover:text-white" />
             </button>
@@ -182,7 +182,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
         </div>
 
         <div className="playbook-page-size-selector">
-          <span className="text-xs text-slate-400">Mostrar:</span>
+          <span className="text-xs text-slate-400">{(dict.playbook as any).showPerPage || "Mostrar:"}</span>
           {[10, 25, 50].map((size) => (
             <button
               key={size}
@@ -262,8 +262,8 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                       <span>{comp.city}</span>
                       <span className="playbook-dot">•</span>
                       <span className="playbook-dm-name">
-                        {comp.decision_maker_name || "Contacto Registrado"} (
-                        {comp.decision_maker_title || "Representante Legal"})
+                        {comp.decision_maker_name || (dict.playbook as any).contactRegistered || "Contacto Registrado"} (
+                        {comp.decision_maker_title || (dict.playbook as any).legalRep || "Representante Legal"})
                       </span>
                     </div>
                   </div>
@@ -315,7 +315,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                               )
                             }
                             className="playbook-whatsapp-link"
-                            title="Abrir WhatsApp"
+                            title={(dict.playbook as any).openWhatsapp || "Abrir WhatsApp"}
                           >
                             WhatsApp
                           </button>

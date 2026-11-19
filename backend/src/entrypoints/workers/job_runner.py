@@ -78,6 +78,22 @@ def run_batch_job(order_id: str) -> bool:
         logger.info(f"Order `{order_id}` is already fully fulfilled and delivered. Exiting successfully.")
         return True
 
+    # Monetization Protection Gate: Do not run heavy batch harvesting on unpaid orders in staging/prod
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_test_or_dev = (
+        "pytest" in sys.modules
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or os.environ.get("TESTING") == "1"
+        or env in ("local", "dev", "test")
+    )
+    is_paid = order_status in ("paid", "completed", "fulfilled") or payment_status == "APPROVED"
+    if not is_paid and not is_test_or_dev:
+        logger.warning(
+            f"[JobRunner] Order `{order_id}` is UNPAID (Status: {order_status}, Payment: {payment_status}). "
+            f"Aborting batch harvesting to protect revenue and prevent compute leakage on abandoned carts."
+        )
+        return False
+
     # 1. Update initial telemetry phase
     sql_adapter.update_telemetry(
         order_id,

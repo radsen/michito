@@ -69,6 +69,67 @@ class TestWebhookAlertAdapter(unittest.TestCase):
         self.assertIn("text", payload)
         self.assertIn("ord_slack_1", payload["text"])
 
+    @patch.dict("os.environ", {"ENVIRONMENT": "production"})
+    @patch("requests.post")
+    def test_slack_alert_production_priority_tagging(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        adapter = WebhookAlertAdapter(webhook_url="https://hooks.slack.com/services/T00/B00/X00")
+        adapter.send_alert(
+            title="Critical Payment Mismatch",
+            message="Webhook signature invalid",
+            level="critical",
+            details={"order_id": "ord_prod_99"}
+        )
+
+        mock_post.assert_called_once()
+        payload = mock_post.call_args[1]["json"]
+        self.assertIn("[PROD • SUPER HIGH PRIORITY]", payload["text"])
+        self.assertIn("[P0 - CRITICAL]", payload["text"])
+        self.assertIn("*Environment*: `PRODUCTION`", payload["text"])
+
+    @patch.dict("os.environ", {"ENVIRONMENT": "staging"})
+    @patch("requests.post")
+    def test_slack_alert_staging_tagging(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        adapter = WebhookAlertAdapter(webhook_url="https://hooks.slack.com/services/T00/B00/X00")
+        adapter.send_alert(
+            title="Harvester Warning",
+            message="Rate limit 429",
+            level="warning",
+            details={"order_id": "ord_stg_1"}
+        )
+
+        mock_post.assert_called_once()
+        payload = mock_post.call_args[1]["json"]
+        self.assertIn("[STAGING • TEST/QA]", payload["text"])
+        self.assertIn("[P2 - STAGING]", payload["text"])
+
+    @patch.dict("os.environ", {"ENVIRONMENT": "staging", "TESTING": "0"})
+    @patch("requests.post")
+    def test_slack_feed_staging_tagging(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        adapter = WebhookAlertAdapter(feed_webhook_url="https://hooks.slack.com/services/T00/B00/FEED")
+        adapter.send_feed_event(
+            title="New Order Received",
+            message="Order ord_stg_feed placed",
+            details={"order_id": "ord_stg_feed", "total": "50000 COP"}
+        )
+
+        mock_post.assert_called_once()
+        payload = mock_post.call_args[1]["json"]
+        self.assertIn("*[STAGING] New Order Received*", payload["text"])
+        self.assertIn("• *Environment*: `STAGING` (Staging / QA)", payload["text"])
+        self.assertIn("• *Total*: 50000 COP", payload["text"])
+
     @patch("requests.post")
     def test_generic_webhook_formatting(self, mock_post):
         mock_response = MagicMock()
@@ -152,6 +213,7 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
             o1 = session.get(OrderModel, order1["order_id"])
             assert o1 is not None
             o1.status = "processing"
+            o1.payment_status = "APPROVED"
             o1.started_processing_at = ten_minutes_ago
             o1.retry_count = 0
             o1.max_retries = 3
@@ -160,6 +222,7 @@ class TestOrderReliabilityAndReaper(unittest.TestCase):
             o2 = session.get(OrderModel, order2["order_id"])
             assert o2 is not None
             o2.status = "processing"
+            o2.payment_status = "APPROVED"
             o2.started_processing_at = ten_minutes_ago
             o2.retry_count = 3
             o2.max_retries = 3

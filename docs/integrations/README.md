@@ -10,6 +10,7 @@ This directory houses official integration specifications, sandbox testing guide
 | Service | Category | Territory / Scope | Dev / Local | Staging (`michito-staging`) | Production (`michito-prod`) | Status | Documentation |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Wompi Gateway** | Payments & Checkout | Colombia 🇨🇴 | Sandbox / Direct Dev | Sandbox (Test Mode) | Live Commercial Gateway | Active | [wompi.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/wompi.md) |
+| **Cloud Run Jobs** | Decoupled Batch Worker | Global / Engine | Local CLI / Synchronous | Cloud Run Job (`michito-batch-worker`) | Cloud Run Job (`michito-batch-worker`) | Active | [cloud_run_jobs.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/cloud_run_jobs.md) |
 | **Google Cloud Pub/Sub** | Asynchronous Broker | Global / Engine | In-Memory / PubSub Emulator | Cloud Run Push (`michito-orders-staging`) | Cloud Run Push (`michito-orders-prod`) | Active | [pubsub.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/pubsub.md) |
 | **Google Cloud Storage** | Deliverable Artifacts | Global / Multi-Region | Local Disk / Emulator | `gs://michito-staging-deliverables` | `gs://michito-prod-deliverables` | Active | [gcs.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/gcs.md) |
 | **Michito Watchdog (Slack)**| Observability & Alerts | Global / Operations | Standard Console / Stdout | Live Webhook (`#michito-alerts` / Feed) | Live Webhook (`#michito-alerts` / Feed) | Active | [watchdog.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/watchdog.md) |
@@ -41,6 +42,7 @@ All external integrations in Michito strictly adhere to the following architectu
 
 ## 3. Directory Index
 
+- [cloud_run_jobs.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/cloud_run_jobs.md) — Decoupled Cloud Run Jobs architecture, execution window, dispatch mechanics, and CLI operations.
 - [wompi.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/wompi.md) — Comprehensive guide to testing Wompi Sandbox, Cards, PSE, Bancolombia, and Webhook signatures.
 - [pubsub.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/pubsub.md) — Pub/Sub push subscription topology, ack deadlines, order message schemas, and retry policies.
 - [gcs.md](file:///Users/radsen/dev/chiketto/michito/docs/integrations/gcs.md) — Google Cloud Storage hierarchy, signed downloads, direct byte streaming, and file naming conventions.

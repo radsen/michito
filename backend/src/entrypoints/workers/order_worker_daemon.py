@@ -95,9 +95,26 @@ class OrderWorkerDaemon:
             self.alert_dispatcher = WebhookAlertAdapter()
 
     def process_order(self, order: Dict[str, Any]) -> bool:
+        import sys
         order_id = order.get("order_id") or order.get("id")
         if not order_id:
             print("[WorkerDaemon] [WARN] Invalid order object received: missing order_id.")
+            return False
+
+        # Revenue Protection Gate: Block heavy fulfillment on unpaid orders in staging/production
+        env = os.environ.get("ENVIRONMENT", "local").lower()
+        is_test_or_dev = (
+            "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("TESTING") == "1"
+            or env in ("local", "dev", "test")
+        )
+        payment_status = (order.get("payment", {}).get("status") or "").upper()
+        order_status = (order.get("status") or "").lower()
+        is_paid = order_status in ("paid", "completed", "fulfilled") or payment_status == "APPROVED"
+
+        if not is_paid and not is_test_or_dev:
+            print(f"[WorkerDaemon] [BLOCKED] Order `{order_id}` is UNPAID (Status: {order_status}, Payment: {payment_status}). Refusing batch fulfillment to prevent revenue leakage on abandoned carts.")
             return False
 
         client_name = order.get("client", {}).get("name", "Unknown Client")

@@ -361,11 +361,74 @@ curl -s https://michito-web-limgi3puaq-uc.a.run.app/api/v1/taxonomy/roles?limit=
 curl -s -X POST https://michito-api-limgi3puaq-uc.a.run.app/api/v1/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "client_email": "test@michito.co",
-    "client_name": "Staging Verification Test",
-    "city": "Medellin",
-    "tier": 2,
-    "lead_count": 3
+    "client": {
+      "name": "Staging Verification Test",
+      "email": "test@michito.co",
+      "phone": "+573001234567"
+    },
+    "request": {
+      "city": "Medellín",
+      "tier": 2,
+      "limit": 10
+    }
   }'
 ```
 Expected output: JSON containing order ID (e.g. `ord_...`), calculated price, teaser summary, and deliverable file paths.
+
+---
+
+## 14. Decoupled Cloud Run Jobs Operational Commands
+
+### 14.1 Create or Update the Batch Harvesting Job
+```bash
+# Deploy batch worker container as Cloud Run Job
+gcloud run jobs deploy michito-batch-worker \
+  --image=us-central1-docker.pkg.dev/michito-staging/michito-repo/backend:staging \
+  --region=us-central1 \
+  --set-cloudsql-instances=michito-staging:us-central1:michito-pg-staging \
+  --set-env-vars=DATABASE_URL="postgresql://michito_user:[DB_PASS]@/michito_db?host=/cloudsql/michito-staging:us-central1:michito-pg-staging",GCS_DELIVERABLES_BUCKET="michito-staging-deliverables",MICHITO_ENV="staging",GOOGLE_CLOUD_PROJECT="michito-staging",GCP_REGION="us-central1" \
+  --max-retries=2 \
+  --task-timeout=1800s \
+  --project=michito-staging
+```
+
+### 14.2 Manually Execute Job for an Order
+```bash
+# Execute harvesting for a specific order ID
+gcloud run jobs execute michito-batch-worker \
+  --region=us-central1 \
+  --project=michito-staging \
+  --args="--order-id=ord_staging_test_101"
+```
+
+### 14.3 Inspect Job Logs in Real Time
+```bash
+# Stream execution logs
+gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="michito-batch-worker"' \
+  --project=michito-staging \
+  --limit=50 \
+  --format="value(textPayload)"
+```
+
+---
+
+## 15. Quality Gate & Automated Test Battery Commands
+
+Run the full testing battery before any promotion to staging or production:
+
+```bash
+# 1. Backend Unit Tests (199 tests)
+pytest backend/tests/unit -q
+
+# 2. Wompi Gateway Unit Scenarios (Approved, Declined, Fraud, PSE, Nequi)
+pytest backend/tests/unit/adapters/test_wompi_gateway_scenarios.py -v
+
+# 3. Backend Integration & E2E Tests (59 tests including 19 enterprise scenarios)
+pytest backend/tests/integration backend/tests/e2e -q
+
+# 4. Web Frontend Playwright E2E Suite (27 tests)
+cd clients/web && npx playwright test
+```
+
+All 285 tests must pass (100% green) before executing `./deploy.sh prod`.
+

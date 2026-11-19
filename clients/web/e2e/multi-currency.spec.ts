@@ -55,8 +55,8 @@ test.describe("Multi-Currency Support (COP, DOP, USD)", () => {
 
   test("should automatically switch to DOP when selecting Dominican Republic campaign", async ({ page }) => {
     await page.goto("/#generador");
-    const campaignSelect = page.locator("select.form-select");
-    await campaignSelect.selectOption("tinkko_dr_offices");
+    await page.locator(".generator-mode-tab").nth(1).click();
+    await page.locator("button:has-text('🇩🇴 Oficinas Corporativas')").click();
 
     // Navbar should now show DOP
     const currencyDropdownBtn = page.locator(".currency-switcher-btn");
@@ -70,33 +70,34 @@ test.describe("Multi-Currency Support (COP, DOP, USD)", () => {
 
   test("should switch to USD and show Country Allocator when selecting Cross-Border campaign", async ({ page }) => {
     await page.goto("/#generador");
-    const campaignSelect = page.locator("select.form-select");
-    await campaignSelect.selectOption("eventos_ferias_b2b");
+    await page.locator(".generator-mode-tab").nth(1).click();
+    await page.locator("button:has-text('🌎 Cross-Border')").click();
 
     // Navbar should now show USD
     const currencyDropdownBtn = page.locator(".currency-switcher-btn");
     await expect(currencyDropdownBtn).toContainText("USD");
 
-    // Quota Allocator Card should be visible
-    const allocator = page.locator(".bg-slate-900\\/80");
-    await expect(allocator.getByText("Distribución de Cuota Multi-País")).toBeVisible();
-    await expect(allocator.getByText("🇨🇴 Colombia", { exact: true })).toBeVisible();
-    await expect(allocator.getByText("🇩🇴 Rep. Dom.", { exact: true })).toBeVisible();
-    await expect(allocator.getByText("🇪🇨 Ecuador", { exact: true })).toBeVisible();
+    // Quota Allocator Table should show Cross-border allocations
+    const geoTable = page.locator(".geo-allocations-table");
+    await expect(geoTable).toBeVisible();
+    await expect(geoTable).toContainText("Medellín");
+    await expect(geoTable).toContainText("Santo Domingo");
+    await expect(geoTable).toContainText("Quito");
   });
 
   test("should switch to USD and suggest Ecuadorian cities when selecting Ecuador campaign", async ({ page }) => {
     await page.goto("/#generador");
-    const campaignSelect = page.locator("select.form-select");
-    await campaignSelect.selectOption("tinkko_ec_offices");
+    await page.locator(".generator-mode-tab").nth(1).click();
+    await page.locator("button:has-text('🇪🇨 Sedes & Oficinas')").click();
 
     // Navbar should now show USD
     const currencyDropdownBtn = page.locator(".currency-switcher-btn");
     await expect(currencyDropdownBtn).toContainText("USD");
 
-    // City pills should show Ecuadorian cities
-    await expect(page.locator(".city-pill:has-text('Quito')")).toBeVisible();
-    await expect(page.locator(".city-pill:has-text('Guayaquil')")).toBeVisible();
+    // Territory allocations should show Ecuadorian cities
+    const geoTable = page.locator(".geo-allocations-table");
+    await expect(geoTable).toContainText("Quito");
+    await expect(geoTable).toContainText("Guayaquil");
   });
 });
 

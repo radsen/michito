@@ -100,7 +100,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
       setClaimCompany("");
       refetch();
     } catch (err: any) {
-      setClaimError(err?.data?.detail || "No fue posible procesar la garantía técnica para este correo.");
+      setClaimError(err?.data?.detail || (dict.tracker as any).guaranteeClaimError || "No fue posible procesar la garantía técnica para este correo.");
     }
   };
 
@@ -117,37 +117,50 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const isPaid = orderStatus === "paid";
   const isFailed = orderStatus === "failed" || orderStatus === "error";
 
-  // Server-Sent Events (SSE) Stream Listener for instant state transitions
+  // Server-Sent Events (SSE) Stream Listener with auto-reconnection for live telemetry
   useEffect(() => {
     if (!activeOrderId || (!isQueued && !isProcessing)) return;
     const token = (orderData as any)?.stream_token || "";
     const sseUrl = `/api/v1/orders/${activeOrderId}/stream?token=${encodeURIComponent(token)}`;
 
     let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource(sseUrl);
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.status && data.status !== orderStatus) {
-            refetch();
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const initSSE = () => {
+      if (isDisposed) return;
+      try {
+        eventSource = new EventSource(sseUrl);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.status && data.status !== orderStatus) {
+              refetch();
+            }
+          } catch {
+            // ignore JSON parse errors
           }
-        } catch {
-          // ignore
-        }
-      };
-      eventSource.addEventListener("close", () => {
-        refetch();
-        eventSource?.close();
-      });
-      eventSource.onerror = () => {
-        eventSource?.close();
-      };
-    } catch {
-      // Fallback to RTK polling
-    }
+        };
+        eventSource.addEventListener("close", () => {
+          refetch();
+          eventSource?.close();
+        });
+        eventSource.onerror = () => {
+          eventSource?.close();
+          if (!isDisposed) {
+            reconnectTimeout = setTimeout(initSSE, 3500);
+          }
+        };
+      } catch {
+        // Fallback to RTK polling
+      }
+    };
+
+    initSSE();
 
     return () => {
+      isDisposed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       eventSource?.close();
     };
   }, [activeOrderId, isQueued, isProcessing, (orderData as any)?.stream_token]);
@@ -318,6 +331,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   };
 
   const progressPercent = getProgressPercent();
+  const isStalled = isProcessing && elapsedSec > Math.max(estimatedTotalSec * 2, 90);
 
   const getStepStatus = (stepIndex: number) => {
     if (telemetry?.step_index !== undefined) {
@@ -327,8 +341,14 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     }
     if (isPaid) return "completed";
     if (isAwaitingPayment && stepIndex <= 3) return "completed";
-    if (isProcessing && stepIndex === 2) return "active";
-    if (isProcessing && stepIndex < 2) return "completed";
+    if (isProcessing) {
+      const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
+      // Dynamic fallback step progression: Queued (0-15%), Harvesting (15-50%), Verifying (50-80%), Packaging (80-100%)
+      const currentStep = ratio < 0.15 ? 1 : ratio < 0.5 ? 2 : ratio < 0.8 ? 3 : 4;
+      if (stepIndex < currentStep) return "completed";
+      if (stepIndex === currentStep) return "active";
+      return "pending";
+    }
     if (isQueued && stepIndex === 1) return "active";
     return "pending";
   };
@@ -504,6 +524,22 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             <p className="text-xs text-slate-300 leading-relaxed mt-1 mb-0">
               {dict.tracker.batchProcessingNotice.replace("{orderId}", activeOrderId || "")}
             </p>
+          </div>
+        )}
+
+        {isStalled && (
+          <div className="tracker-stalled-banner mt-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center justify-between text-xs text-amber-200">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>{dict.tracker.stalledNotice || "La validación está tomando unos segundos adicionales. Estamos confirmando los últimos contactos..."}</span>
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-medium transition-colors cursor-pointer"
+              type="button"
+            >
+              {dict.tracker.refreshBtn || "Actualizar"}
+            </button>
           </div>
         )}
       </div>

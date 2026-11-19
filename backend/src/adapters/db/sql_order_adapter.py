@@ -75,11 +75,17 @@ class SqlOrderAdapter:
                     engine_kwargs["poolclass"] = StaticPool
                 self.engine = create_engine(target_url, **engine_kwargs)
             else:
+                pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+                max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "5"))
+                pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+                pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "1800"))
                 self.engine = create_engine(
                     target_url,
                     pool_pre_ping=True,
-                    pool_size=10,
-                    max_overflow=20,
+                    pool_size=pool_size,
+                    max_overflow=max_overflow,
+                    pool_timeout=pool_timeout,
+                    pool_recycle=pool_recycle,
                     echo=echo,
                 )
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
@@ -316,7 +322,8 @@ class SqlOrderAdapter:
             return []
         with self._get_session() as session:
             stmt = (
-                select(OrderLeadModel.tax_id)
+                select(LeadModel.tax_id)
+                .join(OrderLeadModel, LeadModel.lead_id == OrderLeadModel.lead_id)
                 .join(OrderModel, OrderLeadModel.order_id == OrderModel.order_id)
                 .where(OrderModel.client_email == client_email.strip().lower())
             )
@@ -332,15 +339,16 @@ class SqlOrderAdapter:
             results = session.scalars(stmt).all()
             return [ord.to_dict() for ord in results]
 
-    def recover_stuck_processing_orders(self, max_processing_minutes: int = 45) -> List[Dict[str, Any]]:
+    def recover_stuck_processing_orders(self, max_processing_minutes: int = 10) -> List[Dict[str, Any]]:
         """
         Zombie Order Reaper / Self-Healing Sweeper:
         Identifies orders stuck in 'processing' longer than max_processing_minutes
         (typically due to worker crash, container restart, OOM kill, or network partition).
 
         Actions:
-        - If retry_count < max_retries: Re-queues the order with incremented retry_count.
-        - If retry_count >= max_retries: Moves order to 'failed' (Dead-Letter Queue).
+        - If order is UNPAID: Resets status back to 'awaiting_payment' (zero compute waste on abandoned cart).
+        - If order is PAID and retry_count < max_retries: Re-queues the order with incremented retry_count.
+        - If order is PAID and retry_count >= max_retries: Moves order to 'failed' (Dead-Letter Queue).
         
         Returns list of dead-lettered/exhausted orders for alerting.
         """
@@ -363,11 +371,14 @@ class SqlOrderAdapter:
             for ord_obj in stuck_orders:
                 curr_retries = ord_obj.retry_count or 0
                 max_retries = ord_obj.max_retries or 3
+                is_paid = (ord_obj.payment_status or "").upper() == "APPROVED" or ord_obj.status == "paid"
 
                 if curr_retries < max_retries:
                     ord_obj.retry_count = curr_retries + 1
                     ord_obj.last_retried_at = now
-                    ord_obj.status = "queued"
+                    # If unpaid, reset to awaiting_payment to prevent compute leakage on abandoned cart
+                    # If paid, re-queue for background worker fulfillment
+                    ord_obj.status = "queued" if is_paid else "awaiting_payment"
                     ord_obj.error_message = (
                         f"Auto-recovered from stuck processing after {max_processing_minutes}m timeout. "
                         f"Retry attempt {ord_obj.retry_count}/{max_retries}."
@@ -697,6 +708,30 @@ class SqlOrderAdapter:
                 order_obj.partner_commission_cop = 0
                 order_obj.partner_settlement_status = "not_applicable"
 
+            session.commit()
+            return True
+
+    def mark_order_payment_declined(
+        self,
+        order_id: str,
+        transaction_id: str,
+        status: str = "DECLINED",
+        status_message: Optional[str] = None,
+    ) -> bool:
+        """
+        Records declined or errored payment attempts without unlocking deliverables.
+        Order status remains 'awaiting_payment' (so customer can retry with another card/bank).
+        """
+        now = datetime.now(timezone.utc)
+        with self._get_session() as session:
+            order_obj = session.get(OrderModel, order_id)
+            if not order_obj:
+                return False
+
+            order_obj.payment_status = status.lower()
+            order_obj.payment_transaction_id = transaction_id
+            order_obj.error_message = status_message or f"Payment {status.lower()}"
+            order_obj.updated_at = now
             session.commit()
             return True
 

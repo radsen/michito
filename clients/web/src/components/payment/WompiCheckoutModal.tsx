@@ -54,7 +54,7 @@ export const WompiCheckoutModal: React.FC = () => {
   const handleOpenWompiWidget = async () => {
     setErrorMsg(null);
     if (!activeOrderId) {
-      setErrorMsg("No se encontró una orden activa.");
+      setErrorMsg((dict.checkout as any).errNoActiveOrder || "No se encontró una orden activa.");
       return;
     }
 
@@ -131,7 +131,10 @@ export const WompiCheckoutModal: React.FC = () => {
       }
     } catch (err: any) {
       console.error("[Wompi] Error opening widget:", err);
-      setErrorMsg("No se pudo iniciar el widget de Wompi. Puedes usar la confirmación directa de prueba.");
+      setErrorMsg(
+        (dict.checkout as any).errWidgetInit ||
+        "No se pudo iniciar el widget de Wompi. Puedes usar la confirmación directa de prueba."
+      );
     }
   };
 
@@ -152,7 +155,7 @@ export const WompiCheckoutModal: React.FC = () => {
         dispatch(setWompiModalOpen(false));
       }
     } catch (err: any) {
-      setErrorMsg(err?.data?.detail || "Error al procesar el pago.");
+      setErrorMsg(err?.data?.detail || (dict.checkout as any).errProcessing || "Error al procesar el pago.");
     }
   };
 
@@ -211,7 +214,11 @@ export const WompiCheckoutModal: React.FC = () => {
           </div>
           <div className="summary-row text-xs text-slate-400">
             <span>{dict.checkout.environment}</span>
-            <span className="text-amber-400 font-semibold">{dict.checkout.sandboxBadge}</span>
+            <span className={WOMPI_PUBLIC_KEY.startsWith("pub_prod") ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
+              {WOMPI_PUBLIC_KEY.startsWith("pub_prod")
+                ? ((dict.checkout as any).productionBadge || "Wompi Live (Production)")
+                : dict.checkout.sandboxBadge}
+            </span>
           </div>
         </div>
 

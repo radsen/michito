@@ -84,7 +84,8 @@ class TestProspectingJobWorker(unittest.TestCase):
         self.assertTrue(res["csv_path"].endswith(".csv"))
         self.assertTrue(res["dossier_path"].endswith(".md"))
         self.assertEqual(len(res["sample_teaser"]), 1)
-        self.assertEqual(res["sample_teaser"][0]["company_name"], "Tech Dominicana")
+        self.assertEqual(res["sample_teaser"][0]["company_name"], "T••• D•••••")
+        self.assertEqual(res["leads"][0]["company_name"], "Tech Dominicana, SRL")
         self.assertIn("metrics", res)
         self.assertGreaterEqual(res["metrics"]["candidates_evaluated"], 1)
 
