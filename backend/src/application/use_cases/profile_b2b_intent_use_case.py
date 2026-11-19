@@ -293,7 +293,7 @@ class ProfileB2BIntentUseCase:
         estimated_matches = volume
 
         # 6. Retrieve Representative Teaser Sample
-        sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS.get("tinkko_dr_offices" if country_code == "DO" else "tinkko_ec_offices" if country_code == "EC" else "tinkko_enterprise_offices"))
+        sample = SAMPLE_PREVIEWS.get(best_campaign) or SAMPLE_PREVIEWS.get("tinkko_dr_offices" if country_code == "DO" else "tinkko_ec_offices" if country_code == "EC" else "tinkko_enterprise_offices") or {}
         sample_copy = dict(sample)
         if "city" not in sample_copy:
             sample_copy["city"] = target_city
