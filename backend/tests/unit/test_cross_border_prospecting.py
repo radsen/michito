@@ -225,6 +225,36 @@ class TestCrossBorderProspecting(unittest.TestCase):
         self.assertIn("DO", teaser_countries)
         self.assertIn("EC", teaser_countries)
 
+    def test_run_fast_radar_scan_dominican_republic(self):
+        """Verify radar scan returns Dominican Republic samples with RNC and 🇩🇴 flag"""
+        from src.entrypoints.api.main import run_fast_radar_scan
+        samples = run_fast_radar_scan(country="DO", city="Santo Domingo", limit=3)
+        self.assertTrue(len(samples) >= 1)
+        first = samples[0]
+        self.assertEqual(first["country"], "DO")
+        self.assertEqual(first["flag"], "🇩🇴")
+        self.assertTrue(first["nit"].startswith("RNC"))
+
+    def test_run_fast_radar_scan_chile_support(self):
+        """Verify radar scan returns Chilean samples with RUT and 🇨🇱 flag"""
+        from src.entrypoints.api.main import run_fast_radar_scan
+        samples = run_fast_radar_scan(country="CL", city="Santiago", limit=3)
+        self.assertTrue(len(samples) >= 1)
+        first = samples[0]
+        self.assertEqual(first["country"], "CL")
+        self.assertEqual(first["flag"], "🇨🇱")
+        self.assertTrue(first["nit"].startswith("RUT"))
+
+    def test_run_fast_radar_scan_ecuador_support(self):
+        """Verify radar scan returns Ecuador samples with RUC and 🇪🇨 flag"""
+        from src.entrypoints.api.main import run_fast_radar_scan
+        samples = run_fast_radar_scan(country="EC", city="Quito", limit=3)
+        self.assertTrue(len(samples) >= 1)
+        first = samples[0]
+        self.assertEqual(first["country"], "EC")
+        self.assertEqual(first["flag"], "🇪🇨")
+        self.assertTrue(first["nit"].startswith("RUC"))
+
 
 if __name__ == "__main__":
     unittest.main()

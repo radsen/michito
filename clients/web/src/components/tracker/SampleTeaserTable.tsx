@@ -21,6 +21,8 @@ interface SampleTeaserTableProps {
   leads: TeaserLead[];
   totalLeads: number;
   totalAmountCop: number;
+  currency?: string;
+  country?: string;
   requestedLeads?: number;
   isPaid?: boolean;
   xlsxUrl?: string | null;
@@ -34,6 +36,8 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
   leads,
   totalLeads,
   totalAmountCop,
+  currency = "COP",
+  country,
   requestedLeads,
   isPaid,
   xlsxUrl,
@@ -45,12 +49,35 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
   const dispatch = useDispatch();
   const { dict } = useSelector((state: RootState) => state.language);
 
-  const formatCop = (amount: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const formatMoney = (amount: number, curr: string = "COP") => {
+    const c = (curr || "COP").toUpperCase();
+    const locale = c === "DOP" ? "es-DO" : c === "USD" ? "en-US" : "es-CO";
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: c,
+        maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `$${amount.toLocaleString()} ${c}`;
+    }
+  };
+
+  const formatTaxId = (taxId?: string, countryCode?: string) => {
+    if (!taxId) return null;
+    const trimmed = taxId.trim();
+    const upper = trimmed.toUpperCase();
+    if (
+      upper.startsWith("RNC") ||
+      upper.startsWith("RUC") ||
+      upper.startsWith("RUT") ||
+      upper.startsWith("NIT")
+    ) {
+      return trimmed;
+    }
+    const c = (countryCode || "").toUpperCase();
+    const prefix = c === "DO" ? "RNC" : c === "EC" ? "RUC" : c === "CL" ? "RUT" : "NIT";
+    return `${prefix}: ${trimmed}`;
   };
 
   const isPartialFill = Boolean(requestedLeads && requestedLeads > totalLeads);
@@ -100,7 +127,11 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                       </span>
                     )}
                   </div>
-                  {lead.nit && <span className="text-xs text-slate-400 font-mono">NIT: {lead.nit}</span>}
+                  {lead.nit && (
+                    <span className="text-xs text-slate-400 font-mono">
+                      {formatTaxId(lead.nit, country)}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div>{lead.decision_maker_name || dict.tracker.contactInstitutional}</div>
@@ -234,8 +265,8 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
               {isPartialFill
                 ? dict.tracker.unlockPartialBtn
                     .replace("{total}", String(totalLeads))
-                    .replace("{amount}", formatCop(totalAmountCop))
-                : dict.tracker.unlockBtn.replace("{amount}", formatCop(totalAmountCop))}
+                    .replace("{amount}", formatMoney(totalAmountCop, currency))
+                : dict.tracker.unlockBtn.replace("{amount}", formatMoney(totalAmountCop, currency))}
             </span>
           </button>
         </div>

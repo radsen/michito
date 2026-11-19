@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { updateOrderStatus, resetOrder, orderFailed } from "../../store/slices/orderSlice";
+import { setWompiModalOpen } from "../../store/slices/uiSlice";
 import { useGetOrderQuery, useClaimLeadReplacementMutation } from "../../store/api/michitoApi";
 import { SampleTeaserTable } from "./SampleTeaserTable";
 import { OutreachPlaybook } from "./OutreachPlaybook";
@@ -30,6 +31,7 @@ import {
   ExternalLink,
   MessageSquare,
   Database,
+  CreditCard,
 } from "lucide-react";
 
 export interface LiveStatusTrackerProps {
@@ -334,15 +336,47 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
   const telemetry = (orderData as any)?.metrics?.telemetry;
 
-  // Dynamic progress percentage smoothly paced over estimated time or telemetry progress
-  const getProgressPercent = () => {
-    if (telemetry?.progress_percent !== undefined) {
-      return telemetry.progress_percent;
+  const orderCurrency =
+    (orderData as any)?.currency ||
+    (orderData as any)?.payment?.currency ||
+    (orderData as any)?.request?.currency ||
+    "COP";
+  const orderCountry =
+    (orderData as any)?.request?.country ||
+    (orderData as any)?.country ||
+    "CO";
+  const amountInCents =
+    orderData?.amount_in_cents ||
+    (orderData as any)?.payment?.amount_in_cents ||
+    totalAmountInCents ||
+    0;
+  const orderAmount = amountInCents / 100;
+
+  const formatOrderCurrency = (amount: number, curr: string = "COP") => {
+    const c = (curr || "COP").toUpperCase();
+    const locale = c === "DOP" ? "es-DO" : c === "USD" ? "en-US" : "es-CO";
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: c,
+        maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `$${amount.toLocaleString()} ${c}`;
     }
-    if (isPaid || isAwaitingPayment) return 100;
+  };
+
+  // Dynamic progress percentage smoothly paced over estimated time or telemetry progress
+  // CRITICAL RULE: In awaiting_payment, progress stays at 35% (never 100% until payment & fulfillment)
+  const getProgressPercent = () => {
+    if (isPaid) return 100;
+    if (isAwaitingPayment) return 35;
+    if (telemetry?.progress_percent !== undefined && isProcessing) {
+      return Math.min(94, Math.max(35, telemetry.progress_percent));
+    }
     if (isProcessing) {
       const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
-      const paced = 20 + ratio * 74;
+      const paced = 35 + ratio * 59;
       return Math.min(94, Math.round(paced));
     }
     if (isQueued) return 15;
@@ -353,22 +387,21 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const isStalled = isProcessing && elapsedSec > Math.max(estimatedTotalSec * 2, 90);
 
   const getStepStatus = (stepIndex: number) => {
-    if (telemetry?.step_index !== undefined) {
-      if (stepIndex < telemetry.step_index) return "completed";
-      if (stepIndex === telemetry.step_index) return "active";
-      return "pending";
-    }
     if (isPaid) return "completed";
-    if (isAwaitingPayment && stepIndex <= 3) return "completed";
-    if (isProcessing) {
-      const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
-      // Dynamic fallback step progression: Queued (0-15%), Harvesting (15-50%), Verifying (50-80%), Packaging (80-100%)
-      const currentStep = ratio < 0.15 ? 1 : ratio < 0.5 ? 2 : ratio < 0.8 ? 3 : 4;
-      if (stepIndex < currentStep) return "completed";
-      if (stepIndex === currentStep) return "active";
+    if (isAwaitingPayment) {
+      if (stepIndex <= 2) return "completed";
+      if (stepIndex === 3) return "active";
       return "pending";
     }
-    if (isQueued && stepIndex === 1) return "active";
+    if (isProcessing) {
+      if (stepIndex <= 3) return "completed";
+      if (stepIndex === 4) return "active";
+      return "pending";
+    }
+    if (isQueued) {
+      if (stepIndex === 1) return "active";
+      return "pending";
+    }
     return "pending";
   };
 
@@ -768,6 +801,53 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
         </div>
       )}
 
+      {/* Prominent Payment Authorization Banner when awaiting payment */}
+      {isAwaitingPayment && (
+        <div
+          className="payment-authorization-card mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 shadow-xl"
+          data-testid="payment-authorization-card"
+        >
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-bold text-white">
+                    {dict.tracker.paymentCtaTitle || "Autoriza el Procesamiento de tu Lote Completo"}
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold uppercase">
+                    Paso 3 de 4
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1 mb-0 max-w-2xl leading-relaxed">
+                  {(dict.tracker.paymentCtaDesc || "Revisa la muestra verificada a continuación. Al confirmar el pago a través de Wompi, el sistema procesará y entregará inmediatamente tu lote completo de {total} cuentas corporativas verificadas.")
+                    .replace("{total}", String(totalLeadsTarget))}
+                </p>
+                <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-400 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>{dict.tracker.paymentCtaGuarantee || "Cobro Justo: Solo pagas por cuentas verificadas. Sin suscripción mensual."}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => dispatch(setWompiModalOpen(true))}
+              className="w-full md:w-auto px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-emerald-500/20 cursor-pointer shrink-0"
+              data-testid="main-payment-cta-btn"
+            >
+              <CreditCard className="w-5 h-5 text-slate-950" />
+              <span>
+                {(dict.tracker.paymentCtaBtn || "Autorizar y Pagar con Wompi ({amount})")
+                  .replace("{amount}", formatOrderCurrency(orderAmount, orderCurrency))}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* View Switcher Tabs: Summary Table vs Interactive Outreach Playbook */}
       {(isAwaitingPayment || isPaid) && (
         <div className="tracker-views-container">
@@ -798,7 +878,9 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
             <SampleTeaserTable
               leads={teaserLeads}
               totalLeads={totalLeadsTarget}
-              totalAmountCop={(orderData?.amount_in_cents || totalAmountInCents || 0) / 100}
+              totalAmountCop={orderAmount}
+              currency={orderCurrency}
+              country={orderCountry}
               requestedLeads={(orderData as any)?.request?.limit || orderData?.limit}
               isPaid={isPaid}
               xlsxUrl={xlsxDownloadUrl || (orderData as any)?.xlsx_download_url}
