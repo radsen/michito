@@ -396,12 +396,13 @@ class SecopHarvesterAdapter:
                                 break
 
         # -------------------------------------------------------------
-        # SODA LADDER TIER 4: Guaranteed Resilient Fallback Pool
-        # Ensures that paying clients NEVER get 0 leads due to SODA outages, rate limits, or hyper-niche municipal queries
+        # SODA LADDER TIER 4: Guaranteed Resilient Fallback Pool (Test Environments ONLY)
+        # In production and staging, Michito strictly delivers 100% authentic statutory records.
+        # Fallbacks are permanently disabled for client orders to prevent synthetic data.
         # -------------------------------------------------------------
-        allow_fallbacks = os.getenv("ALLOW_STATUTORY_FALLBACK", "true").lower() in ("true", "1", "yes") or os.getenv("TESTING") == "1"
-        is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None
-        needs_fallback = (not qualified_leads) if is_test_env else (len(qualified_leads) < limit)
+        is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
+        allow_fallbacks = is_test_env and os.getenv("ALLOW_STATUTORY_FALLBACK", "false").lower() in ("true", "1", "yes")
+        needs_fallback = (not qualified_leads) if is_test_env else False
 
         if needs_fallback and allow_fallbacks:
             needed_count = limit - len(qualified_leads) if not is_test_env else limit

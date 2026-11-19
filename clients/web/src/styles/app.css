@@ -5519,6 +5519,177 @@ main {
   transform: translateY(-1px);
 }
 
+/* Playbook Controls (Search & Page Size) */
+.playbook-controls-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .playbook-controls-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.playbook-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex: 1;
+  max-width: 480px;
+}
+
+.playbook-search-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  width: 100%;
+  outline: none;
+}
+
+.playbook-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.playbook-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.playbook-page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playbook-size-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playbook-size-btn.active, .playbook-size-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+/* Playbook Pagination Bar */
+.playbook-pagination-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+@media (min-width: 640px) {
+  .playbook-pagination-bar {
+    flex-direction: row;
+  }
+}
+
+.playbook-pagination-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.playbook-pagination-info strong {
+  color: #fff;
+}
+
+.playbook-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playbook-page-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playbook-page-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.playbook-page-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.playbook-page-indicators {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.playbook-page-num-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.playbook-page-num-btn.active {
+  background: var(--accent-blue);
+  color: #000;
+  font-weight: 800;
+}
+
+.playbook-page-num-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.playbook-page-ellipsis {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
 
 
 

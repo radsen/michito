@@ -39,8 +39,9 @@ server {
         try_files $uri =404;
     }
 
-    # React SPA routing: Fallback all other routes to index.html
+    # React SPA routing: Fallback all other routes to index.html with no-cache headers
     location / {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
         try_files $uri $uri/ /index.html;
     }
 

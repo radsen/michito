@@ -30,6 +30,7 @@ case "${ENV}" in
         PUBSUB_TOPIC="michito-orders-staging"
         PUBSUB_SUBSCRIPTION="michito-worker-sub-staging"
         API_SERVICE_NAME="michito-api"
+        JOB_NAME="michito-batch-worker"
         WEB_SERVICE_NAME="michito-web"
         IMAGE_TAG="staging"
         ;;
@@ -42,6 +43,7 @@ case "${ENV}" in
         PUBSUB_TOPIC="michito-orders-prod"
         PUBSUB_SUBSCRIPTION="michito-worker-sub-prod"
         API_SERVICE_NAME="michito-api"
+        JOB_NAME="michito-batch-worker"
         WEB_SERVICE_NAME="michito-web"
         IMAGE_TAG="prod"
         ;;
@@ -98,13 +100,33 @@ EOF
         --max-instances=5 \
         --concurrency=80 \
         --cpu=1 \
-        --memory=512Mi \
-        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},ENABLE_PUBSUB_QUEUE=true,PUBSUB_TOPIC_ORDERS=${PUBSUB_TOPIC},PUBSUB_SUBSCRIPTION_WORKER=${PUBSUB_SUBSCRIPTION}" \
+        --memory=1Gi \
+        --timeout=600s \
+        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME},ENABLE_PUBSUB_QUEUE=true,PUBSUB_TOPIC_ORDERS=${PUBSUB_TOPIC},PUBSUB_SUBSCRIPTION_WORKER=${PUBSUB_SUBSCRIPTION}" \
         --set-secrets="DATABASE_URL=DATABASE_URL:latest,WOMPI_PUBLIC_KEY=WOMPI_PUBLIC_KEY:latest,WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET:latest,WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET:latest,ALERT_WEBHOOK_URL=ALERT_WEBHOOK_URL:latest,ORDERS_FEED_WEBHOOK_URL=ORDERS_FEED_WEBHOOK_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
         --quiet
 
     API_URL="$($GCLOUD run services describe "${API_SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")"
     echo "Backend API live at: ${API_URL}"
+
+    # 3.1 Deploy Decoupled Ephemeral Batch Harvesting Job
+    echo ""
+    echo "--> [2b/4] Deploying Decoupled Cloud Run Job (${JOB_NAME})..."
+    $GCLOUD run jobs deploy "${JOB_NAME}" \
+        --project="${PROJECT_ID}" \
+        --region="${REGION}" \
+        --image="${API_IMAGE}" \
+        --command="python" \
+        --args="-m,src.entrypoints.workers.job_runner" \
+        --set-cloudsql-instances="${CLOUDSQL_INSTANCE}" \
+        --tasks=1 \
+        --max-retries=1 \
+        --task-timeout=1800s \
+        --cpu=2 \
+        --memory=2Gi \
+        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME}" \
+        --set-secrets="DATABASE_URL=DATABASE_URL:latest,WOMPI_PUBLIC_KEY=WOMPI_PUBLIC_KEY:latest,WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET:latest,WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET:latest,ALERT_WEBHOOK_URL=ALERT_WEBHOOK_URL:latest,ORDERS_FEED_WEBHOOK_URL=ORDERS_FEED_WEBHOOK_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+        --quiet
 
     # 4. Configure Pub/Sub Push Subscription to route orders directly to Cloud Run
     echo ""
@@ -112,13 +134,13 @@ EOF
     $GCLOUD pubsub subscriptions update "${PUBSUB_SUBSCRIPTION}" \
         --project="${PROJECT_ID}" \
         --push-endpoint="${API_URL}/api/v1/pubsub/orders" \
-        --ack-deadline=120 \
+        --ack-deadline=600 \
         --quiet || \
     $GCLOUD pubsub subscriptions create "${PUBSUB_SUBSCRIPTION}" \
         --project="${PROJECT_ID}" \
         --topic="${PUBSUB_TOPIC}" \
         --push-endpoint="${API_URL}/api/v1/pubsub/orders" \
-        --ack-deadline=120 \
+        --ack-deadline=600 \
         --quiet
 else
     API_URL="$($GCLOUD run services describe "${API_SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)" 2>/dev/null || true)"

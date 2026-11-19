@@ -121,10 +121,25 @@ class OrderWorkerDaemon:
             print(f"[WorkerDaemon] [WARN] Order `{order_id}` could not be locked (already picked up by another worker).")
             return False
 
+        if hasattr(self.order_repository, "update_telemetry"):
+            self.order_repository.update_telemetry(order_id, {
+                "phase": "harvesting",
+                "phase_key": "telemetry.harvesting",
+                "step_index": 1,
+                "progress_percent": 25,
+            }, status="processing")
+
         # 2. Execute the heavy harvesting, verification, and intent pipeline
         try:
             print(f"[WorkerDaemon] [SEARCH] [2/4] Verifying domains, HTTP footprint & Socket MX servers...")
             print(f"[WorkerDaemon] [GUARD] [3/4] Underwriting solvency risk & composing 5 tailored multichannel touches...")
+            if hasattr(self.order_repository, "update_telemetry"):
+                self.order_repository.update_telemetry(order_id, {
+                    "phase": "verifying_mx",
+                    "phase_key": "telemetry.verifying_mx",
+                    "step_index": 2,
+                    "progress_percent": 55,
+                })
             t0 = time.time()
             exec_kwargs: Dict[str, Any] = {
                 "campaign": campaign_id,
@@ -232,6 +247,13 @@ class OrderWorkerDaemon:
 
             # Upload deliverables to Storage Adapter (Local or GCS)
             print(f"[WorkerDaemon] [PACKAGE] [4/4] Packaging structured CSV/XLSX manifest and executive PDF dossier...")
+            if hasattr(self.order_repository, "update_telemetry"):
+                self.order_repository.update_telemetry(order_id, {
+                    "phase": "generating_deliverables",
+                    "phase_key": "telemetry.generating_deliverables",
+                    "step_index": 3,
+                    "progress_percent": 85,
+                })
             csv_path = job_result.get("csv_path")
             xlsx_path = job_result.get("xlsx_path")
             dossier_path = job_result.get("dossier_path")

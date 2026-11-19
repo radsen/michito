@@ -102,9 +102,9 @@ def verify_mx(email: str) -> tuple[bool, str]:
         mx = sorted(answers, key=lambda r: r.preference)[0].exchange.to_text().rstrip(".")
         return True, mx
     except Exception as e:
-        if "." in domain and not any(pub in domain for pub in ("gmail.com", "hotmail.com", "yahoo.com")):
-            return True, f"mail.{domain}"
-        return False, str(e)
+        # Strict policy: If domain does not resolve MX records, reject it.
+        # NEVER assume a fake or dead domain is deliverable.
+        return False, f"MX verification failed: {e}"
 
 
 def build_hiring_xray_url(company_name: str, city: str, country: str = "CO") -> str:
@@ -180,58 +180,79 @@ def build_targeted_linkedin_xray_url(
     return f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
 
+def mask_teaser_company_name(name: str) -> str:
+    """Masks company trade name while preserving recognizable legal entity structure."""
+    if not name:
+        return "Empresa B2B Verificada"
+    words = name.strip().split()
+    masked_words = []
+    legal_entities = {"sas", "s.a.s.", "sa", "s.a.", "ltda", "limitada", "corp", "inc", "e.u.", "srl", "s.r.l."}
+    for w in words:
+        clean_w = w.strip().rstrip(".,").lower()
+        if clean_w in legal_entities:
+            masked_words.append(w.upper())
+        elif len(w) <= 2:
+            masked_words.append(w[0] + "•")
+        else:
+            masked_words.append(w[0] + "•" * min(len(w) - 1, 5))
+    return " ".join(masked_words)
+
+
+def mask_teaser_person_name(full_name: str) -> str:
+    """Masks executive name to initials and dot fills (e.g. 'Edna Paola Rojas' -> 'E•••• P•••• R••••')."""
+    if not full_name:
+        return "Representante Estatutario"
+    parts = full_name.strip().split()
+    masked = []
+    for p in parts:
+        if len(p) <= 2:
+            masked.append(p[0] + "•")
+        else:
+            masked.append(p[0] + "•" * min(len(p) - 1, 4))
+    return " ".join(masked)
+
+
 def mask_teaser_email(email: str) -> str:
+    """Masks both username and corporate domain to prevent pre-payment bypass."""
     if not email or "@" not in email:
-        return "contacto@••••••••.co"
+        return "••••••@••••••••••.com"
     user, dom = email.split("@", 1)
-    if len(user) <= 1:
-        masked_user = user + "***"
-    elif len(user) <= 3:
-        masked_user = user[0] + "***"
+    masked_user = (user[0] + "••••") if user else "••••"
+    dom_parts = dom.split(".")
+    if len(dom_parts) >= 2:
+        masked_dom_name = (dom_parts[0][0] + "••••••••") if dom_parts[0] else "••••••••"
+        tld = ".".join(dom_parts[1:])
+        masked_dom = f"{masked_dom_name}.{tld}"
     else:
-        masked_user = user[:2] + "***"
-    return f"{masked_user}@{dom}"
+        masked_dom = "••••••••.co"
+    return f"{masked_user}@{masked_dom}"
 
 
 def mask_teaser_phone(phone: str, country: str = "CO") -> str:
+    """Masks direct phone numbers, hiding the last 4 digits entirely."""
     digits = re.sub(r"\D", "", phone or "")
     if country == "DO":
-        clean_do = digits[1:] if digits.startswith("1") and len(digits) == 11 else digits
-        last2 = clean_do[-2:] if len(clean_do) >= 2 else "••"
-        return f"+1 (809) ••• ••{last2}"
+        return "+1 (809) ••• ••••"
     if country == "EC":
-        clean_ec = digits[3:] if digits.startswith("593") and len(digits) >= 12 else digits
-        last2 = clean_ec[-2:] if len(clean_ec) >= 2 else "••"
-        return f"+593 9• ••• ••{last2}"
+        return "+593 9• ••• ••••"
     if country == "CO":
         clean = digits[2:] if digits.startswith("57") and len(digits) >= 12 else digits
-        last2 = clean[-2:] if len(clean) >= 2 else "••"
         if len(clean) == 10 and clean.startswith("3"):
             prefix = clean[:3]
-            return f"+57 {prefix} ••• ••{last2}"
+            return f"+57 {prefix} ••• ••••"
         elif len(clean) == 10 and clean.startswith("60"):
             prefix = clean[:3]
-            return f"+57 ({prefix}) ••• ••{last2} (PBX)"
-        elif len(clean) == 7:
-            return f"+57 ••• ••{last2} (PBX)"
-        elif len(clean) >= 7:
-            return f"+57 {clean[:3]} ••• ••{last2}"
+            return f"+57 ({prefix}) ••• •••• (PBX)"
         return "+57 ••• ••• ••••"
-    last2 = digits[-2:] if len(digits) >= 2 else "••"
-    return f"+{digits[:3]} ••• ••{last2}" if len(digits) >= 5 else "••••••••••"
+    return "+••• ••• ••••"
 
 
 def mask_teaser_nit(raw_nit: str) -> str:
     if not raw_nit:
-        return ""
+        return "900••••••-•"
     clean = raw_nit.strip()
-    if len(clean) == 13 and clean.endswith("001"):
-        return f"{clean[:4]}•••••••{clean[-2:]}"
     if "-" in clean:
         base, dv = clean.split("-", 1)
-        parts = base.split(".")
-        if len(parts) == 3:
-            return f"{parts[0]}.•••.•••-{dv}"
         return f"{base[:3]}••••••-{dv}"
     return clean[:3] + "••••••"
 
@@ -1543,7 +1564,7 @@ class GenerateProspectsUseCase:
             lead_c = lead.get("country", target_country)
 
             t_item = {
-                "company_name": lead.get("clean_name", lead.get("company_name", "")),
+                "company_name": mask_teaser_company_name(lead.get("clean_name", lead.get("company_name", ""))),
                 "nit": mask_teaser_nit(raw_nit),
                 "tax_id": mask_teaser_nit(raw_nit),
                 "country": lead_c,
@@ -1551,7 +1572,7 @@ class GenerateProspectsUseCase:
                 "flag": "🇪🇨" if lead_c == "EC" else ("🇩🇴" if lead_c == "DO" else "🇨🇴"),
                 "city": lead.get("city", ""),
                 "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
-                "decision_maker_name": rep_name,
+                "decision_maker_name": mask_teaser_person_name(rep_name),
                 "decision_maker_role": rep_role,
                 "decision_maker_title": rep_role,
                 "targeted_role": lead.get("targeted_campaign_persona", "Dirección General"),

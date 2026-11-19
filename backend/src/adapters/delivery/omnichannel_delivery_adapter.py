@@ -427,41 +427,53 @@ Chiketto B2B Operations
             body_part.attach(MIMEText(html_content, "html", "utf-8"))
             msg.attach(body_part)
 
-            # Direct CSV attachment if file exists on disk and is < 20MB
-            if csv_path and os.path.exists(csv_path) and os.path.isfile(csv_path):
-                file_size = os.path.getsize(csv_path)
-                if file_size < 20 * 1024 * 1024:
-                    with open(csv_path, "rb") as f:
-                        part = MIMEBase("application", "octet-stream")
-                        part.set_payload(f.read())
-                        encoders.encode_base64(part)
-                        filename = f"prospectos_{order_id}.csv"
-                        part.add_header("Content-Disposition", f"attachment; filename={filename}")
-                        msg.attach(part)
+            # Helper to fetch file bytes from local disk or GCS bucket
+            def _get_attachment_bytes(path_candidate: Optional[str], filename_in_gcs: str) -> Optional[bytes]:
+                if path_candidate and os.path.exists(path_candidate) and os.path.isfile(path_candidate):
+                    try:
+                        with open(path_candidate, "rb") as f:
+                            return f.read()
+                    except Exception:
+                        pass
+                bucket_name = os.environ.get("GCS_BUCKET_NAME")
+                if bucket_name:
+                    try:
+                        from google.cloud import storage
+                        client = storage.Client()
+                        bucket = client.bucket(bucket_name)
+                        blob = bucket.blob(f"orders/{order_id}/{filename_in_gcs}")
+                        if blob.exists():
+                            return blob.download_as_bytes()
+                    except Exception as gcs_err:
+                        logger.warning(f"Could not fetch {filename_in_gcs} from GCS: {gcs_err}")
+                return None
 
-            # Direct XLSX attachment
-            if xlsx_path and os.path.exists(xlsx_path) and os.path.isfile(xlsx_path):
-                file_size = os.path.getsize(xlsx_path)
-                if file_size < 20 * 1024 * 1024:
-                    with open(xlsx_path, "rb") as f:
-                        part = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                        part.set_payload(f.read())
-                        encoders.encode_base64(part)
-                        filename = f"prospectos_{order_id}.xlsx"
-                        part.add_header("Content-Disposition", f"attachment; filename={filename}")
-                        msg.attach(part)
+            # Direct XLSX attachment (< 20MB)
+            xlsx_bytes = _get_attachment_bytes(xlsx_path, "prospects.xlsx")
+            if xlsx_bytes and len(xlsx_bytes) < 20 * 1024 * 1024:
+                part = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                part.set_payload(xlsx_bytes)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.xlsx")
+                msg.attach(part)
 
-            # Direct PDF attachment
-            if pdf_path and os.path.exists(pdf_path) and os.path.isfile(pdf_path):
-                file_size = os.path.getsize(pdf_path)
-                if file_size < 20 * 1024 * 1024:
-                    with open(pdf_path, "rb") as f:
-                        part = MIMEBase("application", "pdf")
-                        part.set_payload(f.read())
-                        encoders.encode_base64(part)
-                        filename = f"dossier_ejecutivo_{order_id}.pdf"
-                        part.add_header("Content-Disposition", f"attachment; filename={filename}")
-                        msg.attach(part)
+            # Direct PDF attachment (< 20MB)
+            pdf_bytes = _get_attachment_bytes(pdf_path, "executive_dossier.pdf")
+            if pdf_bytes and len(pdf_bytes) < 20 * 1024 * 1024:
+                part = MIMEBase("application", "pdf")
+                part.set_payload(pdf_bytes)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f"attachment; filename=dossier_ejecutivo_{order_id}.pdf")
+                msg.attach(part)
+
+            # Direct CSV attachment (< 20MB)
+            csv_bytes = _get_attachment_bytes(csv_path, "prospects.csv")
+            if csv_bytes and len(csv_bytes) < 20 * 1024 * 1024:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(csv_bytes)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.csv")
+                msg.attach(part)
 
             recipients = [buyer_email]
             if dev_email and dev_email != buyer_email:

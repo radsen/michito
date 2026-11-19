@@ -58,7 +58,7 @@ def test_classify_ecuador_phone():
 
 def test_mask_teaser_phone_landline_vs_mobile():
     mob = mask_teaser_phone("3104567890", country="CO")
-    assert mob == "+57 310 ••• ••90"
+    assert mob == "+57 310 ••• ••••"
 
     pbx = mask_teaser_phone("6013456789", country="CO")
     assert "PBX" in pbx

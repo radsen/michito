@@ -137,12 +137,9 @@ class WebsiteAuditor:
                 return res
 
         except Exception as e:
-            # If connection fails or times out in local development / offline testing,
-            # accept well-formed aligned corporate domains rather than dropping all prospects
-            if "." in domain and not any(pub in domain for pub in ("gmail", "hotmail", "yahoo")):
-                res = (True, url, "Portal Web Activo (Verificado)")
-            else:
-                res = (False, "Presencia en LinkedIn Corporativo", f"Portal inaccesible ({str(e)[:35]})")
+            # Strict policy: If connection fails or domain does not resolve, mark as inaccessible.
+            # NEVER mark dead, fake, or unreachable domains as verified.
+            res = (False, "Presencia en LinkedIn Corporativo", f"Portal inaccesible ({str(e)[:35]})")
             self._cache[cache_key] = res
             return res
 

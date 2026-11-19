@@ -117,6 +117,41 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const isPaid = orderStatus === "paid";
   const isFailed = orderStatus === "failed" || orderStatus === "error";
 
+  // Server-Sent Events (SSE) Stream Listener for instant state transitions
+  useEffect(() => {
+    if (!activeOrderId || (!isQueued && !isProcessing)) return;
+    const token = (orderData as any)?.stream_token || "";
+    const sseUrl = `/api/v1/orders/${activeOrderId}/stream?token=${encodeURIComponent(token)}`;
+
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(sseUrl);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.status && data.status !== orderStatus) {
+            refetch();
+          }
+        } catch {
+          // ignore
+        }
+      };
+      eventSource.addEventListener("close", () => {
+        refetch();
+        eventSource?.close();
+      });
+      eventSource.onerror = () => {
+        eventSource?.close();
+      };
+    } catch {
+      // Fallback to RTK polling
+    }
+
+    return () => {
+      eventSource?.close();
+    };
+  }, [activeOrderId, isQueued, isProcessing, (orderData as any)?.stream_token]);
+
   // Elapsed timer ticker synchronized with server timestamps and session persistence
   useEffect(() => {
     const computeCurrentElapsed = () => {
@@ -128,7 +163,9 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
       // 2. Authoritative server start timestamp
       const serverStart = orderData?.started_processing_at || orderData?.created_at;
       if (serverStart) {
-        const startMs = new Date(serverStart).getTime();
+        const hasTz = serverStart.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(serverStart);
+        const normalizedStart = hasTz ? serverStart : `${serverStart}Z`;
+        const startMs = new Date(normalizedStart).getTime();
         if (!isNaN(startMs)) {
           const diffSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           if (activeOrderId) {
@@ -263,8 +300,13 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     return `~${mins} min`;
   };
 
-  // Dynamic progress percentage smoothly paced over estimated time
+  const telemetry = (orderData as any)?.metrics?.telemetry;
+
+  // Dynamic progress percentage smoothly paced over estimated time or telemetry progress
   const getProgressPercent = () => {
+    if (telemetry?.progress_percent !== undefined) {
+      return telemetry.progress_percent;
+    }
     if (isPaid || isAwaitingPayment) return 100;
     if (isProcessing) {
       const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
@@ -278,6 +320,11 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const progressPercent = getProgressPercent();
 
   const getStepStatus = (stepIndex: number) => {
+    if (telemetry?.step_index !== undefined) {
+      if (stepIndex < telemetry.step_index) return "completed";
+      if (stepIndex === telemetry.step_index) return "active";
+      return "pending";
+    }
     if (isPaid) return "completed";
     if (isAwaitingPayment && stepIndex <= 3) return "completed";
     if (isProcessing && stepIndex === 2) return "active";
@@ -564,99 +611,55 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
           <div className="download-buttons-grid">
             {/* 1. Styled XLSX */}
-            {xlsxDownloadUrl || csvDownloadUrl ? (
-              <a
-                href={xlsxDownloadUrl || `/api/v1/orders/${activeOrderId}/download/xlsx`}
-                download
-                className="download-btn xlsx-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="download-btn-icon xlsx-icon">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <div className="download-btn-info">
-                  <div className="download-btn-title">{dict.tracker.dlXlsxTitle}</div>
-                  <div className="download-btn-sub">{dict.tracker.dlXlsxSub}</div>
-                </div>
-              </a>
-            ) : null}
+            <a
+              href={`/api/v1/orders/${activeOrderId}/download/xlsx`}
+              download
+              className="download-btn xlsx-download"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="download-btn-icon xlsx-icon">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div className="download-btn-info">
+                <div className="download-btn-title">{dict.tracker.dlXlsxTitle}</div>
+                <div className="download-btn-sub">{dict.tracker.dlXlsxSub}</div>
+              </div>
+            </a>
 
             {/* 2. Executive PDF Dossier */}
-            {pdfDownloadUrl || dossierDownloadUrl ? (
-              <a
-                href={pdfDownloadUrl || `/api/v1/orders/${activeOrderId}/download/pdf`}
-                download
-                className="download-btn pdf-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="download-btn-icon pdf-icon">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="download-btn-info">
-                  <div className="download-btn-title">{dict.tracker.dlPdfTitle}</div>
-                  <div className="download-btn-sub">{dict.tracker.dlPdfSub}</div>
-                </div>
-              </a>
-            ) : null}
+            <a
+              href={`/api/v1/orders/${activeOrderId}/download/pdf`}
+              download
+              className="download-btn pdf-download"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="download-btn-icon pdf-icon">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="download-btn-info">
+                <div className="download-btn-title">{dict.tracker.dlPdfTitle}</div>
+                <div className="download-btn-sub">{dict.tracker.dlPdfSub}</div>
+              </div>
+            </a>
 
             {/* 3. CRM-Clean CSV */}
-            {csvDownloadUrl ? (
-              <a
-                href={csvDownloadUrl}
-                download
-                className="download-btn csv-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="download-btn-icon csv-icon">
-                  <Download className="w-5 h-5" />
-                </div>
-                <div className="download-btn-info">
-                  <div className="download-btn-title">{dict.tracker.dlCsvTitle}</div>
-                  <div className="download-btn-sub">{dict.tracker.dlCsvSub}</div>
-                </div>
-              </a>
-            ) : null}
-
-            {/* 4. Markdown Dossier */}
-            {dossierDownloadUrl ? (
-              <a
-                href={dossierDownloadUrl}
-                download
-                className="download-btn dossier-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="download-btn-icon dossier-icon">
-                  <FileCheck className="w-5 h-5" />
-                </div>
-                <div className="download-btn-info">
-                  <div className="download-btn-title">{dict.tracker.dlMdTitle}</div>
-                  <div className="download-btn-sub">{dict.tracker.dlMdSub}</div>
-                </div>
-              </a>
-            ) : null}
-
-            {/* 5. Complete Raw Intelligence CSV (Zero Data Loss) */}
-            {fullCsvDownloadUrl || csvDownloadUrl ? (
-              <a
-                href={fullCsvDownloadUrl || `/api/v1/orders/${activeOrderId}/download/full_csv`}
-                download
-                className="download-btn full-csv-download"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="download-btn-icon csv-icon">
-                  <Database className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div className="download-btn-info">
-                  <div className="download-btn-title">{dict.tracker.dlFullCsvTitle}</div>
-                  <div className="download-btn-sub">{dict.tracker.dlFullCsvSub}</div>
-                </div>
-              </a>
-            ) : null}
+            <a
+              href={`/api/v1/orders/${activeOrderId}/download/csv`}
+              download
+              className="download-btn csv-download"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="download-btn-icon csv-icon">
+                <Download className="w-5 h-5" />
+              </div>
+              <div className="download-btn-info">
+                <div className="download-btn-title">{dict.tracker.dlCsvTitle}</div>
+                <div className="download-btn-sub">{dict.tracker.dlCsvSub}</div>
+              </div>
+            </a>
           </div>
 
           {/* Phase 3: Automated 2x1 Replacement Guarantee Portal */}

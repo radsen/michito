@@ -224,8 +224,9 @@ class DgcpDrAdapter:
                 if len(candidates) >= limit:
                     break
 
-        # Guaranteed resilient fallback pool when no candidates found
-        allow_fallbacks = os.getenv("ALLOW_STATUTORY_FALLBACK", "true").lower() in ("true", "1", "yes") or os.getenv("TESTING") == "1"
+        # Fallback pool restricted strictly to automated tests; disabled in production/staging
+        is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
+        allow_fallbacks = is_test_env and os.getenv("ALLOW_STATUTORY_FALLBACK", "false").lower() in ("true", "1", "yes")
         if not candidates and total_raw_contracts == 0 and allow_fallbacks:
             fallbacks = self._get_fallback_candidates(
                 city=city,

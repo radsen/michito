@@ -71,21 +71,42 @@ export const WompiCheckoutModal: React.FC = () => {
           reference: activeOrderId,
           publicKey: WOMPI_PUBLIC_KEY,
           signature: { integrity: integritySignature },
-          redirectUrl: window.location.href,
         };
 
         if (orderData?.client?.email) {
-          checkoutConfig.customerData = {
+          const customerData: any = {
             email: orderData.client.email,
             fullName: orderData.client.name,
-            phoneNumber: orderData.client.phone,
           };
+
+          const rawPhone = (orderData.client.phone || "").trim();
+          if (rawPhone) {
+            let prefix = "+57";
+            let digits = rawPhone.replace(/\D/g, "");
+            if (rawPhone.startsWith("+57") || (digits.startsWith("57") && digits.length === 12)) {
+              prefix = "+57";
+              digits = digits.startsWith("57") ? digits.slice(2) : digits;
+            } else if (rawPhone.startsWith("+593") || (digits.startsWith("593") && digits.length === 12)) {
+              prefix = "+593";
+              digits = digits.startsWith("593") ? digits.slice(3) : digits;
+            } else if (rawPhone.startsWith("+1") || (digits.startsWith("1") && digits.length === 11)) {
+              prefix = "+1";
+              digits = digits.startsWith("1") ? digits.slice(1) : digits;
+            }
+            if (digits.length >= 7 && digits.length <= 11) {
+              customerData.phoneNumber = digits;
+              customerData.phoneNumberPrefix = prefix;
+            }
+          }
+
+          checkoutConfig.customerData = customerData;
         }
 
         const checkout = new window.WidgetCheckout(checkoutConfig);
 
         checkout.open(async (result: any) => {
           console.log("[Wompi] Transaction result:", result);
+          dispatch(setWompiModalOpen(false));
           if (result && result.transaction && result.transaction.status === "APPROVED") {
             try {
               const res = await payOrder(activeOrderId).unwrap();

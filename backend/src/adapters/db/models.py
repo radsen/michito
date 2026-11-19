@@ -174,6 +174,15 @@ class OrderModel(Base):
     client_entity: Any = relationship("ClientModel", back_populates="orders")
     manifest_leads: Any = relationship("OrderLeadModel", back_populates="order", cascade="all, delete-orphan")
 
+    @staticmethod
+    def _to_iso_utc(dt: Optional[datetime]) -> Optional[str]:
+        if not dt:
+            return None
+        iso = dt.isoformat()
+        if not iso.endswith("Z") and "+" not in iso:
+            iso += "Z"
+        return iso
+
     def to_dict(self) -> Dict[str, Any]:
         """Serializes model instance into standard Michito order dictionary format."""
         return {
@@ -211,7 +220,7 @@ class OrderModel(Base):
                 "amount_in_cents": self.payment_amount_in_cents,
                 "currency": self.payment_currency,
                 "transaction_id": self.payment_transaction_id,
-                "paid_at": self.payment_paid_at.isoformat() if self.payment_paid_at else None,
+                "paid_at": OrderModel._to_iso_utc(self.payment_paid_at),
             },
             "delivery": {
                 "total_qualified": self.delivery_total_qualified,
@@ -221,25 +230,25 @@ class OrderModel(Base):
                 "dossier_path": self.delivery_dossier_path,
                 "pdf_path": self.delivery_pdf_path,
                 "playbook": self.delivery_playbook or [],
-                "delivered_at": self.delivery_delivered_at.isoformat() if self.delivery_delivered_at else None,
+                "delivered_at": OrderModel._to_iso_utc(self.delivery_delivered_at),
             },
             "metrics": self.metrics or {},
             "error_message": self.error_message,
             "replacement_claims": self.replacement_claims or [],
             "retry_count": self.retry_count or 0,
             "max_retries": self.max_retries or 3,
-            "last_retried_at": self.last_retried_at.isoformat() if self.last_retried_at else None,
+            "last_retried_at": OrderModel._to_iso_utc(self.last_retried_at),
             "partner": {
                 "referral_partner": self.referral_partner or "direct",
                 "commission_rate": self.partner_commission_rate or 0.0,
                 "commission_cop": self.partner_commission_cop or 0,
                 "settlement_status": self.partner_settlement_status or "pending",
-                "settled_at": self.partner_settled_at.isoformat() if self.partner_settled_at else None,
+                "settled_at": OrderModel._to_iso_utc(self.partner_settled_at),
             },
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "started_processing_at": self.started_processing_at.isoformat() if self.started_processing_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": OrderModel._to_iso_utc(self.created_at),
+            "started_processing_at": OrderModel._to_iso_utc(self.started_processing_at),
+            "completed_at": OrderModel._to_iso_utc(self.completed_at),
+            "updated_at": OrderModel._to_iso_utc(self.updated_at),
         }
 
 

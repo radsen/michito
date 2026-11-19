@@ -13,6 +13,10 @@ import {
   ChevronUp,
   Sparkles,
   Send,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export interface PlaybookCompany {
@@ -66,6 +70,9 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<{ [key: number]: number }>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   if (!companies || companies.length === 0) {
     return (
@@ -107,6 +114,24 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
     return "🇨🇴";
   };
 
+  const filteredCompanies = companies.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      (c.company_name || "").toLowerCase().includes(q) ||
+      (c.clean_name || "").toLowerCase().includes(q) ||
+      (c.decision_maker_name || "").toLowerCase().includes(q) ||
+      (c.decision_maker_title || "").toLowerCase().includes(q) ||
+      (c.city || "").toLowerCase().includes(q) ||
+      (c.tax_id || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedCompanies = filteredCompanies.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="playbook-wrapper" data-testid="outreach-playbook">
       {/* Header Banner */}
@@ -127,11 +152,79 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
         </div>
       </div>
 
-      <div className="playbook-companies-list">
-        {companies.map((comp, idx) => {
-          const isExpanded = expandedIndex === idx;
-          const currentTouchTab = activeTab[idx] || 1; // 1 to 5
-          const flag = getCountryFlag(comp.country);
+      {/* Search & Page Size Controls */}
+      <div className="playbook-controls-row">
+        <div className="playbook-search-box">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Buscar por empresa, contacto, cargo o ciudad..."
+            className="playbook-search-input"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setCurrentPage(1);
+              }}
+              className="playbook-search-clear"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="w-3.5 h-3.5 text-slate-400 hover:text-white" />
+            </button>
+          )}
+        </div>
+
+        <div className="playbook-page-size-selector">
+          <span className="text-xs text-slate-400">Mostrar:</span>
+          {[10, 25, 50].map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              className={`playbook-size-btn ${pageSize === size ? "active" : ""}`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredCompanies.length === 0 ? (
+        <div className="playbook-empty-state" style={{ padding: "36px 20px" }}>
+          <Search className="playbook-empty-icon text-slate-500" />
+          <p className="playbook-empty-title">No se encontraron prospectos</p>
+          <p className="playbook-empty-subtitle">
+            Ninguna cuenta coincide con &ldquo;{searchQuery}&rdquo;. Intenta con otro término.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setCurrentPage(1);
+            }}
+            className="playbook-size-btn"
+            style={{ marginTop: "12px", alignSelf: "center" }}
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      ) : (
+        <div className="playbook-companies-list">
+          {paginatedCompanies.map((comp, pageIdx) => {
+            const globalIdx = startIndex + pageIdx;
+            const isExpanded = expandedIndex === globalIdx;
+            const currentTouchTab = activeTab[globalIdx] || 1; // 1 to 5
+            const flag = getCountryFlag(comp.country);
 
           const touches = comp.touches || {};
           const t1 = touches.touch1_linkedin || "";
@@ -142,17 +235,17 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
 
           return (
             <div
-              key={idx}
+              key={globalIdx}
               className={`playbook-company-card ${isExpanded ? "expanded" : ""}`}
             >
               {/* Accordion Header */}
               <button
                 type="button"
-                onClick={() => setExpandedIndex(isExpanded ? -1 : idx)}
+                onClick={() => setExpandedIndex(isExpanded ? -1 : globalIdx)}
                 className="playbook-card-header"
               >
                 <div className="playbook-company-left">
-                  <div className="playbook-index-pill">{idx + 1}</div>
+                  <div className="playbook-index-pill">{globalIdx + 1}</div>
                   <div className="playbook-company-meta">
                     <div className="playbook-company-title-row">
                       <span className="playbook-flag">{flag}</span>
@@ -282,7 +375,7 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         key={tab.num}
                         type="button"
                         onClick={() =>
-                          setActiveTab((prev) => ({ ...prev, [idx]: tab.num }))
+                          setActiveTab((prev) => ({ ...prev, [globalIdx]: tab.num }))
                         }
                         className={`playbook-touch-tab-btn ${currentTouchTab === tab.num ? "active" : ""}`}
                       >
@@ -302,10 +395,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                           </span>
                           <button
                             type="button"
-                            onClick={() => handleCopy(t1, `t1_${idx}`)}
+                            onClick={() => handleCopy(t1, `t1_${globalIdx}`)}
                             className="playbook-btn-copy"
                           >
-                            {copiedKey === `t1_${idx}` ? (
+                            {copiedKey === `t1_${globalIdx}` ? (
                               <>
                                 <Check className="w-3.5 h-3.5 text-emerald-400" />
                                 <span>{pb.copied}</span>
@@ -334,10 +427,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleCopy(t2.subject, `t2_sub_${idx}`)}
+                            onClick={() => handleCopy(t2.subject, `t2_sub_${globalIdx}`)}
                             className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t2_sub_${idx}` ? (
+                            {copiedKey === `t2_sub_${globalIdx}` ? (
                               <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
@@ -353,10 +446,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`${pb.subjectLabel}${t2.subject}\n\n${t2.body}`, `t2_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t2.subject}\n\n${t2.body}`, `t2_all_${globalIdx}`)}
                             className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t2_all_${idx}` ? (
+                            {copiedKey === `t2_all_${globalIdx}` ? (
                               <Check className="w-3.5 h-3.5" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
@@ -388,10 +481,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleCopy(t3.subject, `t3_sub_${idx}`)}
+                            onClick={() => handleCopy(t3.subject, `t3_sub_${globalIdx}`)}
                             className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t3_sub_${idx}` ? (
+                            {copiedKey === `t3_sub_${globalIdx}` ? (
                               <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
@@ -407,10 +500,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`${pb.subjectFollowupLabel}${t3.subject}\n\n${t3.body}`, `t3_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectFollowupLabel}${t3.subject}\n\n${t3.body}`, `t3_all_${globalIdx}`)}
                             className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t3_all_${idx}` ? (
+                            {copiedKey === `t3_all_${globalIdx}` ? (
                               <Check className="w-3.5 h-3.5" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
@@ -442,10 +535,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleCopy(t4.subject, `t4_sub_${idx}`)}
+                            onClick={() => handleCopy(t4.subject, `t4_sub_${globalIdx}`)}
                             className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t4_sub_${idx}` ? (
+                            {copiedKey === `t4_sub_${globalIdx}` ? (
                               <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
@@ -461,10 +554,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`${pb.subjectLabel}${t4.subject}\n\n${t4.body}`, `t4_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t4.subject}\n\n${t4.body}`, `t4_all_${globalIdx}`)}
                             className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t4_all_${idx}` ? (
+                            {copiedKey === `t4_all_${globalIdx}` ? (
                               <Check className="w-3.5 h-3.5" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
@@ -485,10 +578,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleCopy(t5.subject, `t5_sub_${idx}`)}
+                            onClick={() => handleCopy(t5.subject, `t5_sub_${globalIdx}`)}
                             className="playbook-btn-copy-sm"
                           >
-                            {copiedKey === `t5_sub_${idx}` ? (
+                            {copiedKey === `t5_sub_${globalIdx}` ? (
                               <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
@@ -504,10 +597,10 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
                         <div className="playbook-touch-actions">
                           <button
                             type="button"
-                            onClick={() => handleCopy(`${pb.subjectLabel}${t5.subject}\n\n${t5.body}`, `t5_all_${idx}`)}
+                            onClick={() => handleCopy(`${pb.subjectLabel}${t5.subject}\n\n${t5.body}`, `t5_all_${globalIdx}`)}
                             className="playbook-btn-copy-full"
                           >
-                            {copiedKey === `t5_all_${idx}` ? (
+                            {copiedKey === `t5_all_${globalIdx}` ? (
                               <Check className="w-3.5 h-3.5" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
@@ -524,6 +617,65 @@ export const OutreachPlaybook: React.FC<OutreachPlaybookProps> = ({ companies })
           );
         })}
       </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredCompanies.length > 0 && totalPages > 1 && (
+        <div className="playbook-pagination-bar">
+          <div className="playbook-pagination-info">
+            Mostrando <strong>{startIndex + 1}</strong> –{" "}
+            <strong>{Math.min(startIndex + pageSize, filteredCompanies.length)}</strong> de{" "}
+            <strong>{filteredCompanies.length}</strong> cuentas
+          </div>
+
+          <div className="playbook-pagination-actions">
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentPage((p) => Math.max(1, p - 1));
+              }}
+              disabled={currentPage === 1}
+              className="playbook-page-nav-btn"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Anterior</span>
+            </button>
+
+            <div className="playbook-page-indicators">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .map((p, idx, arr) => (
+                  <React.Fragment key={p}>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="playbook-page-ellipsis">…</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(p);
+                      }}
+                      className={`playbook-page-num-btn ${currentPage === p ? "active" : ""}`}
+                    >
+                      {p}
+                    </button>
+                  </React.Fragment>
+                ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentPage((p) => Math.min(totalPages, p + 1));
+              }}
+              disabled={currentPage === totalPages}
+              className="playbook-page-nav-btn"
+            >
+              <span>Siguiente</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

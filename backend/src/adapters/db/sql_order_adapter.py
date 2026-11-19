@@ -205,6 +205,10 @@ class SqlOrderAdapter:
         location_allocations: Optional[List[Dict[str, Any]]] = None,
         directionality: str = "vendor_to_clients",
         rfq_specifications: Optional[str] = None,
+        status: str = "queued",
+        payment_amount_in_cents: int = 0,
+        delivery_sample_teaser: Optional[List[Dict[str, Any]]] = None,
+        delivery_total_qualified: int = 0,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -255,13 +259,13 @@ class SqlOrderAdapter:
             keywords_exclude=keywords_exclude,
             directionality=directionality,
             rfq_specifications=rfq_specifications,
-            status="queued",
+            status=status,
             payment_provider="wompi",
             payment_status="pending",
-            payment_amount_in_cents=0,
+            payment_amount_in_cents=payment_amount_in_cents,
             payment_currency=currency.upper(),
-            delivery_total_qualified=0,
-            delivery_sample_teaser=[],
+            delivery_total_qualified=delivery_total_qualified,
+            delivery_sample_teaser=delivery_sample_teaser or [],
             created_at=now,
             updated_at=now,
         )
@@ -305,6 +309,18 @@ class SqlOrderAdapter:
                 d["playbook"] = delivery.get("playbook") or []
                 return d
             return None
+
+    def get_client_purchased_tax_ids(self, client_email: str) -> List[str]:
+        """Returns all NITs / Tax IDs previously delivered to this client email."""
+        if not client_email:
+            return []
+        with self._get_session() as session:
+            stmt = (
+                select(OrderLeadModel.tax_id)
+                .join(OrderModel, OrderLeadModel.order_id == OrderModel.order_id)
+                .where(OrderModel.client_email == client_email.strip().lower())
+            )
+            return [str(t) for t in session.scalars(stmt).all() if t]
 
     def fetch_queued_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Fetches orders currently waiting to be processed, with concurrency lock if supported."""
@@ -404,16 +420,17 @@ class SqlOrderAdapter:
                 return {"status": "dead-lettered", "order": ord_obj.to_dict()}
 
     def mark_processing(self, order_id: str) -> bool:
-        """Transitions order from 'queued', 'failed', or 'awaiting_payment' to 'processing' atomically."""
+        """Transitions order from 'queued', 'failed', 'awaiting_payment', or 'paid' to 'processing' atomically."""
         now = datetime.now(timezone.utc)
         with self._get_session() as session:
             order_obj = session.get(OrderModel, order_id)
-            if not order_obj or order_obj.status not in ("queued", "failed", "awaiting_payment"):
+            if not order_obj or order_obj.status not in ("queued", "failed", "awaiting_payment", "processing", "paid"):
                 return False
 
             order_obj.status = "processing"
             order_obj.error_message = None
-            order_obj.started_processing_at = now
+            if not order_obj.started_processing_at:
+                order_obj.started_processing_at = now
             order_obj.updated_at = now
             session.commit()
             return True
@@ -582,15 +599,26 @@ class SqlOrderAdapter:
                     session.add(manifest_entry)
 
             # 3. Update Order Summary
-            order_obj.status = "awaiting_payment" if amount_in_cents > 0 else "completed"
+            if order_obj.payment_status == "approved" or order_obj.status in ("paid", "completed", "fulfilled"):
+                order_obj.status = "paid"
+                order_obj.delivery_delivered_at = now
+            else:
+                order_obj.status = "awaiting_payment" if amount_in_cents > 0 else "completed"
+
             order_obj.delivery_total_qualified = res.get("total_qualified", len(leads_data))
             order_obj.delivery_sample_teaser = res.get("sample_teaser", [])
-            order_obj.delivery_csv_path = res.get("csv_path")
-            order_obj.delivery_xlsx_path = res.get("xlsx_path")
-            order_obj.delivery_dossier_path = res.get("dossier_path")
-            order_obj.delivery_pdf_path = res.get("pdf_path")
+            order_obj.delivery_csv_path = res.get("csv_uri") or res.get("csv_path")
+            order_obj.delivery_xlsx_path = res.get("xlsx_uri") or res.get("xlsx_path")
+            order_obj.delivery_dossier_path = res.get("dossier_uri") or res.get("dossier_path")
+            order_obj.delivery_pdf_path = res.get("pdf_uri") or res.get("pdf_path")
             order_obj.delivery_playbook = res.get("playbook_cadences", [])
-            order_obj.metrics = res.get("metrics", {})
+
+            # Preserve existing metrics (such as telemetry keys) while updating with worker metrics
+            cur_metrics = dict(order_obj.metrics or {})
+            if res.get("metrics") and isinstance(res["metrics"], dict):
+                cur_metrics.update(res["metrics"])
+            order_obj.metrics = cur_metrics
+
             order_obj.completed_at = now
             order_obj.updated_at = now
 
@@ -600,6 +628,27 @@ class SqlOrderAdapter:
             if amount_in_cents == 0:
                 order_obj.delivery_delivered_at = now
 
+            session.commit()
+            return True
+
+    def update_telemetry(self, order_id: str, telemetry: Dict[str, Any], status: Optional[str] = None) -> bool:
+        """
+        Updates the telemetry state in the order's metrics JSON field in a language-agnostic manner.
+        Expected telemetry keys: phase, phase_key, step_index, progress_percent, etc.
+        """
+        with self._get_session() as session:
+            order_obj = session.get(OrderModel, order_id)
+            if not order_obj:
+                return False
+            cur_metrics = dict(order_obj.metrics or {})
+            cur_telemetry = dict(cur_metrics.get("telemetry") or {})
+            cur_telemetry.update(telemetry)
+            cur_telemetry["updated_at"] = datetime.now(timezone.utc).isoformat()
+            cur_metrics["telemetry"] = cur_telemetry
+            order_obj.metrics = cur_metrics
+            if status:
+                order_obj.status = status
+            order_obj.updated_at = datetime.now(timezone.utc)
             session.commit()
             return True
 
