@@ -1,7 +1,11 @@
+from datetime import timezone
+from datetime import datetime
 import hashlib
 import hmac
 import re
 import json
+import time
+import sys
 from fastapi import FastAPI, Depends, Request, HTTPException, BackgroundTasks, Query
 from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -1301,7 +1305,8 @@ def download_deliverable(order_id: str, file_type: str):
     blob_name = f"orders/{order_id}/{gcs_filename}"
 
     try:
-        from google.cloud import storage
+        import importlib
+        storage = importlib.import_module("google.cloud.storage")
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)

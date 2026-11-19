@@ -267,3 +267,44 @@ def test_brief_parser_city_disambiguation():
     dr_res = parser.parse_brief("15 proveedores en Santiago de los Caballeros para colegios", force_fallback=True)
     dr_cities = [(loc["country"], loc["city"]) for loc in dr_res["locations"]]
     assert ("DO", "Santiago") in dr_cities
+
+
+def test_profile_intent_use_case_no_synthetic_multiplier():
+    """
+    Tests that ProfileB2BIntentUseCase does NOT multiply the requested batch size by 4x,
+    maintains exact truth in advertising, and respects Dominican Republic DOP currency.
+    """
+    from src.application.use_cases.profile_b2b_intent_use_case import ProfileB2BIntentUseCase
+    use_case = ProfileB2BIntentUseCase()
+
+    res = use_case.execute("Busco clientes para espacios de oficinas en coworkings en República Dominicana, 100 de auditoría completa")
+    assert res["status"] == "success"
+    assert res["country"] == "DO"
+    assert res["recommended_limit"] == 100
+    # Must NOT multiply by 4 to invent 400
+    assert res["estimated_matches"] == 100
+    assert "400" not in res["summary_message"]
+    assert "Configuramos tu lote en 100 decisores" in res["summary_message"]
+    # Honors Tier 3 for auditoria
+    assert res["recommended_tier"] == 3
+    # Pricing in DOP
+    assert res["pricing"]["currency"] == "DOP"
+    assert res["campaign_id"] == "tinkko_dr_offices"
+
+
+def test_locales_no_competitor_mentions():
+    """
+    Tests that landing page localization files do not mention Apollo or ZoomInfo.
+    """
+    import json
+    import os
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    locales_dir = os.path.join(repo_root, "clients", "web", "src", "locales")
+
+    for fname in ["es_CO.json", "en_US.json"]:
+        fpath = os.path.join(locales_dir, fname)
+        if os.path.exists(fpath):
+            with open(fpath, "r", encoding="utf-8") as f:
+                content = f.read()
+                assert "Apollo" not in content, f"Found 'Apollo' mention in {fname}"
+                assert "ZoomInfo" not in content, f"Found 'ZoomInfo' mention in {fname}"

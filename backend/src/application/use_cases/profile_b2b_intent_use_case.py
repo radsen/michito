@@ -182,6 +182,7 @@ SAMPLE_PREVIEWS = {
     "tinkko_dr_offices": {
         "company_name": "Servicios Financieros & Fintech del Caribe S.R.L.",
         "masked_nit": "RNC 131.849.***",
+        "statutory_badge": "✓ RNC Vigente en DGII / Cámara de Comercio",
         "masked_decision_maker": "José Rafael C**** (Managing Director)",
         "title": "Director General / Country Manager",
         "masked_phone": "+1 809 542 ****",
@@ -192,6 +193,7 @@ SAMPLE_PREVIEWS = {
     "tinkko_ec_offices": {
         "company_name": "Soluciones Corporativas del Pacífico Cía. Ltda.",
         "masked_nit": "RUC 179248****",
+        "statutory_badge": "✓ RUC Vigente en SRI",
         "masked_decision_maker": "Esteban R**** (Gerente General)",
         "title": "Gerente General / Director de Operaciones",
         "masked_phone": "+593 99 482 ****",
@@ -260,10 +262,10 @@ class ProfileB2BIntentUseCase:
             if best_campaign in ("tinkko_enterprise_offices", "tinkko_ec_offices") or any(k in normalized for k in ["oficina", "oficinas", "coworking", "espacio", "sede"]):
                 best_campaign = "tinkko_ec_offices"
 
-        # 3. Recommend Tier (Tier 3 restricted to Colombia)
+        # 3. Recommend Tier
         recommended_tier = parsed_super_query.get("tier") or 2
-        if country_code != "CO" and recommended_tier == 3:
-            recommended_tier = 2
+        if any(w in normalized for w in ("auditoria", "auditoría", "niif", "balance", "solvencia", "legal", "diligencia")):
+            recommended_tier = 3
 
         # 4. Volume (Honor explicit volume from parsed query or regex)
         volume = parsed_super_query.get("limit") or 25
@@ -274,18 +276,21 @@ class ProfileB2BIntentUseCase:
             except Exception:
                 pass
 
-        pricing_matrix = {
-            1: {"unit_cop": 5000, "name": "Tier 1: Directorio Base Corporativo"},
-            2: {"unit_cop": 30000, "name": "Tier 2: Decisor C-Level (Celular & Email Verificado) ⭐"},
-            3: {"unit_cop": 65000, "name": "Tier 3: Auditoría Financiera & Debida Diligencia 🛡️"},
-        }
-        tier_info = pricing_matrix.get(recommended_tier, pricing_matrix[2])
-        unit_price_cop = tier_info["unit_cop"]
-        total_price_cop = unit_price_cop * volume
+        # Financial Model Pricing in Local Currency
+        target_currency = "USD" if country_code in ("MULTI", "EC") else ("DOP" if country_code == "DO" else "COP")
+        from src.entrypoints.workers.order_worker_daemon import calculate_lead_pricing
+        total_cents = calculate_lead_pricing(volume, tier=recommended_tier, currency=target_currency)
+        total_price = total_cents / 100.0
+        unit_price = total_price / max(1, volume)
 
-        # 5. Rapid Market Universe Estimation
-        market_depth_multiplier = 4 if target_city in ("Bogotá", "Medellín", "Santo Domingo", "Quito") else 3
-        estimated_matches = max(volume * market_depth_multiplier, 95)
+        tier_names = {
+            1: "Tier 1: Directorio Base Corporativo",
+            2: "Tier 2: Decisor C-Level (Celular & Email Verificado) ⭐",
+            3: "Tier 3: Auditoría Financiera & Debida Diligencia 🛡️",
+        }
+
+        # 5. Exact Requested Batch (Truth in Advertising - No Synthetic Multipliers)
+        estimated_matches = volume
 
         # 6. Retrieve Representative Teaser Sample
         sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS.get("tinkko_dr_offices" if country_code == "DO" else "tinkko_ec_offices" if country_code == "EC" else "tinkko_enterprise_offices"))
@@ -297,9 +302,8 @@ class ProfileB2BIntentUseCase:
         campaign_name = campaign_config.get("name", best_campaign)
 
         summary_msg = (
-            f"Encontramos aproximadamente {estimated_matches} cuentas/instituciones en {target_city} "
-            f"con alta afinidad para tu propuesta. "
-            f"Configuramos tu lote en {volume} decisores clave verificados."
+            f"Configuramos tu lote en {volume} decisores clave verificados en {target_city} "
+            f"con alta afinidad para tu propuesta."
         )
 
         return {
@@ -325,11 +329,13 @@ class ProfileB2BIntentUseCase:
             "query_id": parsed_super_query.get("query_id"),
             "pricing": {
                 "tier": recommended_tier,
-                "tier_name": tier_info["name"],
-                "unit_price_cop": unit_price_cop,
+                "tier_name": tier_names.get(recommended_tier, tier_names[2]),
+                "unit_price": unit_price,
+                "unit_price_cop": int(unit_price),
                 "volume": volume,
-                "total_cop": total_price_cop,
-                "currency": "DOP" if country_code == "DO" else "COP",
+                "total_amount": total_price,
+                "total_cop": total_price,
+                "currency": target_currency,
                 "guarantee": "Solo pagas por cuentas que superen el 100% de los filtros de verificación.",
             },
             "summary_message": summary_msg,

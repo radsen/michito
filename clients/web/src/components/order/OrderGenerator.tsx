@@ -434,6 +434,7 @@ export const OrderGenerator: React.FC = () => {
 
   const handlePresetChange = (presetId: string) => {
     setSelectedPresetId(presetId);
+    setDiscoveryResult(null);
     dispatch(selectCampaign(presetId));
 
     if (presetId === "custom") {
@@ -542,6 +543,12 @@ export const OrderGenerator: React.FC = () => {
             },
           ]);
         }
+        if (res.country || res.pricing?.currency) {
+          const newCur: SupportedCurrency =
+            (res.pricing?.currency as SupportedCurrency) ||
+            (res.country === "DO" ? "DOP" : res.country === "EC" ? "USD" : "COP");
+          dispatch(setCurrency(newCur));
+        }
         const safeTier = (res.recommended_tier === 1 || res.recommended_tier === 3
           ? res.recommended_tier
           : 2) as 1 | 2 | 3;
@@ -624,7 +631,7 @@ export const OrderGenerator: React.FC = () => {
           referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
         request: {
-          campaign_id: selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting",
+          campaign_id: discoveryResult?.campaign_id || (selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting"),
           country: primaryCountry,
           city: primaryCity,
           limit: volume,
@@ -690,7 +697,7 @@ export const OrderGenerator: React.FC = () => {
           referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
         request: {
-          campaign_id: selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting",
+          campaign_id: discoveryResult?.campaign_id || (selectedPresetId !== "custom" ? selectedPresetId : "universal_prospecting"),
           country: primaryCountry,
           city: primaryCity,
           limit: volume,
@@ -1064,7 +1071,7 @@ export const OrderGenerator: React.FC = () => {
                           <div>
                             <span className="discovery-match-badge">
                               <CheckCircle2 style={{ width: 16, height: 16 }} />
-                              {discoveryResult.estimated_matches} {g.discoveryMatches}{" "}
+                              {discoveryResult.recommended_limit} {g.discoveryMatches}{" "}
                               {discoveryResult.city}
                             </span>
                             <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
@@ -1076,8 +1083,11 @@ export const OrderGenerator: React.FC = () => {
                               {g.suggestedBatch}
                             </span>
                             <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
-                              {discoveryResult.recommended_limit} {g.directContactsUnit} (
-                              {formatCop(discoveryResult.pricing?.total_cop || 0)} COP)
+                              {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
+                              {formatCurrencyAmount(
+                                discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
+                                (discoveryResult.pricing?.currency as SupportedCurrency) || currency
+                              )})
                             </strong>
                           </div>
                         </div>
@@ -1095,7 +1105,14 @@ export const OrderGenerator: React.FC = () => {
                               {discoveryResult.sample_preview.title})
                             </div>
                             <div className="discovery-sample-badges">
-                              <span className="discovery-sample-badge">{g.sampleBadgeNit}</span>
+                              <span className="discovery-sample-badge">
+                                {discoveryResult.sample_preview.statutory_badge || (
+                                  discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
+                                  discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
+                                  discoveryResult.country === "CL" ? "✓ RUT Vigente" :
+                                  g.sampleBadgeNit
+                                )}
+                              </span>
                               <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
                               <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
                             </div>
