@@ -16,8 +16,8 @@ CITY_MAPPINGS = {
     "medellín": "Medellín",
     "antioquia": "Medellín",
     "aburra": "Medellín",
-    "envigado": "Medellín",
-    "itagui": "Medellín",
+    "envigado": "Envigado",
+    "itagui": "Itagüí",
     "bogota": "Bogotá",
     "bogotá": "Bogotá",
     "cundinamarca": "Bogotá",
@@ -33,14 +33,31 @@ CITY_MAPPINGS = {
     "bolívar": "Cartagena",
     "pereira": "Pereira",
     "manizales": "Manizales",
+    "republica dominicana": "Santo Domingo",
+    "república dominicana": "Santo Domingo",
+    "dominicana": "Santo Domingo",
     "santo domingo": "Santo Domingo",
+    "santiago de los caballeros": "Santiago",
     "santiago": "Santiago",
+    "punta cana": "Punta Cana",
+    "ecuador": "Quito",
+    "quito": "Quito",
+    "guayaquil": "Guayaquil",
+    "cuenca": "Cuenca",
 }
 
 SECTOR_KEYWORDS = {
     "tinkko_enterprise_offices": [
         "oficina", "oficinas", "espacio", "espacios", "sede", "sedes", "coworking",
         "edificio", "arriendo corporativo", "mudanza", "crecimiento", "piso corporativo"
+    ],
+    "tinkko_dr_offices": [
+        "republica dominicana", "república dominicana", "dominicana", "santo domingo", "santiago",
+        "caribe", "oficinas rd", "b2b dominicana", "punta cana"
+    ],
+    "tinkko_ec_offices": [
+        "ecuador", "quito", "guayaquil", "cuenca", "pichincha", "guayas",
+        "oficinas ecuador", "b2b ecuador"
     ],
     "eventos_ferias_b2b": [
         "feria", "ferias", "evento", "eventos", "expositor", "expositores", "stand",
@@ -172,6 +189,16 @@ SAMPLE_PREVIEWS = {
         "annual_revenue_range": "RD$ 25M - RD$ 60M DOP",
         "signals": "Apertura de operaciones en Santo Domingo (Piantini / Naco)",
     },
+    "tinkko_ec_offices": {
+        "company_name": "Soluciones Corporativas del Pacífico Cía. Ltda.",
+        "masked_nit": "RUC 179248****",
+        "masked_decision_maker": "Esteban R**** (Gerente General)",
+        "title": "Gerente General / Director de Operaciones",
+        "masked_phone": "+593 99 482 ****",
+        "masked_email": "e.reyes****@pacificocorporativo.ec",
+        "annual_revenue_range": "$1.200M - $3.500M USD",
+        "signals": "Expansión comercial en Quito (La Carolina / Iñaquito)",
+    },
 }
 
 
@@ -185,22 +212,32 @@ class ProfileB2BIntentUseCase:
 
     def execute(self, query: str, country: Optional[str] = "CO") -> Dict[str, Any]:
         normalized = query.lower().strip()
-        country_code = (country or "CO").upper()
+        default_country = (country or "CO").upper()
 
         # Parse universal intent parameters via BriefParserService
         parsed_super_query = self.brief_parser.parse_brief(query)
 
-        # 1. Detect City
-        target_city = "Medellín" if country_code == "CO" else "Santo Domingo"
-        for keyword, mapped_city in CITY_MAPPINGS.items():
-            if re.search(rf"\b{re.escape(keyword)}\b", normalized):
-                target_city = mapped_city
-                if mapped_city in ("Santo Domingo", "Santiago"):
-                    country_code = "DO"
-                break
+        # 1. Detect Country and City directly from parsed_super_query first, with fallback to query text
+        detected_locs = parsed_super_query.get("locations") or []
+        if detected_locs:
+            primary_loc = detected_locs[0]
+            country_code = (primary_loc.get("country") or default_country).upper()
+            target_city = primary_loc.get("city") or primary_loc.get("region") or ("Santo Domingo" if country_code == "DO" else "Quito" if country_code == "EC" else "Medellín")
+        else:
+            primary_token_country = parsed_super_query.get("discovered_tokens", {}).get("primary_country")
+            country_code = primary_token_country.upper() if primary_token_country else default_country
+            target_city = "Medellín" if country_code == "CO" else "Santo Domingo" if country_code == "DO" else "Quito"
+            for keyword, mapped_city in CITY_MAPPINGS.items():
+                if re.search(rf"\b{re.escape(keyword)}\b", normalized):
+                    target_city = mapped_city
+                    if mapped_city in ("Santo Domingo", "Santiago", "Punta Cana"):
+                        country_code = "DO"
+                    elif mapped_city in ("Quito", "Guayaquil", "Cuenca"):
+                        country_code = "EC"
+                    break
 
-        # 2. Match Campaign / Vertical
-        best_campaign = "tinkko_enterprise_offices" if country_code == "CO" else "tinkko_dr_offices"
+        # 2. Match Campaign / Vertical with Multi-Country Awareness
+        best_campaign = "tinkko_enterprise_offices" if country_code == "CO" else "tinkko_dr_offices" if country_code == "DO" else "tinkko_ec_offices"
         highest_score = 0
         matched_keywords = []
 
@@ -216,24 +253,26 @@ class ProfileB2BIntentUseCase:
                 best_campaign = campaign_id
                 matched_keywords = current_matched
 
-        if country_code == "DO" and best_campaign == "tinkko_enterprise_offices":
-            best_campaign = "tinkko_dr_offices"
+        if country_code == "DO":
+            if best_campaign in ("tinkko_enterprise_offices", "tinkko_dr_offices") or any(k in normalized for k in ["oficina", "oficinas", "coworking", "espacio", "sede"]):
+                best_campaign = "tinkko_dr_offices"
+        elif country_code == "EC":
+            if best_campaign in ("tinkko_enterprise_offices", "tinkko_ec_offices") or any(k in normalized for k in ["oficina", "oficinas", "coworking", "espacio", "sede"]):
+                best_campaign = "tinkko_ec_offices"
 
-        # 3. Recommend Tier based on criteria
-        recommended_tier = 2
-        if any(term in normalized for term in ["financiero", "balance", "ebitda", "solvencia", "litigio", "demanda", "riesgo"]):
-            recommended_tier = 3
-        elif any(term in normalized for term in ["directorio", "base basica", "pbx", "masivo", "tier 1"]):
-            recommended_tier = 1
+        # 3. Recommend Tier (Tier 3 restricted to Colombia)
+        recommended_tier = parsed_super_query.get("tier") or 2
+        if country_code != "CO" and recommended_tier == 3:
+            recommended_tier = 2
 
-        # 4. Determine Volume & Pricing (Honor explicit client requests, e.g. "100 colegios")
-        volume = 25  # Standard conversion-optimized batch
+        # 4. Volume (Honor explicit volume from parsed query or regex)
+        volume = parsed_super_query.get("limit") or 25
         vol_match = re.search(r"\b(10|25|50|100|150|200|300|500)\s*(?:colegios|empresas|cuentas|leads|prospectos|contactos)?\b", normalized)
         if vol_match:
             try:
                 volume = int(vol_match.group(1))
             except Exception:
-                volume = 25
+                pass
 
         pricing_matrix = {
             1: {"unit_cop": 5000, "name": "Tier 1: Directorio Base Corporativo"},
@@ -244,23 +283,21 @@ class ProfileB2BIntentUseCase:
         unit_price_cop = tier_info["unit_cop"]
         total_price_cop = unit_price_cop * volume
 
-        # 5. Rapid Market Universe Estimation (Sub-50ms Response Guarantee)
-        # Avoid synchronous heavy SODA network scraping during interactive profiling
-        market_depth_multiplier = 4 if target_city in ("Bogotá", "Medellín") else 3
+        # 5. Rapid Market Universe Estimation
+        market_depth_multiplier = 4 if target_city in ("Bogotá", "Medellín", "Santo Domingo", "Quito") else 3
         estimated_matches = max(volume * market_depth_multiplier, 95)
 
         # 6. Retrieve Representative Teaser Sample
-        sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS["tinkko_enterprise_offices"])
-        # Adapt city to query if relevant
+        sample = SAMPLE_PREVIEWS.get(best_campaign, SAMPLE_PREVIEWS.get("tinkko_dr_offices" if country_code == "DO" else "tinkko_ec_offices" if country_code == "EC" else "tinkko_enterprise_offices"))
         sample_copy = dict(sample)
         if "city" not in sample_copy:
             sample_copy["city"] = target_city
 
-        campaign_config = load_campaign(best_campaign)
+        campaign_config = load_campaign(best_campaign) if best_campaign else {}
         campaign_name = campaign_config.get("name", best_campaign)
 
         summary_msg = (
-            f"Encontramos aproximadamente {estimated_matches} cuentas/instituciones en {target_city} y su área metropolitana "
+            f"Encontramos aproximadamente {estimated_matches} cuentas/instituciones en {target_city} "
             f"con alta afinidad para tu propuesta. "
             f"Configuramos tu lote en {volume} decisores clave verificados."
         )

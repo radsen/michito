@@ -350,9 +350,8 @@ class BriefParserService:
     def _parse_with_gemini_flash(self, prompt: str) -> Dict[str, Any]:
         """
         Parses complex or unstructured briefs using Gemini Flash via HTTP REST.
+        Tries latest production Gemini Flash models with graceful fallback.
         """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
-
         system_instruction = (
             "You are Michito AI, an expert B2B prospecting & procurement briefing engine "
             "for Colombia 🇨🇴, Dominican Republic 🇩🇴, and Ecuador 🇪🇨.\n"
@@ -382,13 +381,24 @@ class BriefParserService:
             },
         }
 
-        with httpx.Client(timeout=3.0) as client:
-            resp = client.post(url, json=body)
-            resp.raise_for_status()
-            data = resp.json()
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        last_error = None
 
-        text_response = data["candidates"][0]["content"]["parts"][0]["text"]
-        result = json.loads(text_response)
+        for model_name in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+            try:
+                with httpx.Client(timeout=6.0) as client:
+                    resp = client.post(url, json=body)
+                    resp.raise_for_status()
+                    data = resp.json()
+                text_response = data["candidates"][0]["content"]["parts"][0]["text"]
+                result = json.loads(text_response)
+                break
+            except Exception as e:
+                last_error = e
+                continue
+        else:
+            raise RuntimeError(f"All Gemini Flash models failed. Last error: {last_error}")
 
         # Basic sanitization
         if "directionality" not in result or result["directionality"] not in ("vendor_to_clients", "client_to_vendors"):
