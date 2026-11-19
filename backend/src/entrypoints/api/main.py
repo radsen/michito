@@ -752,9 +752,9 @@ def get_prospecting_order(order_id: str):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # On-the-fly Self-Healing: If an unpaid order is stuck in 'processing' (>180s), auto-reset to awaiting_payment
+    # On-the-fly Self-Healing: If an unpaid order is stuck in 'processing' or 'queued' (>180s), auto-reset
     order_status = (order.get("status") or "").lower()
-    if order_status == "processing":
+    if order_status in ("processing", "queued"):
         payment_status = (order.get("payment", {}).get("status") or "").upper()
         if payment_status != "APPROVED":
             started = order.get("started_processing_at") or order.get("created_at")
@@ -780,8 +780,10 @@ def get_prospecting_order(order_id: str):
                 is_stuck = True
 
             if is_stuck:
-                logger.info(f"[SelfHealing] Auto-recovering stuck unpaid order `{order_id}` from 'processing' to 'awaiting_payment'.")
-                sql_adapter.update_telemetry(order_id, {}, status="awaiting_payment")
+                has_sample = bool(order.get("sample_leads"))
+                target_status = "awaiting_payment" if has_sample else "failed"
+                logger.info(f"[SelfHealing] Auto-recovering stuck unpaid order `{order_id}` from '{order_status}' to '{target_status}'.")
+                sql_adapter.update_telemetry(order_id, {}, status=target_status)
                 order = sql_adapter.get_order(order_id) or order
 
     client_email = order.get("client", {}).get("email") or ""

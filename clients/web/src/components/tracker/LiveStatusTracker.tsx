@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
-import { updateOrderStatus, resetOrder } from "../../store/slices/orderSlice";
+import { updateOrderStatus, resetOrder, orderFailed } from "../../store/slices/orderSlice";
 import { useGetOrderQuery, useClaimLeadReplacementMutation } from "../../store/api/michitoApi";
 import { SampleTeaserTable } from "./SampleTeaserTable";
 import { OutreachPlaybook } from "./OutreachPlaybook";
@@ -42,6 +42,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const {
     activeOrderId,
     orderStatus,
+    errorMessage,
     teaserLeads,
     totalLeadsTarget,
     totalQualified,
@@ -105,17 +106,35 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   };
 
   // Poll every 2.5 seconds while active order is in flight
-  const shouldPoll = Boolean(activeOrderId) && orderStatus !== "paid" && orderStatus !== "error";
-  const { data: orderData, refetch, isFetching } = useGetOrderQuery(activeOrderId || "", {
-    skip: !activeOrderId,
-    pollingInterval: shouldPoll ? 2500 : 0,
-  });
+  const shouldPoll =
+    Boolean(activeOrderId) &&
+    orderStatus !== "paid" &&
+    orderStatus !== "error" &&
+    orderStatus !== "failed";
+  const { data: orderData, refetch, isFetching, isError, error } = useGetOrderQuery(
+    activeOrderId || "",
+    {
+      skip: !activeOrderId,
+      pollingInterval: shouldPoll ? 2500 : 0,
+    }
+  );
 
   const isQueued = orderStatus === "queued";
   const isProcessing = orderStatus === "processing";
   const isAwaitingPayment = orderStatus === "awaiting_payment";
   const isPaid = orderStatus === "paid";
   const isFailed = orderStatus === "failed" || orderStatus === "error";
+
+  // Handle API error (e.g. 404 Not Found in this environment)
+  useEffect(() => {
+    if (isError) {
+      const errDetail =
+        (error as any)?.data?.detail ||
+        (error as any)?.message ||
+        "Orden no encontrada en este entorno.";
+      dispatch(orderFailed(errDetail));
+    }
+  }, [isError, error, dispatch]);
 
   // Server-Sent Events (SSE) Stream Listener with auto-reconnection for live telemetry
   useEffect(() => {
@@ -575,7 +594,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 {dict.tracker.failedCardTitle}
               </h4>
               <p className="order-failed-desc">
-                {orderData?.error_message || dict.tracker.failedCardFallback}
+                {orderData?.error_message || errorMessage || dict.tracker.failedCardFallback}
               </p>
               <div className="order-failed-actions">
                 <button

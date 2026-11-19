@@ -9,7 +9,7 @@ import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
-from sqlalchemy import create_engine, select, update, and_, not_
+from sqlalchemy import create_engine, select, update, and_, not_, or_
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -359,9 +359,17 @@ class SqlOrderAdapter:
         with self._get_session() as session:
             stmt = select(OrderModel).where(
                 and_(
-                    OrderModel.status == "processing",
-                    OrderModel.started_processing_at.is_not(None),
-                    OrderModel.started_processing_at < cutoff_time
+                    OrderModel.status.in_(["processing", "queued"]),
+                    or_(
+                        and_(
+                            OrderModel.started_processing_at.is_not(None),
+                            OrderModel.started_processing_at < cutoff_time,
+                        ),
+                        and_(
+                            OrderModel.started_processing_at.is_(None),
+                            OrderModel.created_at < cutoff_time,
+                        ),
+                    ),
                 )
             )
             if not self.database_url.startswith("sqlite"):
