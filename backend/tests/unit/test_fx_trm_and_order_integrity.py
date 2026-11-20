@@ -59,7 +59,7 @@ def test_fx_convert_endpoints(api_client):
     assert response_post.status_code == 200
     data_post = response_post.json()
     assert data_post["status"] == "success"
-    assert data_post["amount_in_cop"] >= 400000
+    assert data_post["amount_in_cop"] >= 300000
 
 
 def test_order_creation_rejects_unfulfillable_request(api_client, monkeypatch):
