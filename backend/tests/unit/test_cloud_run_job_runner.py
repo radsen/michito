@@ -40,7 +40,7 @@ def test_job_runner_idempotency_already_fulfilled():
         assert result is True
 
 
-def test_job_runner_full_successful_flow():
+def test_job_runner_paid_order_delivers_files():
     with patch("src.entrypoints.workers.job_runner.SqlOrderAdapter") as MockSql, \
          patch("src.entrypoints.workers.job_runner.OrderWorkerDaemon") as MockDaemon, \
          patch("src.entrypoints.workers.job_runner.DeliverOrderUseCase") as MockDeliver:
@@ -48,7 +48,8 @@ def test_job_runner_full_successful_flow():
         mock_sql = MagicMock()
         mock_sql.get_order.return_value = {
             "order_id": "ord_test_flow",
-            "status": "awaiting_payment",
+            "status": "paid",
+            "payment": {"status": "approved"},
             "client": {"name": "Test Client", "email": "client@test.com"},
             "delivery": {},
             "request": {"limit": 10},
@@ -70,6 +71,45 @@ def test_job_runner_full_successful_flow():
         assert mock_sql.update_telemetry.call_count >= 2
         mock_daemon.process_order.assert_called_once()
         mock_deliver.execute.assert_called_once_with("ord_test_flow")
+
+
+def test_job_runner_unpaid_intake_sets_ready_for_review_without_premature_delivery():
+    with patch("src.entrypoints.workers.job_runner.SqlOrderAdapter") as MockSql, \
+         patch("src.entrypoints.workers.job_runner.OrderWorkerDaemon") as MockDaemon, \
+         patch("src.entrypoints.workers.job_runner.DeliverOrderUseCase") as MockDeliver, \
+         patch("src.entrypoints.workers.job_runner.OmnichannelDeliveryAdapter") as MockDelivery:
+
+        mock_sql = MagicMock()
+        mock_sql.get_order.return_value = {
+            "order_id": "ord_test_unpaid",
+            "status": "intake_submitted",
+            "payment": {"status": "pending"},
+            "client": {"name": "Test Client", "email": "client@test.com"},
+            "delivery": {},
+            "request": {"limit": 10},
+        }
+        MockSql.return_value = mock_sql
+
+        mock_daemon = MagicMock()
+        mock_daemon.process_order.return_value = True
+        MockDaemon.return_value = mock_daemon
+
+        mock_deliver = MagicMock()
+        MockDeliver.return_value = mock_deliver
+
+        mock_delivery_inst = MagicMock()
+        MockDelivery.return_value = mock_delivery_inst
+
+        result = run_batch_job("ord_test_unpaid")
+        assert result is True
+
+        # Must process order and lock quote/teasers, but MUST NOT leak deliverables prior to payment
+        mock_daemon.process_order.assert_called_once()
+        mock_deliver.execute.assert_not_called()
+
+        # Must notify buyer about review readiness
+        mock_delivery_inst.send_ready_for_review_notification.assert_called_once()
+        mock_sql.mark_ready_notified.assert_called_once_with("ord_test_unpaid")
 
 
 def test_cloud_run_job_adapter_local_fallback():

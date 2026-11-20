@@ -296,7 +296,12 @@ export const OrderGenerator: React.FC = () => {
     total,
     totalCop,
   } = useSelector((state: RootState) => state.pricing);
-  const { activeOrderId } = useSelector((state: RootState) => state.order);
+  const {
+    activeOrderId,
+    buyerName: persistedBuyerName,
+    buyerEmail: persistedBuyerEmail,
+    buyerPhone: persistedBuyerPhone,
+  } = useSelector((state: RootState) => state.order);
   const partner = useSelector((state: RootState) => state.partner);
   const g = dict.generator;
 
@@ -336,9 +341,9 @@ export const OrderGenerator: React.FC = () => {
   const [rfqSpecifications, setRfqSpecifications] = useState<string>("");
 
   // Buyer Info State
-  const [buyerName, setLocalName] = useState("Demo Lead Buyer");
-  const [buyerEmail, setLocalEmail] = useState("buyer@demo.com");
-  const [buyerPhone, setLocalPhone] = useState("+573001234567");
+  const [buyerName, setLocalName] = useState(persistedBuyerName || "");
+  const [buyerEmail, setLocalEmail] = useState(persistedBuyerEmail || "");
+  const [buyerPhone, setLocalPhone] = useState(persistedBuyerPhone || "");
   const [formError, setFormError] = useState<string | null>(null);
 
   // Exclusions Drawer & Tag State
@@ -636,7 +641,7 @@ export const OrderGenerator: React.FC = () => {
         client: {
           name: buyerName,
           email: buyerEmail,
-          phone: buyerPhone || "+573000000000",
+          phone: buyerPhone.trim() ? buyerPhone.trim() : undefined,
           channel: "web_portal",
           referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
@@ -703,7 +708,7 @@ export const OrderGenerator: React.FC = () => {
         client: {
           name: buyerName,
           email: buyerEmail,
-          phone: buyerPhone || "+573000000000",
+          phone: buyerPhone.trim() ? buyerPhone.trim() : undefined,
           channel: "web_portal",
           referral_partner: partner.isAffiliate ? partner.partnerId : "direct",
         },
@@ -1715,7 +1720,6 @@ export const OrderGenerator: React.FC = () => {
                     </label>
                     <input
                       type="tel"
-                      required
                       placeholder={g.buyerPhonePlaceholder}
                       value={buyerPhone}
                       onChange={(e) => setLocalPhone(e.target.value)}

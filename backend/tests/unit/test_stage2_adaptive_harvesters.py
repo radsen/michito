@@ -37,45 +37,47 @@ def test_colombia_soda_ladder_furniture_maintenance():
 
 
 def test_dominican_republic_dgcp_rubro_mapping():
-    adapter = DgcpDrAdapter(timeout=5)
-    # Search with CIIU 8530 (Education)
-    candidates_edu = adapter.fetch_candidates(
-        city="Santo Domingo",
-        limit=2,
-        ciiu_codes=["8530"],
-    )
-    assert len(candidates_edu) > 0
-    assert any("educaci" in c["sector"].lower() or "colegio" in c["company_name"].lower() or "school" in c["company_name"].lower() for c in candidates_edu)
+    with patch.object(DgcpDrAdapter, "_query_api", return_value={}):
+        adapter = DgcpDrAdapter(timeout=5)
+        # Search with CIIU 8530 (Education)
+        candidates_edu = adapter.fetch_candidates(
+            city="Santo Domingo",
+            limit=2,
+            ciiu_codes=["8530"],
+        )
+        assert len(candidates_edu) > 0
+        assert any("educaci" in c["sector"].lower() or "colegio" in c["company_name"].lower() or "school" in c["company_name"].lower() for c in candidates_edu)
 
-    # Search with CIIU 3100 / 9524 (Furniture)
-    candidates_furn = adapter.fetch_candidates(
-        city="Santo Domingo",
-        limit=2,
-        ciiu_codes=["3100", "9524"],
-    )
-    assert len(candidates_furn) > 0
-    assert any("mueble" in c["sector"].lower() or "siller" in c["sector"].lower() for c in candidates_furn)
+        # Search with CIIU 3100 / 9524 (Furniture)
+        candidates_furn = adapter.fetch_candidates(
+            city="Santo Domingo",
+            limit=2,
+            ciiu_codes=["3100", "9524"],
+        )
+        assert len(candidates_furn) > 0
+        assert any("mueble" in c["sector"].lower() or "siller" in c["sector"].lower() for c in candidates_furn)
 
 
 def test_ecuador_sercop_cpc_mapping():
-    adapter = SercopEcuadorAdapter(timeout=5)
-    # Search with CIIU 8530 (Education)
-    candidates_edu = adapter.fetch_candidates(
-        city="Quito",
-        limit=2,
-        ciiu_codes=["8530"],
-    )
-    assert len(candidates_edu) > 0
-    assert any("educaci" in c["sector"].lower() or "colegio" in c["company_name"].lower() or "school" in c["company_name"].lower() for c in candidates_edu)
+    with patch.object(SercopEcuadorAdapter, "_query_api", return_value={}):
+        adapter = SercopEcuadorAdapter(timeout=5)
+        # Search with CIIU 8530 (Education)
+        candidates_edu = adapter.fetch_candidates(
+            city="Quito",
+            limit=2,
+            ciiu_codes=["8530"],
+        )
+        assert len(candidates_edu) > 0
+        assert any("educaci" in c["sector"].lower() or "colegio" in c["company_name"].lower() or "school" in c["company_name"].lower() for c in candidates_edu)
 
-    # Search with CIIU 3100 (Furniture)
-    candidates_furn = adapter.fetch_candidates(
-        city="Quito",
-        limit=2,
-        ciiu_codes=["3100"],
-    )
-    assert len(candidates_furn) > 0
-    assert any("mueble" in c["sector"].lower() or "siller" in c["sector"].lower() for c in candidates_furn)
+        # Search with CIIU 3100 (Furniture)
+        candidates_furn = adapter.fetch_candidates(
+            city="Quito",
+            limit=2,
+            ciiu_codes=["3100"],
+        )
+        assert len(candidates_furn) > 0
+        assert any("mueble" in c["sector"].lower() or "siller" in c["sector"].lower() for c in candidates_furn)
 
 
 def test_multi_country_procurement_auto_rfq_e2e(tmp_path):

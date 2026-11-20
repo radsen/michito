@@ -147,6 +147,8 @@ class OrderModel(Base):
 
     # Deliverables & Quality Teaser
     delivery_total_qualified: Any = Column(Integer, default=0)
+    verified_yield: Any = Column(Integer, nullable=True, default=0)
+    ready_notified_at: Any = Column(DateTime, nullable=True)
     delivery_sample_teaser: Any = Column(JSON, nullable=True)
     delivery_csv_path: Any = Column(Text, nullable=True)
     delivery_xlsx_path: Any = Column(Text, nullable=True)
@@ -214,6 +216,8 @@ class OrderModel(Base):
                 "exclusions": self.keywords_exclude,
             },
             "status": self.status,
+            "verified_yield": self.verified_yield or 0,
+            "ready_notified_at": OrderModel._to_iso_utc(self.ready_notified_at),
             "payment": {
                 "provider": self.payment_provider,
                 "status": self.payment_status,
@@ -223,7 +227,9 @@ class OrderModel(Base):
                 "paid_at": OrderModel._to_iso_utc(self.payment_paid_at),
             },
             "delivery": {
-                "total_qualified": self.delivery_total_qualified,
+                "total_qualified": self.delivery_total_qualified or self.verified_yield or 0,
+                "verified_yield": self.verified_yield or self.delivery_total_qualified or 0,
+                "ready_notified_at": OrderModel._to_iso_utc(self.ready_notified_at),
                 "sample_teaser": self.delivery_sample_teaser or [],
                 "csv_path": self.delivery_csv_path,
                 "xlsx_path": self.delivery_xlsx_path,

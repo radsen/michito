@@ -740,14 +740,6 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             limit=3,
         )
 
-        # STRICT INTEGRITY: If zero verified leads found or official registry returned 403,
-        # fail fast with 422 to prevent quoting or charging for unfulfillable leads.
-        if len(masked_samples) == 0:
-            raise HTTPException(
-                status_code=422,
-                detail="No fue posible encontrar la información solicitada en este momento. El registro oficial no está disponible o no se encontraron empresas para este criterio. No es posible generar una orden sin prospectos verificados."
-            )
-
         total_price_cents = calculate_lead_pricing(
             total_qualified=limit,
             tier=target_tier,
@@ -789,19 +781,31 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             location_allocations=normalized_locations,
             directionality=payload.request.directionality or "vendor_to_clients",
             rfq_specifications=payload.request.rfq_specifications,
-            status="awaiting_payment",
+            status="intake_submitted",
+            verified_yield=0,
             payment_amount_in_cents=total_price_cents,
             delivery_sample_teaser=masked_samples,
-            delivery_total_qualified=limit,
+            delivery_total_qualified=0,
         )
 
         stream_token = generate_order_stream_token(order["order_id"], client_email_clean)
 
+        # Asynchronously trigger decoupled batch harvesting job (skipped in automated tests to prevent thread lock collisions)
+        is_test_env = "pytest" in sys.modules or os.environ.get("TESTING") == "1"
+        if not is_test_env:
+            try:
+                from src.adapters.jobs.cloud_run_job_adapter import CloudRunJobAdapter
+                job_adapter = CloudRunJobAdapter()
+                job_adapter.trigger_batch_harvesting_job(order["order_id"])
+                logger.info(f"[OrdersApi] Asynchronous batch harvesting job triggered for `{order['order_id']}`.")
+            except Exception as job_err:
+                logger.error(f"[OrdersApi] Could not trigger async harvesting job for `{order['order_id']}`: {job_err}")
+
         try:
             if hasattr(app_container, "alert_dispatcher"):
                 app_container.alert_dispatcher.send_feed_event(
-                    "New Order Quoted (Radar Scan Ready)",
-                    f"Order `{order['order_id']}` quoted for *{payload.client.name}* ({payload.client.email}). Awaiting payment authorization.",
+                    "New Order Intake Submitted",
+                    f"Order `{order['order_id']}` received for *{payload.client.name}* ({payload.client.email}). Auditing official registries in background.",
                     details={
                         "order_id": order["order_id"],
                         "client": payload.client.name,
@@ -809,7 +813,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
                         "city": payload.request.city or "Medellín",
                         "requested_leads": limit,
                         "tier": f"Tier {target_tier}",
-                        "total_cop": f"${total_price_cop:,.0f} COP",
+                        "estimated_cop": f"${total_price_cop:,.0f} COP",
                     },
                 )
         except Exception as e:
@@ -818,7 +822,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
         return {
             "status": "success",
             "order_id": order["order_id"],
-            "order_status": "awaiting_payment",
+            "order_status": "intake_submitted",
             "stream_token": stream_token,
             "currency": currency,
             "payment_currency": currency,
@@ -829,8 +833,8 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             "exchange_rate": fx_conversion.get("rate_used", 1.0),
             "sample_teaser": masked_samples,
             "sample_leads": masked_samples,
-            "estimated_processing_seconds": 2,
-            "message": "Radar scan complete. 3 verified sample accounts ready for review.",
+            "estimated_processing_seconds": 60,
+            "message": "Solicitud recibida. Auditando registros oficiales y validando buzones institucionales...",
             "order": order,
         }
     except HTTPException:
@@ -914,26 +918,21 @@ async def stream_order_progress(order_id: str, token: str = Query(None)):
             status = current_order.get("status", "queued")
             elapsed = int(time.time() - start_time)
 
-            if status == "queued":
+            if status in ("queued", "intake_submitted"):
                 step = "ingestion"
                 step_idx = 1
                 pct = 15
-                msg = "Orden en cola. Inicializando recolector territorial..."
+                msg = "Solicitud recibida. Asignando recolector y auditando registros oficiales..."
             elif status == "processing":
                 step = "verification"
                 step_idx = 2
                 pct = 60
                 msg = "Auditando registros mercantiles, dominios HTTP y sockets MX..."
-            elif status == "awaiting_payment":
-                step = "awaiting_payment"
+            elif status in ("ready_for_review", "awaiting_payment"):
+                step = "ready_for_review"
                 step_idx = 3
-                pct = 35
-                msg = "Muestra de prospectos calificada. Esperando autorización de pago para procesar lote completo."
-            elif status == "processing":
-                step = "verification"
-                step_idx = 4
-                pct = 60
-                msg = "Auditando registros mercantiles, dominios HTTP y sockets MX..."
+                pct = 90
+                msg = "Lote verificado y calificado. Cotización exacta y muestra listas para revisión."
             elif status in ("paid", "completed", "fulfilled"):
                 step = "completed"
                 step_idx = 4
@@ -980,7 +979,7 @@ async def stream_order_progress(order_id: str, token: str = Query(None)):
             is_terminal = False
             if status in ("failed", "error"):
                 is_terminal = True
-            elif status == "awaiting_payment":
+            elif status in ("ready_for_review", "awaiting_payment"):
                 is_terminal = True
             elif status in ("paid", "completed", "fulfilled"):
                 has_files = bool(
@@ -1024,8 +1023,18 @@ def get_order_quote_summary(order_id: str):
     limit = req.get("limit") or order.get("limit") or 10
     tier = req.get("tier") or order.get("tier") or 2
     currency = payment.get("currency") or "COP"
-    amount_in_cents = payment.get("amount_in_cents") or 0
-    nominal_total = amount_in_cents / 100.0
+
+    verified_yield = order.get("verified_yield") or delivery.get("total_qualified") or 0
+    billable_leads = verified_yield if (verified_yield > 0 and order.get("status") in ("ready_for_review", "awaiting_payment", "paid", "completed", "fulfilled")) else limit
+
+    from src.entrypoints.workers.order_worker_daemon import calculate_lead_pricing
+    total_price_cents = calculate_lead_pricing(
+        total_qualified=billable_leads,
+        tier=tier,
+        currency=currency,
+    )
+    nominal_total = total_price_cents / 100.0
+    amount_in_cents = total_price_cents
 
     from src.domain.services.trm_service import TrmExchangeRateService
     trm_res = TrmExchangeRateService.get_instance().convert(nominal_total, from_currency=currency, to_currency="COP")
@@ -1055,8 +1064,10 @@ def get_order_quote_summary(order_id: str):
             "offer_description": req.get("offer_description") or f"Prospección dirigida para {req.get('campaign_id')}",
             "sectors": req.get("sector") or "Multi-Sector",
             "target_roles": req.get("target_roles") or ["Gerente General"],
-            "locations": req.get("location_allocations") or [{"city": req.get("city") or "Medellín", "allocated_leads": limit}],
-            "total_leads": limit,
+            "locations": req.get("location_allocations") or [{"city": req.get("city") or "Medellín", "allocated_leads": billable_leads}],
+            "total_leads": billable_leads,
+            "requested_limit": limit,
+            "verified_yield": verified_yield,
             "tier": tier,
             "tier_description": tier_labels.get(tier, f"Tier {tier}"),
             "exclusions_count": len(req.get("keywords_exclude") or []),
@@ -1418,14 +1429,16 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                     # If full deliverables were not yet generated, trigger decoupled Cloud Run Job
                     fresh_order = sql_adapter.get_order(reference) or order
                     delivery = fresh_order.get("delivery", {})
+                    is_test_runner = "pytest" in sys.modules or os.environ.get("TESTING") == "1"
                     if not delivery.get("csv_path") and not delivery.get("xlsx_path"):
-                        try:
-                            from src.adapters.jobs.cloud_run_job_adapter import CloudRunJobAdapter
-                            job_adapter = CloudRunJobAdapter()
-                            job_adapter.trigger_batch_harvesting_job(reference)
-                            logger.info(f"[WompiWebhook] Decoupled Cloud Run batch harvesting job dispatched for `{reference}`.")
-                        except Exception as proc_e:
-                            logger.error(f"[WompiWebhook] Batch job dispatch error for `{reference}`: {proc_e}")
+                        if not is_test_runner:
+                            try:
+                                from src.adapters.jobs.cloud_run_job_adapter import CloudRunJobAdapter
+                                job_adapter = CloudRunJobAdapter()
+                                job_adapter.trigger_batch_harvesting_job(reference)
+                                logger.info(f"[WompiWebhook] Decoupled Cloud Run batch harvesting job dispatched for `{reference}`.")
+                            except Exception as proc_e:
+                                logger.error(f"[WompiWebhook] Batch job dispatch error for `{reference}`: {proc_e}")
                     else:
                         try:
                             deliver_order_use_case.execute(reference)
@@ -1451,12 +1464,6 @@ def wompi_webhook(request: Request, event_data: dict, container: Container = Dep
                             )
                     except Exception as alert_e:
                         logger.warning(f"Could not dispatch webhook payment feed event: {alert_e}")
-
-                    try:
-                        deliver_order_use_case.execute(reference)
-                        logger.info(f"[WompiWebhook] Order `{reference}` dispatched via omnichannel delivery.")
-                    except Exception as e:
-                        logger.error(f"[WompiWebhook] Error during delivery dispatch for order {reference}: {e}")
             except Exception as e:
                 logger.error(f"[WompiWebhook] Error updating order in database: {e}")
 

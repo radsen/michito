@@ -163,3 +163,89 @@ def test_omnichannel_delivery_dispatches_smtp_with_attachment(mock_smtp_cls, tmp
     assert "elena@empresa.com" in call_kwargs.get("to_addrs", [])
     assert "developer@chiketto.com" in call_kwargs.get("to_addrs", [])
 
+
+def test_omnichannel_delivery_ready_for_review_archives_artifacts(tmp_path):
+    adapter = OmnichannelDeliveryAdapter(outputs_dir=str(tmp_path))
+    order = {
+        "order_id": "ord_review_test",
+        "client": {
+            "name": "Mariana Ruiz",
+            "email": "mariana@logistica.co",
+            "phone": "+573123456789",
+        },
+        "request": {
+            "campaign_id": "logistica_bodegas_bogota",
+            "city": "Bogotá",
+            "limit": 100,
+        },
+        "requested_limit": 100,
+        "verified_yield": 24,
+        "payment": {
+            "amount_in_cents": 28800000,
+            "currency": "COP",
+        },
+    }
+
+    success = adapter.send_ready_for_review_notification(order)
+    assert success is True
+
+    review_html = tmp_path / "dispatched_emails" / "review_ord_review_test.html"
+    review_json = tmp_path / "dispatched_emails" / "review_ord_review_test.json"
+    wa_json = tmp_path / "dispatched_whatsapp" / "review_ord_review_test.json"
+
+    assert review_html.exists()
+    assert review_json.exists()
+    assert wa_json.exists()
+
+    html_content = review_html.read_text(encoding="utf-8")
+    assert "Mariana Ruiz" in html_content
+    assert "ord_review_test" in html_content
+    assert "24 empresas" in html_content
+    assert "Garantía de Precio Justo Michito" in html_content
+    assert "/rastrear?order_id=ord_review_test" in html_content
+
+    wa_content = wa_json.read_text(encoding="utf-8")
+    assert "/rastrear?order_id=ord_review_test" in wa_content
+    assert "24 empresas verificadas" in wa_content
+
+
+@patch("smtplib.SMTP")
+def test_omnichannel_delivery_ready_for_review_dispatches_smtp_without_deliverables(mock_smtp_cls, tmp_path, monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.test-resend.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "resend_api_user")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret_pass")
+    monkeypatch.setenv("DEV_DELIVERY_EMAIL", "developer@chiketto.com")
+
+    mock_server = MagicMock()
+    mock_smtp_cls.return_value = mock_server
+
+    adapter = OmnichannelDeliveryAdapter(outputs_dir=str(tmp_path))
+    order = {
+        "order_id": "ord_review_smtp",
+        "client": {
+            "name": "Santiago Botero",
+            "email": "santiago@empresa.com",
+            "phone": "+573009876543",
+        },
+        "requested_limit": 50,
+        "verified_yield": 50,
+        "payment": {
+            "amount_in_cents": 50000000,
+            "currency": "COP",
+        },
+    }
+
+    success = adapter.send_ready_for_review_notification(order)
+    assert success is True
+
+    mock_smtp_cls.assert_called_once()
+    mock_server.send_message.assert_called_once()
+    msg = mock_server.send_message.call_args[0][0]
+
+    # Review emails MUST NOT attach deliverables (.csv/.xlsx/.pdf)
+    payloads = msg.get_payload()
+    for part in payloads:
+        content_disposition = part.get("Content-Disposition") or ""
+        assert "attachment" not in content_disposition
+

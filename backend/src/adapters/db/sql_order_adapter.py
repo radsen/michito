@@ -46,7 +46,10 @@ class SqlOrderAdapter:
     - order_leads (Products by Order Manifest with 5-touch copy)
     """
 
+    ledger: Optional[Any] = None
+
     def __init__(self, database_url: Optional[str] = None, echo: bool = False):
+        self.ledger: Optional[Any] = None
         is_test_env = (
             "pytest" in sys.modules
             or "PYTEST_CURRENT_TEST" in os.environ
@@ -148,6 +151,10 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN delivery_playbook JSON NULL"))
                     if "replacement_claims" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN replacement_claims JSON NULL"))
+                    if "verified_yield" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN verified_yield INTEGER DEFAULT 0"))
+                    if "ready_notified_at" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN ready_notified_at TIMESTAMP NULL"))
             if "clients" in table_names:
                 client_columns = [c["name"] for c in inspector.get_columns("clients")]
                 if "referral_partner" not in client_columns:
@@ -215,6 +222,8 @@ class SqlOrderAdapter:
         payment_amount_in_cents: int = 0,
         delivery_sample_teaser: Optional[List[Dict[str, Any]]] = None,
         delivery_total_qualified: int = 0,
+        verified_yield: int = 0,
+        ready_notified_at: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -272,6 +281,8 @@ class SqlOrderAdapter:
             payment_currency=currency.upper(),
             delivery_total_qualified=delivery_total_qualified,
             delivery_sample_teaser=delivery_sample_teaser or [],
+            verified_yield=verified_yield,
+            ready_notified_at=ready_notified_at,
             created_at=now,
             updated_at=now,
         )
@@ -327,6 +338,12 @@ class SqlOrderAdapter:
                 d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if is_paid else None
                 d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if is_paid else None
                 d["playbook"] = delivery.get("playbook") or []
+                d["verified_yield"] = getattr(order_obj, "verified_yield", 0) or 0
+                d["ready_notified_at"] = (
+                    order_obj.ready_notified_at.isoformat()
+                    if getattr(order_obj, "ready_notified_at", None)
+                    else None
+                )
                 return d
             return None
 
@@ -350,7 +367,7 @@ class SqlOrderAdapter:
                 select(OrderModel)
                 .where(
                     or_(
-                        OrderModel.status == "queued",
+                        OrderModel.status.in_(["queued", "intake_submitted"]),
                         and_(
                             or_(OrderModel.status == "paid", OrderModel.payment_status == "approved"),
                             or_(OrderModel.delivery_csv_path.is_(None), OrderModel.completed_at.is_(None)),
@@ -466,11 +483,11 @@ class SqlOrderAdapter:
                 return {"status": "dead-lettered", "order": ord_obj.to_dict()}
 
     def mark_processing(self, order_id: str) -> bool:
-        """Transitions order from 'queued', 'failed', 'awaiting_payment', or 'paid' to 'processing' atomically."""
+        """Transitions order from 'queued', 'intake_submitted', 'failed', 'awaiting_payment', 'ready_for_review', or 'paid' to 'processing' atomically."""
         now = datetime.now(timezone.utc)
         with self._get_session() as session:
             order_obj = session.get(OrderModel, order_id)
-            if not order_obj or order_obj.status not in ("queued", "failed", "awaiting_payment", "processing", "paid"):
+            if not order_obj or order_obj.status not in ("queued", "intake_submitted", "failed", "awaiting_payment", "ready_for_review", "processing", "paid"):
                 return False
 
             order_obj.status = "processing"
@@ -672,14 +689,17 @@ class SqlOrderAdapter:
                     )
                     session.add(manifest_entry)
 
-            # 3. Update Order Summary
+            # 3. Update Order Summary & Verified Yield
+            verified_count = res.get("total_qualified", len(leads_data))
+            order_obj.delivery_total_qualified = verified_count
+            order_obj.verified_yield = verified_count
+
             if order_obj.payment_status == "approved" or order_obj.status in ("paid", "completed", "fulfilled"):
                 order_obj.status = "paid"
                 order_obj.delivery_delivered_at = now
             else:
                 order_obj.status = "awaiting_payment" if amount_in_cents > 0 else "completed"
 
-            order_obj.delivery_total_qualified = res.get("total_qualified", len(leads_data))
             order_obj.delivery_sample_teaser = res.get("sample_teaser", [])
             order_obj.delivery_csv_path = res.get("csv_path") or res.get("csv_uri")
             order_obj.delivery_xlsx_path = res.get("xlsx_path") or res.get("xlsx_uri")
@@ -723,6 +743,18 @@ class SqlOrderAdapter:
             if status:
                 order_obj.status = status
             order_obj.updated_at = datetime.now(timezone.utc)
+            session.commit()
+            return True
+
+    def mark_ready_notified(self, order_id: str) -> bool:
+        """Sets ready_notified_at timestamp to prevent duplicate review notifications."""
+        now = datetime.now(timezone.utc)
+        with self._get_session() as session:
+            order_obj = session.get(OrderModel, order_id)
+            if not order_obj:
+                return False
+            order_obj.ready_notified_at = now
+            order_obj.updated_at = now
             session.commit()
             return True
 

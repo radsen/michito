@@ -115,21 +115,15 @@ class OrderWorkerDaemon:
             print("[WorkerDaemon] [WARN] Invalid order object received: missing order_id.")
             return False
 
-        # Revenue Protection Gate: Block heavy fulfillment on unpaid orders in staging/production
-        env = os.environ.get("ENVIRONMENT", "local").lower()
-        is_test_or_dev = (
-            "pytest" in sys.modules
-            or "PYTEST_CURRENT_TEST" in os.environ
-            or os.environ.get("TESTING") == "1"
-            or env in ("local", "dev", "test")
-        )
+        # Idempotency Gate: If order is already paid and deliverables exist, skip duplicate processing
         payment_status = (order.get("payment", {}).get("status") or "").upper()
         order_status = (order.get("status") or "").lower()
         is_paid = order_status in ("paid", "completed", "fulfilled") or payment_status == "APPROVED"
-
-        if not is_paid and not is_test_or_dev:
-            print(f"[WorkerDaemon] [BLOCKED] Order `{order_id}` is UNPAID (Status: {order_status}, Payment: {payment_status}). Refusing batch fulfillment to prevent revenue leakage on abandoned carts.")
-            return False
+        delivery = order.get("delivery", {})
+        has_deliverables = bool(delivery.get("csv_path") or delivery.get("xlsx_path"))
+        if is_paid and has_deliverables:
+            print(f"[WorkerDaemon] [INFO] Order `{order_id}` is already fully fulfilled. Skipping batch harvesting.")
+            return True
 
         client_name = order.get("client", {}).get("name", "Unknown Client")
         req = order.get("request", {})
@@ -336,6 +330,19 @@ class OrderWorkerDaemon:
                 job_result=job_result,
                 amount_in_cents=total_price_cents
             )
+
+            # Trigger buyer review notification (Email + WhatsApp)
+            if hasattr(self.order_repository, "get_order"):
+                fresh_order = self.order_repository.get_order(order_id)
+                if fresh_order and not fresh_order.get("ready_notified_at"):
+                    try:
+                        from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
+                        delivery_adapter = OmnichannelDeliveryAdapter()
+                        delivery_adapter.send_ready_for_review_notification(fresh_order)
+                        if hasattr(self.order_repository, "mark_ready_notified"):
+                            self.order_repository.mark_ready_notified(order_id)
+                    except Exception as notify_err:
+                        print(f"[WorkerDaemon] [WARN] Error dispatching ready_for_review notification for `{order_id}`: {notify_err}")
 
             if hasattr(self.alert_dispatcher, "send_feed_event"):
                 self.alert_dispatcher.send_feed_event(

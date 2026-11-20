@@ -202,6 +202,320 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
 
         return True
 
+    def send_ready_for_review_notification(self, order: Dict[str, Any]) -> bool:
+        """
+        Dispatches notification (Email and WhatsApp) informing the buyer that their batch
+        harvesting and verification is complete, locking their verified quote, and providing
+        a direct link to review teasers and unlock pre-compiled deliverables.
+        """
+        order_id = order.get("order_id") or order.get("id") or "ord_unknown"
+        client_data = order.get("client", {})
+        buyer_name = (client_data.get("name") or "Estimado Cliente").strip()
+        buyer_email = (client_data.get("email") or order.get("customer_email") or "unknown@example.com").strip()
+        buyer_phone = (client_data.get("phone") or order.get("customer_phone") or "").strip()
+
+        req = order.get("request", {})
+        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        city = req.get("city") or order.get("city") or "Colombia"
+        country = req.get("country") or order.get("country") or "CO"
+        requested_limit = order.get("requested_limit") or req.get("limit") or 10
+        verified_yield = (
+            order.get("verified_yield")
+            if order.get("verified_yield") is not None
+            else (order.get("delivery", {}).get("total_qualified") or requested_limit)
+        )
+
+        payment_info = order.get("payment", {})
+        amount_cents = payment_info.get("amount_in_cents") or 0
+        currency = payment_info.get("currency") or "COP"
+
+        base_url = (
+            os.environ.get("FRONTEND_URL")
+            or os.environ.get("BASE_URL")
+            or os.environ.get("API_BASE_URL")
+            or "https://michito.co"
+        )
+        review_url = f"{base_url.rstrip('/')}/rastrear?order_id={order_id}"
+
+        # 1. Standard log format for verification & traceability
+        whatsapp_message = (
+            f"[WhatsApp] Sending ready_for_review notification to {buyer_phone}: {review_url}"
+        )
+        email_message = (
+            f"[Email] Sending ready_for_review notification to {buyer_email}: {review_url}"
+        )
+        logger.info(whatsapp_message)
+        logger.info(email_message)
+
+        # 2. Render templates
+        email_subject = f"Tu lote de {verified_yield} empresas verificadas está listo para revisión — Orden #{order_id}"
+        html_content = self._render_review_email_html(
+            buyer_name=buyer_name,
+            order_id=order_id,
+            campaign_id=campaign_id,
+            city=city,
+            requested_limit=requested_limit,
+            verified_yield=verified_yield,
+            amount_cents=amount_cents,
+            currency=currency,
+            review_url=review_url,
+        )
+        text_content = self._render_review_email_text(
+            buyer_name=buyer_name,
+            order_id=order_id,
+            campaign_id=campaign_id,
+            city=city,
+            requested_limit=requested_limit,
+            verified_yield=verified_yield,
+            amount_cents=amount_cents,
+            currency=currency,
+            review_url=review_url,
+        )
+        whatsapp_text = self._render_review_whatsapp_text(
+            buyer_name=buyer_name,
+            order_id=order_id,
+            campaign_id=campaign_id,
+            city=city,
+            verified_yield=verified_yield,
+            review_url=review_url,
+        )
+
+        # 3. Local archive for auditing & inspection
+        self._archive_review_artifacts(
+            order_id=order_id,
+            buyer_email=buyer_email,
+            buyer_phone=buyer_phone,
+            subject=email_subject,
+            html_content=html_content,
+            text_content=text_content,
+            whatsapp_text=whatsapp_text,
+            review_url=review_url,
+        )
+
+        # 4. Outbound Real SMTP Delivery (NO file attachments on unpaid reviews)
+        self._dispatch_smtp_email(
+            order_id=order_id,
+            buyer_email=buyer_email,
+            subject=email_subject,
+            html_content=html_content,
+            text_content=text_content,
+            csv_path=None,
+            xlsx_path=None,
+            pdf_path=None,
+        )
+
+        # 5. Outbound WhatsApp Delivery (if phone provided)
+        if buyer_phone and buyer_phone.lower() not in ("unknown", "none", ""):
+            self._dispatch_whatsapp(
+                order_id=order_id,
+                buyer_phone=buyer_phone,
+                message_text=whatsapp_text,
+            )
+
+        return True
+
+    def _render_review_email_html(
+        self,
+        buyer_name: str,
+        order_id: str,
+        campaign_id: str,
+        city: str,
+        requested_limit: int,
+        verified_yield: int,
+        amount_cents: int,
+        currency: str,
+        review_url: str,
+    ) -> str:
+        quote_formatted = (
+            f"${amount_cents // 100:,.0f} {currency}"
+            if amount_cents > 0
+            else "Cotización Fair-Price por volumen"
+        )
+        fair_price_banner = ""
+        if verified_yield < requested_limit:
+            fair_price_banner = f"""
+            <div class="guarantee-box" style="background-color: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 16px; margin: 20px 0;">
+              <h4 style="margin: 0 0 6px; color: #38bdf8; font-size: 14px;">Garantía de Precio Justo Michito</h4>
+              <p style="margin: 0; font-size: 13px; color: #bae6fd; line-height: 1.5;">
+                Solicitaste {requested_limit} cuentas, pero únicamente <strong>{verified_yield} empresas</strong> cumplieron con el 100% de nuestros filtros de existencia legal y buzón corporativo activo.
+                Tu cotización se ajustó automáticamente para cobrarte <strong>únicamente por lo verificado</strong>.
+              </p>
+            </div>
+            """
+
+        return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lote B2B Listo para Revisión — Michito Intent Engine</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #f1f5f9; margin: 0; padding: 24px; }}
+    .container {{ max-width: 600px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }}
+    .header {{ background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 32px 24px; text-align: center; }}
+    .header h1 {{ margin: 0; font-size: 22px; color: #ffffff; font-weight: 700; letter-spacing: -0.5px; }}
+    .header p {{ margin: 8px 0 0; color: #bae6fd; font-size: 14px; }}
+    .content {{ padding: 32px 24px; }}
+    .greeting {{ font-size: 16px; margin-bottom: 20px; color: #e2e8f0; }}
+    .order-card {{ background-color: #1e293b; border-radius: 8px; padding: 18px; margin: 20px 0; border-left: 4px solid #38bdf8; }}
+    .order-row {{ display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }}
+    .order-row:last-child {{ margin-bottom: 0; }}
+    .label {{ color: #94a3b8; }}
+    .value {{ color: #ffffff; font-weight: 600; }}
+    .actions {{ margin: 32px 0; text-align: center; }}
+    .btn-primary {{ display: inline-block; background-color: #0284c7; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 80%; text-align: center; }}
+    .footer {{ padding: 20px 24px; text-align: center; border-top: 1px solid #1e293b; font-size: 12px; color: #64748b; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MICHITO INTENT ENGINE™</h1>
+      <p>Inteligencia B2B On-Demand • Lote Verificado y Listo</p>
+    </div>
+    <div class="content">
+      <div class="greeting">
+        Hola <strong>{buyer_name}</strong>, tu lote personalizado de prospectos B2B ha sido auditado con éxito por nuestro motor asíncrono.
+      </div>
+      <div class="order-card">
+        <div class="order-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
+        <div class="order-row"><span class="label">Campaña:</span> <span class="value">{campaign_id}</span></div>
+        <div class="order-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
+        <div class="order-row"><span class="label">Cuentas Solicitadas:</span> <span class="value">{requested_limit}</span></div>
+        <div class="order-row"><span class="label">Cuentas Verificadas:</span> <span class="value" style="color:#38bdf8;">{verified_yield} empresas</span></div>
+        <div class="order-row"><span class="label">Cotización Final:</span> <span class="value" style="color:#34d399;">{quote_formatted}</span></div>
+      </div>
+      {fair_price_banner}
+      <div class="actions">
+        <a href="{review_url}" class="btn-primary">Revisar Muestra y Desbloquear Lote</a>
+      </div>
+      <p style="font-size: 13px; color: #94a3b8; text-align: center; margin-top: 12px;">
+        Tus archivos (.xlsx, .csv, .pdf) ya están pre-compilados y seguros. Se desbloquearán al instante al confirmar tu pago.
+      </p>
+    </div>
+    <div class="footer">
+      Michito B2B Intent Engine • Chiketto Operations • Sin suscripciones mensuales
+    </div>
+  </div>
+</body>
+</html>"""
+
+    def _render_review_email_text(
+        self,
+        buyer_name: str,
+        order_id: str,
+        campaign_id: str,
+        city: str,
+        requested_limit: int,
+        verified_yield: int,
+        amount_cents: int,
+        currency: str,
+        review_url: str,
+    ) -> str:
+        quote_formatted = (
+            f"${amount_cents // 100:,.0f} {currency}"
+            if amount_cents > 0
+            else "Cotización Fair-Price por volumen"
+        )
+        fair_price_text = ""
+        if verified_yield < requested_limit:
+            fair_price_text = (
+                f"\nNOTA DE PRECIO JUSTO:\n"
+                f"Solicitaste {requested_limit} cuentas, pero únicamente {verified_yield} superaron el 100% de nuestros filtros técnicos.\n"
+                f"Tu cotización se ajustó automáticamente a {verified_yield} cuentas.\n"
+            )
+
+        return f"""Hola {buyer_name},
+
+Tu lote de inteligencia B2B (#{order_id}) para {campaign_id} en {city} ha sido auditado con éxito.
+
+RESUMEN DE AUDITORÍA:
+- ID de Orden: {order_id}
+- Cobertura: {city}
+- Cuentas Solicitadas: {requested_limit}
+- Cuentas Verificadas: {verified_yield}
+- Cotización Final: {quote_formatted}
+{fair_price_text}
+Revisa tu muestra gratuita y desbloquea el lote completo en el siguiente enlace:
+{review_url}
+
+Tus archivos (.xlsx, .csv, .pdf) están pre-compilados y listos para descarga instantánea tras el pago.
+
+Atentamente,
+Equipo Michito Intent Engine
+Chiketto B2B Operations
+"""
+
+    def _render_review_whatsapp_text(
+        self,
+        buyer_name: str,
+        order_id: str,
+        campaign_id: str,
+        city: str,
+        verified_yield: int,
+        review_url: str,
+    ) -> str:
+        return (
+            f"*Hola {buyer_name}! Tu lote de {verified_yield} empresas verificadas para {campaign_id} en {city} ya está listo en Michito.*\n\n"
+            f"Revisa tu muestra gratuita y cotización exacta aquí:\n"
+            f"{review_url}\n\n"
+            f"_Equipo Michito Intent Engine_"
+        )
+
+    def _archive_review_artifacts(
+        self,
+        order_id: str,
+        buyer_email: str,
+        buyer_phone: str,
+        subject: str,
+        html_content: str,
+        text_content: str,
+        whatsapp_text: str,
+        review_url: str,
+    ) -> None:
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            email_html_file = self.dispatched_emails_dir / f"review_{order_id}.html"
+            email_json_file = self.dispatched_emails_dir / f"review_{order_id}.json"
+            wa_json_file = self.dispatched_whatsapp_dir / f"review_{order_id}.json"
+
+            email_html_file.write_text(html_content, encoding="utf-8")
+            email_json_file.write_text(
+                json.dumps(
+                    {
+                        "order_id": order_id,
+                        "type": "ready_for_review",
+                        "timestamp": now_iso,
+                        "recipient_email": buyer_email,
+                        "subject": subject,
+                        "review_url": review_url,
+                        "text_body": text_content,
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            if buyer_phone:
+                wa_json_file.write_text(
+                    json.dumps(
+                        {
+                            "order_id": order_id,
+                            "type": "ready_for_review",
+                            "timestamp": now_iso,
+                            "recipient_phone": buyer_phone,
+                            "message_text": whatsapp_text,
+                            "review_url": review_url,
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            logger.warning(f"Could not write dispatched review artifacts for {order_id}: {e}")
+
     def _render_email_html(
         self,
         buyer_name: str,

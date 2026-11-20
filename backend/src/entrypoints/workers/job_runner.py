@@ -78,22 +78,6 @@ def run_batch_job(order_id: str) -> bool:
         logger.info(f"Order `{order_id}` is already fully fulfilled and delivered. Exiting successfully.")
         return True
 
-    # Monetization Protection Gate: Do not run heavy batch harvesting on unpaid orders in staging/prod
-    env = os.environ.get("ENVIRONMENT", "local").lower()
-    is_test_or_dev = (
-        "pytest" in sys.modules
-        or "PYTEST_CURRENT_TEST" in os.environ
-        or os.environ.get("TESTING") == "1"
-        or env in ("local", "dev", "test")
-    )
-    is_paid = order_status in ("paid", "completed", "fulfilled") or payment_status == "APPROVED"
-    if not is_paid and not is_test_or_dev:
-        logger.warning(
-            f"[JobRunner] Order `{order_id}` is UNPAID (Status: {order_status}, Payment: {payment_status}). "
-            f"Aborting batch harvesting to protect revenue and prevent compute leakage on abandoned carts."
-        )
-        return False
-
     # 1. Update initial telemetry phase
     sql_adapter.update_telemetry(
         order_id,
@@ -123,44 +107,72 @@ def run_batch_job(order_id: str) -> bool:
         )
         return False
 
-    # 3. Reload fresh order and dispatch email with GCS deliverables attached
+    # 3. Reload fresh order and determine post-processing action
     fresh_order = sql_adapter.get_order(order_id) or order
-    sql_adapter.update_telemetry(
-        order_id,
-        {
-            "phase": "delivering_email",
-            "phase_key": "telemetry.delivering_email",
-            "step_index": 4,
-            "progress_percent": 95,
-        },
-    )
+    fresh_payment_status = (fresh_order.get("payment", {}).get("status") or "").upper()
+    fresh_order_status = (fresh_order.get("status") or "").lower()
+    is_order_paid = fresh_order_status in ("paid", "completed", "fulfilled") or fresh_payment_status == "APPROVED"
 
-    try:
-        delivery_adapter = OmnichannelDeliveryAdapter()
-        deliver_use_case = DeliverOrderUseCase(
-            delivery_port=delivery_adapter,
-            order_repository=sql_adapter,
+    if is_order_paid:
+        # Paid order: Dispatch email with GCS deliverables attached
+        sql_adapter.update_telemetry(
+            order_id,
+            {
+                "phase": "delivering_email",
+                "phase_key": "telemetry.delivering_email",
+                "step_index": 4,
+                "progress_percent": 95,
+            },
         )
-        delivered = deliver_use_case.execute(order_id)
-        if delivered:
-            logger.info(f"Omnichannel delivery successfully dispatched for `{order_id}`.")
-        else:
-            logger.warning(f"Omnichannel delivery returned False for `{order_id}`, but deliverables exist.")
-    except Exception as del_err:
-        logger.error(f"Error during email delivery for `{order_id}`: {del_err}")
-        # We do not fail the whole job if email send failed, files are securely stored in GCS.
+        try:
+            delivery_adapter = OmnichannelDeliveryAdapter()
+            deliver_use_case = DeliverOrderUseCase(
+                delivery_port=delivery_adapter,
+                order_repository=sql_adapter,
+            )
+            delivered = deliver_use_case.execute(order_id)
+            if delivered:
+                logger.info(f"Omnichannel delivery successfully dispatched for `{order_id}`.")
+            else:
+                logger.warning(f"Omnichannel delivery returned False for `{order_id}`, but deliverables exist.")
+        except Exception as del_err:
+            logger.error(f"Error during email delivery for `{order_id}`: {del_err}")
 
-    # 4. Final completion telemetry
-    sql_adapter.update_telemetry(
-        order_id,
-        {
-            "phase": "completed",
-            "phase_key": "telemetry.completed",
-            "step_index": 5,
-            "progress_percent": 100,
-        },
-        status="paid",
-    )
+        # Final completion telemetry
+        sql_adapter.update_telemetry(
+            order_id,
+            {
+                "phase": "completed",
+                "phase_key": "telemetry.completed",
+                "step_index": 5,
+                "progress_percent": 100,
+            },
+            status="paid",
+        )
+    else:
+        # Asynchronous Flow: Batch harvesting, verification, and file generation are complete!
+        # Deliverables are pre-compiled in GCS and verified yield is permanently locked.
+        logger.info(f"[JobRunner] Upfront qualification complete for `{order_id}`. Deliverables cached in GCS. Status set to ready_for_review / awaiting_payment.")
+        sql_adapter.update_telemetry(
+            order_id,
+            {
+                "phase": "ready_for_review",
+                "phase_key": "telemetry.ready_for_review",
+                "step_index": 3,
+                "progress_percent": 90,
+            },
+            status="awaiting_payment",
+        )
+
+        fresh_order = sql_adapter.get_order(order_id)
+        if fresh_order and not fresh_order.get("ready_notified_at"):
+            try:
+                delivery_adapter = OmnichannelDeliveryAdapter()
+                delivery_adapter.send_ready_for_review_notification(fresh_order)
+                sql_adapter.mark_ready_notified(order_id)
+                logger.info(f"[JobRunner] Dispatched ready_for_review notification for `{order_id}`.")
+            except Exception as notify_err:
+                logger.error(f"[JobRunner] Error dispatching ready_for_review notification for `{order_id}`: {notify_err}")
 
     logger.info("=" * 80)
     logger.info(f"CLOUD RUN JOB COMPLETED SUCCESSFULLY FOR ORDER `{order_id}`")

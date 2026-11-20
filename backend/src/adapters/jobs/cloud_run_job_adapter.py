@@ -5,6 +5,7 @@ Decouples heavy compute (15-20 min) from the customer-facing Web API service (< 
 """
 
 import os
+import sys
 import logging
 import threading
 from typing import Optional, Dict, Any

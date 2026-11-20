@@ -367,17 +367,17 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   };
 
   // Dynamic progress percentage smoothly paced over estimated time or telemetry progress
-  // CRITICAL RULE: In awaiting_payment, progress stays at 35% (never 100% until payment & fulfillment)
+  // In awaiting_payment, harvesting & verification are already complete (90%), awaiting instant unlock (100%)
   const getProgressPercent = () => {
     if (isPaid) return 100;
-    if (isAwaitingPayment) return 35;
+    if (isAwaitingPayment) return 90;
     if (telemetry?.progress_percent !== undefined && isProcessing) {
-      return Math.min(94, Math.max(35, telemetry.progress_percent));
+      return Math.min(89, Math.max(25, telemetry.progress_percent));
     }
     if (isProcessing) {
       const ratio = Math.min(1.0, elapsedSec / Math.max(estimatedTotalSec, 1));
-      const paced = 35 + ratio * 59;
-      return Math.min(94, Math.round(paced));
+      const paced = 25 + ratio * 64;
+      return Math.min(89, Math.round(paced));
     }
     if (isQueued) return 15;
     return 10;
@@ -389,13 +389,13 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const getStepStatus = (stepIndex: number) => {
     if (isPaid) return "completed";
     if (isAwaitingPayment) {
-      if (stepIndex <= 2) return "completed";
-      if (stepIndex === 3) return "active";
+      if (stepIndex <= 3) return "completed";
+      if (stepIndex === 4) return "active";
       return "pending";
     }
     if (isProcessing) {
-      if (stepIndex <= 3) return "completed";
-      if (stepIndex === 4) return "active";
+      if (stepIndex <= 2) return "completed";
+      if (stepIndex === 3) return "active";
       return "pending";
     }
     if (isQueued) {
@@ -802,51 +802,85 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
       )}
 
       {/* Prominent Payment Authorization Banner when awaiting payment */}
-      {isAwaitingPayment && (
-        <div
-          className="payment-authorization-card mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 shadow-xl"
-          data-testid="payment-authorization-card"
-        >
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-bold text-white">
-                    {dict.tracker.paymentCtaTitle || "Autoriza el Procesamiento de tu Lote Completo"}
-                  </h4>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold uppercase">
-                    Paso 3 de 4
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-1 mb-0 max-w-2xl leading-relaxed">
-                  {(dict.tracker.paymentCtaDesc || "Revisa la muestra verificada a continuación. Al confirmar el pago a través de Wompi, el sistema procesará y entregará inmediatamente tu lote completo de {total} cuentas corporativas verificadas.")
-                    .replace("{total}", String(totalLeadsTarget))}
-                </p>
-                <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-400 font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span>{dict.tracker.paymentCtaGuarantee || "Cobro Justo: Solo pagas por cuentas verificadas. Sin suscripción mensual."}</span>
-                </div>
-              </div>
-            </div>
+      {isAwaitingPayment && (() => {
+        const verifiedYield =
+          (orderData as any)?.verified_yield ||
+          (orderData as any)?.delivery?.verified_yield ||
+          orderData?.total_qualified ||
+          totalLeadsTarget;
+        const requestedLimit =
+          (orderData as any)?.request?.limit ||
+          (orderData as any)?.limit ||
+          totalLeadsTarget;
+        const hasQuotaAdjustment =
+          verifiedYield > 0 && requestedLimit > 0 && verifiedYield < requestedLimit;
 
-            <button
-              type="button"
-              onClick={() => dispatch(setWompiModalOpen(true))}
-              className="w-full md:w-auto px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-emerald-500/20 cursor-pointer shrink-0"
-              data-testid="main-payment-cta-btn"
-            >
-              <CreditCard className="w-5 h-5 text-slate-950" />
-              <span>
-                {(dict.tracker.paymentCtaBtn || "Autorizar y Pagar con Wompi ({amount})")
-                  .replace("{amount}", formatOrderCurrency(orderAmount, orderCurrency))}
-              </span>
-            </button>
+        return (
+          <div
+            className="payment-authorization-card mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 shadow-xl"
+            data-testid="payment-authorization-card"
+          >
+            {hasQuotaAdjustment && (
+              <div className="mb-4 p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-start gap-3 text-xs text-amber-200">
+                <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300 font-semibold text-sm block mb-1">
+                    {currentLanguage === "en_US" ? "Automatic Fair Price Adjustment" : "Ajuste Automático por Cobro Justo"}
+                  </strong>
+                  <p className="leading-relaxed m-0 text-slate-300">
+                    {currentLanguage === "en_US"
+                      ? `You requested ${requestedLimit} accounts, but only ${verifiedYield} companies met 100% of legal registration, active website, and verified corporate inbox standards. In compliance with our Fair Price Policy, your quote was automatically reduced to strictly charge you for ${verifiedYield} accounts.`
+                      : `Solicitaste ${requestedLimit} cuentas, pero únicamente ${verifiedYield} empresas cumplieron con el 100% de los estándares legales, presencia web y buzón corporativo activo. En cumplimiento de nuestra Política de Cobro Justo, tu cotización se redujo automáticamente para cobrarte estrictamente por las ${verifiedYield} cuentas verificadas.`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-bold text-white">
+                      {dict.tracker.paymentCtaTitle || "Lote Auditado y Listo para Descarga Inmediata"}
+                    </h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold uppercase">
+                      {verifiedYield} {dict.tracker.verifiedUnits || "Cuentas Verificadas"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 mb-0 max-w-2xl leading-relaxed">
+                    {(dict.tracker.paymentCtaDesc || "Identificamos y verificamos {verified} empresas activas que superaron el 100% de los filtros técnicos. Revisa la muestra a continuación. Al confirmar tu pago, tus archivos Excel (.xlsx), CSV y Dossier PDF se desbloquean inmediatamente sin esperas.")
+                      .replace("{verified}", String(verifiedYield))
+                      .replace("{total}", String(verifiedYield))}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-400 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {(dict.tracker.paymentCtaGuarantee || "Política de Cobro Justo: Solo pagas por cuentas verificadas ({verified} cuentas). Sin suscripciones ni créditos que expiran.")
+                        .replace("{verified}", String(verifiedYield))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dispatch(setWompiModalOpen(true))}
+                className="w-full md:w-auto px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-emerald-500/20 cursor-pointer shrink-0"
+                data-testid="main-payment-cta-btn"
+              >
+                <CreditCard className="w-5 h-5 text-slate-950" />
+                <span>
+                  {(dict.tracker.paymentCtaBtn || "Pagar y Desbloquear Lote ({amount})")
+                    .replace("{amount}", formatOrderCurrency(orderAmount, orderCurrency))}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* View Switcher Tabs: Summary Table vs Interactive Outreach Playbook */}
       {(isAwaitingPayment || isPaid) && (

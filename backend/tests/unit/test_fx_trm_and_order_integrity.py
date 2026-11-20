@@ -62,12 +62,13 @@ def test_fx_convert_endpoints(api_client):
     assert data_post["amount_in_cop"] >= 300000
 
 
-def test_order_creation_rejects_unfulfillable_request(api_client, monkeypatch):
+def test_order_creation_accepts_asynchronous_intake_without_blocking_422(api_client, monkeypatch):
     """
-    Ensures that when 0 authentic leads can be verified (due to 403 or 0 matches),
-    the API rejects order creation with HTTP 422 to prevent charging for info we don't have.
+    Ensures that when 0 authentic leads are immediately in cache,
+    the API accepts the order intake asynchronously (201 Created) with status 'intake_submitted'
+    and verified_yield=0, rather than blocking the user with 422, dispatching to background worker.
     """
-    # Force radar scan to return 0 leads
+    # Force fast radar scan cache to return 0 leads
     monkeypatch.setattr("src.entrypoints.api.main.run_fast_radar_scan", lambda **kwargs: [])
 
     payload = {
@@ -86,5 +87,8 @@ def test_order_creation_rejects_unfulfillable_request(api_client, monkeypatch):
     }
 
     response = api_client.post("/api/v1/orders", json=payload)
-    assert response.status_code == 422
-    assert "No fue posible encontrar la información solicitada" in response.json()["detail"]
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["order_status"] == "intake_submitted"
+    assert data["order"]["verified_yield"] == 0

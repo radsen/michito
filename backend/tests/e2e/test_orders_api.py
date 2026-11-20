@@ -36,7 +36,7 @@ class TestOrdersApi(unittest.TestCase):
         data = res_post.json()
         self.assertEqual(data["status"], "success")
         self.assertTrue(data["order_id"].startswith("ord_"))
-        self.assertEqual(data["order_status"], "awaiting_payment")
+        self.assertIn(data["order_status"], ("intake_submitted", "awaiting_payment", "ready_for_review"))
 
         order_id = data["order_id"]
 
@@ -45,7 +45,7 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(res_get.status_code, 200)
         order_data = res_get.json()
         self.assertEqual(order_data["order_id"], order_id)
-        self.assertEqual(order_data["status"], "awaiting_payment")
+        self.assertIn(order_data["status"], ("intake_submitted", "awaiting_payment", "ready_for_review", "processing"))
         self.assertEqual(order_data["client"]["email"], "e2e_client@test.com")
 
         # 3. Pay Order
