@@ -67,6 +67,30 @@ echo " Pub/Sub:     ${PUBSUB_TOPIC} -> ${PUBSUB_SUBSCRIPTION}"
 echo "=============================================================================="
 
 # ------------------------------------------------------------------------------
+# Load Optional SMTP & Service Overrides from .env.${ENV} / .env.stg
+# ------------------------------------------------------------------------------
+ENV_OVERRIDE_FILE=".env.${ENV}"
+if [ ! -f "${ENV_OVERRIDE_FILE}" ] && [ "${ENV}" = "staging" ] && [ -f ".env.stg" ]; then
+    ENV_OVERRIDE_FILE=".env.stg"
+fi
+
+EXTRA_ENV_VARS=""
+if [ -f "${ENV_OVERRIDE_FILE}" ]; then
+    echo "--> Reading environment configurations from ${ENV_OVERRIDE_FILE}..."
+    while IFS='=' read -r key val || [ -n "$key" ]; do
+        clean_key=$(echo "$key" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        clean_val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        case "$clean_key" in
+            SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_PASSWORD|SMTP_FROM|SMTP_USE_TLS|SMTP_USE_SSL|FRONTEND_URL|DEV_DELIVERY_EMAIL)
+                if [ -n "$clean_val" ]; then
+                    EXTRA_ENV_VARS="${EXTRA_ENV_VARS},${clean_key}=${clean_val}"
+                fi
+                ;;
+        esac
+    done < "${ENV_OVERRIDE_FILE}"
+fi
+
+# ------------------------------------------------------------------------------
 # Pre-Deploy Automated Quality Gate
 # ------------------------------------------------------------------------------
 if [ "${SKIP_TESTS:-false}" != "true" ]; then
@@ -121,7 +145,7 @@ EOF
         --cpu=1 \
         --memory=1Gi \
         --timeout=600s \
-        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME},ENABLE_PUBSUB_QUEUE=true,PUBSUB_TOPIC_ORDERS=${PUBSUB_TOPIC},PUBSUB_SUBSCRIPTION_WORKER=${PUBSUB_SUBSCRIPTION}" \
+        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME},ENABLE_PUBSUB_QUEUE=true,PUBSUB_TOPIC_ORDERS=${PUBSUB_TOPIC},PUBSUB_SUBSCRIPTION_WORKER=${PUBSUB_SUBSCRIPTION}${EXTRA_ENV_VARS}" \
         --set-secrets="DATABASE_URL=DATABASE_URL:latest,WOMPI_PUBLIC_KEY=WOMPI_PUBLIC_KEY:latest,WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET:latest,WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET:latest,ALERT_WEBHOOK_URL=ALERT_WEBHOOK_URL:latest,ORDERS_FEED_WEBHOOK_URL=ORDERS_FEED_WEBHOOK_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
         --quiet
 
@@ -143,7 +167,7 @@ EOF
         --task-timeout=1800s \
         --cpu=2 \
         --memory=2Gi \
-        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME}" \
+        --set-env-vars="ENVIRONMENT=${ENV},GCP_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GCS_BUCKET_NAME=${GCS_BUCKET},CLOUD_RUN_JOB_NAME=${JOB_NAME}${EXTRA_ENV_VARS}" \
         --set-secrets="DATABASE_URL=DATABASE_URL:latest,WOMPI_PUBLIC_KEY=WOMPI_PUBLIC_KEY:latest,WOMPI_INTEGRITY_SECRET=WOMPI_INTEGRITY_SECRET:latest,WOMPI_EVENTS_SECRET=WOMPI_EVENTS_SECRET:latest,ALERT_WEBHOOK_URL=ALERT_WEBHOOK_URL:latest,ORDERS_FEED_WEBHOOK_URL=ORDERS_FEED_WEBHOOK_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
         --quiet
 
