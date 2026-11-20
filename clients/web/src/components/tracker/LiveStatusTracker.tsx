@@ -121,9 +121,9 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     }
   );
 
-  const isQueued = orderStatus === "queued";
+  const isQueued = orderStatus === "queued" || orderStatus === "intake_submitted";
   const isProcessing = orderStatus === "processing";
-  const isAwaitingPayment = orderStatus === "awaiting_payment";
+  const isAwaitingPayment = orderStatus === "awaiting_payment" || orderStatus === "ready_for_review";
   const isPaid = orderStatus === "paid";
   const isFailed = orderStatus === "failed" || orderStatus === "error";
 

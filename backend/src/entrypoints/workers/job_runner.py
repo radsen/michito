@@ -111,7 +111,7 @@ def run_batch_job(order_id: str) -> bool:
     fresh_order = sql_adapter.get_order(order_id) or order
     fresh_payment_status = (fresh_order.get("payment", {}).get("status") or "").upper()
     fresh_order_status = (fresh_order.get("status") or "").lower()
-    is_order_paid = fresh_order_status in ("paid", "completed", "fulfilled") or fresh_payment_status == "APPROVED"
+    is_order_paid = (fresh_order_status == "paid") or (fresh_payment_status in ("APPROVED", "PAID"))
 
     if is_order_paid:
         # Paid order: Dispatch email with GCS deliverables attached

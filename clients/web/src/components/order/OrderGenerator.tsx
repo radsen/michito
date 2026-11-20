@@ -373,10 +373,10 @@ export const OrderGenerator: React.FC = () => {
   // Stage 1 AI Intent Discovery States
   const [aiQuery, setAiQuery] = useState("");
   const [discoveryResult, setDiscoveryResult] = useState<any>(null);
-  const isDiscoveryUnfulfillable = Boolean(
+  const isOnDemandHarvest = Boolean(
     searchMode === "ai" &&
     discoveryResult &&
-    (discoveryResult.estimated_matches === 0 || !discoveryResult.sample_preview)
+    (!discoveryResult.sample_preview || discoveryResult.estimated_matches === 0)
   );
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
 
@@ -574,17 +574,25 @@ export const OrderGenerator: React.FC = () => {
   };
 
   const handleProceedToStep2 = () => {
-    if (discoveryResult && (discoveryResult.estimated_matches === 0 || !discoveryResult.sample_preview)) {
-      setFormError("No fue posible encontrar la información solicitada en este momento. El registro oficial no está disponible o no se encontraron empresas para este criterio.");
-      return;
-    }
-    if (!offerDescription.trim() && selectedPresetId === "custom") {
+    const activeOffer = (offerDescription || aiQuery || "").trim();
+    if (!activeOffer && selectedPresetId === "custom") {
       setFormError(g.errorOfferRequired);
       return;
     }
+    if (offerDescription !== activeOffer) {
+      setOfferDescription(activeOffer);
+    }
     if (locationAllocations.length === 0) {
-      setFormError(g.errorLocationRequired);
-      return;
+      const fallbackCountry = discoveryResult?.country || (currency === "DOP" ? "DO" : currency === "USD" ? "EC" : "CO");
+      const fallbackCity = discoveryResult?.city || (fallbackCountry === "DO" ? "Santo Domingo" : fallbackCountry === "EC" ? "Quito" : "Medellín");
+      setLocationAllocations([
+        {
+          country: fallbackCountry,
+          region: fallbackCity,
+          city: fallbackCity,
+          allocated_leads: volume || 25,
+        },
+      ]);
     }
     setFormError(null);
     setCurrentStep(2);
@@ -1083,29 +1091,53 @@ export const OrderGenerator: React.FC = () => {
 
                     {/* Discovery Match Card */}
                     {discoveryResult && (
-                      isDiscoveryUnfulfillable ? (
-                        <div className="discovery-card-unavailable">
+                      isOnDemandHarvest ? (
+                        <div className="discovery-card" style={{ border: "1px solid rgba(56, 189, 248, 0.35)", background: "rgba(15, 23, 42, 0.75)" }}>
                           <div className="discovery-match-header">
                             <div>
-                              <span className="discovery-match-badge">
-                                <AlertTriangle style={{ width: 16, height: 16 }} />
-                                0 {g.discoveryMatches} {discoveryResult.city}
+                              <span className="discovery-match-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
+                                <Sparkles style={{ width: 14, height: 14 }} />
+                                {discoveryResult.country === "DO" ? "🇩🇴 Registro DGCP República Dominicana" : discoveryResult.country === "EC" ? "🇪🇨 Registro SERCOP Ecuador" : discoveryResult.country === "CL" ? "🇨🇱 Registro Mercantil Chile" : "🇨🇴 Registro SECOP II Colombia"} — Búsqueda en Vivo
                               </span>
-                              <p className="discovery-unavailable-desc">
-                                {discoveryResult.summary_message}
+                              <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#f8fafc", marginTop: "8px", marginBottom: "4px" }}>
+                                Auditoría y Recolección en Tiempo Real en {discoveryResult.city || "Santo Domingo"}
+                              </h4>
+                              <p style={{ fontSize: "0.825rem", color: "#cbd5e1", lineHeight: 1.45 }}>
+                                Este segmento requiere consulta activa en los registros oficiales. Michito rastreará empresas activas, validará los buzones corporativos en servidores de correo y clasificará celulares directos.
                               </p>
                             </div>
+                            <div style={{ textAlign: "right", minWidth: "140px" }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
+                                {g.suggestedBatch}
+                              </span>
+                              <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
+                                {discoveryResult.recommended_limit || volume} decisores
+                              </strong>
+                            </div>
                           </div>
-                          <div className="discovery-unavailable-guarantee">
-                            <ShieldCheck style={{ width: 15, height: 15, color: "#34d399", flexShrink: 0 }} />
-                            <span>Garantía de Integridad Comercial: Solo procesamos pedidos con verificación demostrable.</span>
+
+                          <div className="discovery-unavailable-guarantee" style={{ marginTop: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <ShieldCheck style={{ width: 16, height: 16, color: "#34d399", flexShrink: 0 }} />
+                            <span style={{ fontSize: "0.8rem", color: "#e2e8f0" }}>
+                              <strong>Garantía Fair Price:</strong> $0 anticipo. Solo pagarás tras auditar el lote y confirmar cuántas empresas 100% verificadas encontramos.
+                            </span>
                           </div>
+
                           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                            <button
+                              type="button"
+                              onClick={handleProceedToStep2}
+                              className="generator-submit-btn"
+                              style={{ flex: 2, justifyContent: "center", padding: "12px", background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", color: "#fff", fontWeight: 600 }}
+                            >
+                              <span>Programar Auditoría Gratuita</span>
+                              <ArrowRight className="w-4 h-4 ml-2" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => setSearchMode("direct")}
                               className="preset-chip-btn"
-                              style={{ flex: 1, justifyContent: "center", padding: "10px" }}
+                              style={{ flex: 1, justifyContent: "center", padding: "12px" }}
                             >
                               <SlidersHorizontal style={{ width: 14, height: 14 }} />
                               <span>{g.customizeAdvancedBtn}</span>

@@ -331,13 +331,19 @@ class SqlOrderAdapter:
                 d["amount_in_cents_cop"] = fx["amount_in_cop"] * 100
                 d["exchange_rate"] = fx.get("rate_used", 1.0)
                 d["error_message"] = getattr(order_obj, "error_message", None)
-                is_paid = (d.get("status") in ("paid", "completed", "fulfilled")) or (payment.get("status") in ("approved", "paid"))
+                is_paid = (d.get("status") == "paid") or ((payment.get("status") or "").lower() in ("approved", "paid"))
                 d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if is_paid else None
                 d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if is_paid else None
                 d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if is_paid else None
                 d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if is_paid else None
                 d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if is_paid else None
-                d["playbook"] = delivery.get("playbook") or []
+                d["playbook"] = delivery.get("playbook") if is_paid else []
+                if not is_paid and "delivery" in d:
+                    d["delivery"]["csv_path"] = None
+                    d["delivery"]["xlsx_path"] = None
+                    d["delivery"]["dossier_path"] = None
+                    d["delivery"]["pdf_path"] = None
+                    d["delivery"]["playbook"] = []
                 d["verified_yield"] = getattr(order_obj, "verified_yield", 0) or 0
                 d["ready_notified_at"] = (
                     order_obj.ready_notified_at.isoformat()
@@ -694,11 +700,12 @@ class SqlOrderAdapter:
             order_obj.delivery_total_qualified = verified_count
             order_obj.verified_yield = verified_count
 
-            if order_obj.payment_status == "approved" or order_obj.status in ("paid", "completed", "fulfilled"):
+            is_payment_approved = (order_obj.payment_status or "").lower() in ("approved", "paid") or order_obj.status == "paid"
+            if is_payment_approved:
                 order_obj.status = "paid"
                 order_obj.delivery_delivered_at = now
             else:
-                order_obj.status = "awaiting_payment" if amount_in_cents > 0 else "completed"
+                order_obj.status = "awaiting_payment"
 
             order_obj.delivery_sample_teaser = res.get("sample_teaser", [])
             order_obj.delivery_csv_path = res.get("csv_path") or res.get("csv_uri")
