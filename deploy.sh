@@ -79,7 +79,7 @@ if [ -f "${ENV_OVERRIDE_FILE}" ]; then
     echo "--> Reading environment configurations from ${ENV_OVERRIDE_FILE}..."
     while IFS='=' read -r key val || [ -n "$key" ]; do
         clean_key=$(echo "$key" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-        clean_val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        clean_val=$(echo "$val" | sed -e 's/[[:space:]]*#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
         case "$clean_key" in
             SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_PASSWORD|SMTP_FROM|SMTP_USE_TLS|SMTP_USE_SSL|FRONTEND_URL|DEV_DELIVERY_EMAIL)
                 if [ -n "$clean_val" ]; then

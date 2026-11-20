@@ -23,7 +23,7 @@ def load_env_file(filepath: Path) -> None:
                     continue
                 key, val = line.split("=", 1)
                 key = key.strip()
-                val = val.strip().strip("'\"")
+                val = val.split(" #", 1)[0].strip().strip("'\"")
                 # Environment variables already set (e.g. injected by Cloud Run or Docker) are preserved
                 if key not in os.environ:
                     os.environ[key] = val
