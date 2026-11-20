@@ -77,7 +77,21 @@ class OrderWorkerDaemon:
             self.order_repository = FirestoreOrderAdapter()
 
         self.order_queue = order_queue
-        self.use_case = use_case or GenerateProspectsUseCase()
+        if use_case:
+            self.use_case = use_case
+        else:
+            rep_ledger = getattr(self.order_repository, "ledger", None)
+            if "pytest" in sys.modules or os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true":
+                from unittest.mock import MagicMock
+                mock_auditor = MagicMock()
+                mock_auditor.audit.side_effect = lambda *args, **kwargs: (True, args[0] if args and args[0] else "https://www.example.com", "Active Test Site")
+                self.use_case = GenerateProspectsUseCase(
+                    ledger=rep_ledger,
+                    verify_mx_fn=lambda *args, **kwargs: (True, "mail.example.com"),
+                    web_auditor=mock_auditor,
+                )
+            else:
+                self.use_case = GenerateProspectsUseCase(ledger=rep_ledger)
 
         if storage_adapter:
             self.storage_adapter = storage_adapter

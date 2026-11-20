@@ -14,13 +14,15 @@ export interface PricingState {
   discountPercent: number;
   partnerDiscountPercent: number;
   partnerDiscountRate: number;
+  trmRates?: { USD?: number; DOP?: number };
 }
 
 function calculatePricing(
   tier: 1 | 2 | 3,
   volume: number,
   currency: SupportedCurrency,
-  partnerDiscountRate: number = 0.0
+  partnerDiscountRate: number = 0.0,
+  trmRates?: { USD?: number; DOP?: number }
 ) {
   const config = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
   const unitPrice = config.tierPrices[tier] || config.tierPrices[2];
@@ -46,10 +48,17 @@ function calculatePricing(
     ? Math.round(subtotal * (1 - combinedDiscount) * 100) / 100
     : Math.round(subtotal * (1 - combinedDiscount));
 
-  // Compute COP equivalent for Wompi gateway settlement
-  const unitPriceCop = Math.round(unitPrice * config.conversionRateToCop);
-  const subtotalCop = Math.round(subtotal * config.conversionRateToCop);
-  const totalCop = Math.round(total * config.conversionRateToCop);
+  // Compute COP equivalent for Wompi gateway settlement using live TRM rates if present
+  let rateToCop = config.conversionRateToCop;
+  if (currency === "USD" && trmRates?.USD) {
+    rateToCop = trmRates.USD;
+  } else if (currency === "DOP" && trmRates?.DOP) {
+    rateToCop = trmRates.DOP;
+  }
+
+  const unitPriceCop = Math.round(unitPrice * rateToCop);
+  const subtotalCop = Math.round(subtotal * rateToCop);
+  const totalCop = Math.round(total * rateToCop);
 
   return {
     unitPrice,
@@ -92,27 +101,32 @@ export const pricingSlice = createSlice({
   reducers: {
     setTier: (state, action: PayloadAction<1 | 2 | 3>) => {
       state.tier = action.payload;
-      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate);
+      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate, state.trmRates);
       Object.assign(state, calc);
     },
     setVolume: (state, action: PayloadAction<number>) => {
       state.volume = action.payload;
-      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate);
+      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate, state.trmRates);
       Object.assign(state, calc);
     },
     setPartnerDiscountRate: (state, action: PayloadAction<number>) => {
       state.partnerDiscountRate = action.payload;
-      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate);
+      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate, state.trmRates);
       Object.assign(state, calc);
     },
     setCurrency: (state, action: PayloadAction<SupportedCurrency>) => {
       state.currency = action.payload;
       localStorage.setItem("michito_currency", action.payload);
-      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate);
+      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate, state.trmRates);
+      Object.assign(state, calc);
+    },
+    setTrmRates: (state, action: PayloadAction<{ USD?: number; DOP?: number }>) => {
+      state.trmRates = { ...state.trmRates, ...action.payload };
+      const calc = calculatePricing(state.tier, state.volume, state.currency, state.partnerDiscountRate, state.trmRates);
       Object.assign(state, calc);
     },
   },
 });
 
-export const { setTier, setVolume, setPartnerDiscountRate, setCurrency } = pricingSlice.actions;
+export const { setTier, setVolume, setPartnerDiscountRate, setCurrency, setTrmRates } = pricingSlice.actions;
 export default pricingSlice.reducer;

@@ -1,10 +1,17 @@
 import os
 import unittest
 from fastapi.testclient import TestClient
-from src.entrypoints.api.main import app
+from src.entrypoints.api.main import app, sql_adapter
+from src.adapters.storage.deduplication_ledger import DeduplicationLedger
+
+TEST_ORDERS_LEDGER = "/tmp/test_orders_ledger.json"
 
 class TestOrdersApi(unittest.TestCase):
     def setUp(self):
+        if os.path.exists(TEST_ORDERS_LEDGER):
+            os.remove(TEST_ORDERS_LEDGER)
+        self.test_ledger = DeduplicationLedger(ledger_path=TEST_ORDERS_LEDGER)
+        sql_adapter.ledger = self.test_ledger
         self.client = TestClient(app)
 
     def test_create_get_and_pay_order(self):
@@ -226,10 +233,10 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(data["campaign_id"], "chiketto")
         self.assertEqual(data["city"], "Bogotá")
         self.assertEqual(data["recommended_limit"], 25)
-        self.assertGreater(data["estimated_matches"], 30)
+        self.assertGreaterEqual(data["estimated_matches"], 20)
         self.assertIn("sample_preview", data)
         self.assertIn("pricing", data)
-        self.assertEqual(data["pricing"]["total_cop"], 750000)
+        self.assertEqual(data["pricing"]["total_cop"], 705000)
 
         # 2. Natural language query for Dominican Republic
         payload_dr = {

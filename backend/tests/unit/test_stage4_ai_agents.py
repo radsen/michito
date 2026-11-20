@@ -308,3 +308,49 @@ def test_locales_no_competitor_mentions():
                 content = f.read()
                 assert "Apollo" not in content, f"Found 'Apollo' mention in {fname}"
                 assert "ZoomInfo" not in content, f"Found 'ZoomInfo' mention in {fname}"
+
+
+def test_custom_dynamic_intent_construction_republica_dominicana():
+    """
+    Tests that a 100% custom brief ('Busca constructoras comprando sanitarios en República Dominicana')
+    matches genuine construction entities with Zero-Knowledge protection and does NOT
+    force into unrelated presets or fake mock templates.
+    """
+    from src.application.use_cases.profile_b2b_intent_use_case import ProfileB2BIntentUseCase
+    use_case = ProfileB2BIntentUseCase()
+
+    query = "Busca constructoras comprando sanitarios para casas u oficinas en República Dominicana, lote de 50"
+    res = use_case.execute(query)
+
+    assert res["status"] == "success"
+    assert res["country"] == "DO"
+    assert res["city"] in ("Santo Domingo", "Santiago")
+    assert res["recommended_limit"] == 50
+    assert res["pricing"]["currency"] == "DOP"
+
+    # Must find matching construction lead with Zero-Knowledge masking
+    assert res["sample_preview"] is not None
+    assert "C••••" in res["sample_preview"]["company_name"]
+    assert res["sample_preview"]["statutory_badge"] == "✓ RNC Vigente en DGII / Cámara de Comercio"
+    assert res["sample_preview"]["flag"] == "🇩🇴"
+    # Never expose raw phone or email
+    assert "••••" in res["sample_preview"]["email"]
+    assert "•••" in res["sample_preview"]["phone"]
+
+
+def test_unmatched_intent_truthful_zero_result():
+    """
+    Tests that when no authentic entities match an outlandish or unavailable niche,
+    the engine reports 0 matches and sample_preview is None rather than inventing fake data.
+    """
+    from src.application.use_cases.profile_b2b_intent_use_case import ProfileB2BIntentUseCase
+    use_case = ProfileB2BIntentUseCase()
+
+    query = "Busco plantas de enriquecimiento de uranio y reactores nucleares en Santiago de los Caballeros, 25 empresas"
+    res = use_case.execute(query)
+
+    assert res["status"] == "success"
+    assert res["country"] == "DO"
+    assert res["estimated_matches"] == 0
+    assert res["sample_preview"] is None
+    assert "No fue posible encontrar la información solicitada" in res["summary_message"]

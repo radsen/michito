@@ -1806,6 +1806,45 @@ main {
   animation: fadeInDiscovery 0.3s ease-out;
 }
 
+.discovery-card-unavailable {
+  background: linear-gradient(145deg, rgba(244, 63, 94, 0.05) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: 14px;
+  padding: 22px 20px;
+  margin-top: 20px;
+  animation: fadeInDiscovery 0.3s ease-out;
+}
+
+.discovery-card-unavailable .discovery-match-header {
+  border-bottom-color: rgba(244, 63, 94, 0.2);
+}
+
+.discovery-card-unavailable .discovery-match-badge {
+  background: rgba(244, 63, 94, 0.15);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.discovery-unavailable-desc {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.discovery-unavailable-guarantee {
+  margin-top: 14px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 @keyframes fadeInDiscovery {
   from {
     opacity: 0;

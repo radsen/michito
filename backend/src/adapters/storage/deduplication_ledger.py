@@ -19,6 +19,16 @@ PERMANENT_EXCLUDED_KEYWORDS = {"tinkko"}
 
 class DeduplicationLedger:
     def __init__(self, ledger_path: str = DEFAULT_LEDGER_PATH):
+        if ledger_path == DEFAULT_LEDGER_PATH:
+            import sys
+            is_test_env = (
+                "pytest" in sys.modules
+                or "PYTEST_CURRENT_TEST" in os.environ
+                or os.environ.get("TESTING") == "1"
+            )
+            if is_test_env:
+                ledger_path = os.environ.get("TEST_LEDGER_PATH") or "/tmp/michito_test_ledger.json"
+
         self.ledger_path = ledger_path
         os.makedirs(os.path.dirname(self.ledger_path), exist_ok=True)
         self.data: Dict[str, Any] = self._load()

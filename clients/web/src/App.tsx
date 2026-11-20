@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./store";
 import { setPartner } from "./store/slices/partnerSlice";
-import { setPartnerDiscountRate } from "./store/slices/pricingSlice";
+import { setPartnerDiscountRate, setTrmRates } from "./store/slices/pricingSlice";
 import { selectCampaign } from "./store/slices/campaignSlice";
-import { useLazyGetPartnerQuery } from "./store/api/michitoApi";
+import { useLazyGetPartnerQuery, useGetTrmRatesQuery } from "./store/api/michitoApi";
 import { Navbar } from "./components/layout/Navbar";
 import { Hero } from "./components/landing/Hero";
 import { ComparisonTable } from "./components/landing/ComparisonTable";
@@ -23,6 +23,18 @@ export const App: React.FC = () => {
   const dispatch = useDispatch();
   const partner = useSelector((state: RootState) => state.partner);
   const [triggerGetPartner] = useLazyGetPartnerQuery();
+  const { data: trmData } = useGetTrmRatesQuery();
+
+  useEffect(() => {
+    if (trmData?.rates_to_cop) {
+      dispatch(
+        setTrmRates({
+          USD: trmData.rates_to_cop.USD || trmData.trm_usd,
+          DOP: trmData.rates_to_cop.DOP || trmData.trm_dop,
+        })
+      );
+    }
+  }, [trmData, dispatch]);
 
   const queryOrderId = useMemo(() => {
     try {

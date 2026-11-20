@@ -23,6 +23,7 @@ export interface CreateOrderPayload {
     city?: string;
     limit: number;
     tier: number;
+    currency?: string;
     segment?: string;
     sector?: string;
     offer_description?: string;
@@ -41,7 +42,12 @@ export interface CreateOrderResponse {
   order_id: string;
   order_status: string;
   amount_in_cents?: number;
+  amount_in_cents_cop?: number;
+  total_price?: number;
   total_price_cop?: number;
+  currency?: string;
+  payment_currency?: string;
+  exchange_rate?: number;
   message?: string;
 }
 
@@ -49,11 +55,15 @@ export interface OrderStatusResponse {
   order_id: string;
   status: string;
   payment_status?: string;
+  payment_currency?: string;
+  currency?: string;
   limit?: number;
   total_qualified?: number;
   tier?: number;
   total_price_cop?: number;
   amount_in_cents?: number;
+  amount_in_cents_cop?: number;
+  exchange_rate?: number;
   client?: {
     name: string;
     email: string;
@@ -232,6 +242,28 @@ export interface IntentProfileResponse {
   summary_message: string;
 }
 
+export interface TrmRatesResponse {
+  status: string;
+  base: string;
+  rates_to_cop: Record<string, number>;
+  trm_usd: number;
+  trm_dop: number;
+  timestamp: string;
+}
+
+export interface FxConvertResponse {
+  status: string;
+  from_currency: string;
+  to_currency: string;
+  original_amount: number;
+  converted_amount: number;
+  amount_in_cop: number;
+  formatted: string;
+  rate_used: number;
+  trm_cop: number;
+  timestamp: string;
+}
+
 export const michitoApi = createApi({
   reducerPath: "michitoApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
@@ -352,6 +384,19 @@ export const michitoApi = createApi({
       invalidatesTags: (_result, _error, arg) =>
         arg.type === "sector" ? ["TaxonomySectors"] : ["TaxonomyRoles"],
     }),
+    getTrmRates: builder.query<TrmRatesResponse, void>({
+      query: () => "/fx/trm",
+    }),
+    convertFx: builder.query<FxConvertResponse, { amount: number; from?: string; to?: string }>({
+      query: (params) => ({
+        url: "/fx/convert",
+        params: {
+          amount: params.amount,
+          from: params.from || "COP",
+          to: params.to || "COP",
+        },
+      }),
+    }),
   }),
 });
 
@@ -378,5 +423,8 @@ export const {
   useSearchSectorsQuery,
   useLazySearchSectorsQuery,
   useCreateCustomTaxonomyMutation,
+  useGetTrmRatesQuery,
+  useLazyGetTrmRatesQuery,
+  useLazyConvertFxQuery,
 } = michitoApi;
 

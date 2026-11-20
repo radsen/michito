@@ -45,6 +45,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  AlertTriangle,
   ArrowRight,
   Target,
   SlidersHorizontal,
@@ -367,6 +368,11 @@ export const OrderGenerator: React.FC = () => {
   // Stage 1 AI Intent Discovery States
   const [aiQuery, setAiQuery] = useState("");
   const [discoveryResult, setDiscoveryResult] = useState<any>(null);
+  const isDiscoveryUnfulfillable = Boolean(
+    searchMode === "ai" &&
+    discoveryResult &&
+    (discoveryResult.estimated_matches === 0 || !discoveryResult.sample_preview)
+  );
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
 
   // Phase 4: Shareable Quote & Remote Presets State
@@ -563,6 +569,10 @@ export const OrderGenerator: React.FC = () => {
   };
 
   const handleProceedToStep2 = () => {
+    if (discoveryResult && (discoveryResult.estimated_matches === 0 || !discoveryResult.sample_preview)) {
+      setFormError("No fue posible encontrar la información solicitada en este momento. El registro oficial no está disponible o no se encontraron empresas para este criterio.");
+      return;
+    }
     if (!offerDescription.trim() && selectedPresetId === "custom") {
       setFormError(g.errorOfferRequired);
       return;
@@ -636,6 +646,7 @@ export const OrderGenerator: React.FC = () => {
           city: primaryCity,
           limit: volume,
           tier: tier,
+          currency: currency,
           offer_description: offerDescription || undefined,
           target_roles: targetRoles.length > 0 ? targetRoles : undefined,
           target_ciiu_codes: targetCiiuCodes.length > 0 ? targetCiiuCodes : (discoveryResult?.ciiu_codes && discoveryResult.ciiu_codes.length > 0 ? discoveryResult.ciiu_codes : undefined),
@@ -656,7 +667,7 @@ export const OrderGenerator: React.FC = () => {
           orderCreatedSuccess({
             orderId: res.order_id,
             status: res.order_status,
-            totalAmountInCents: res.amount_in_cents || totalCop * 100,
+            totalAmountInCents: res.amount_in_cents_cop || (res.total_price_cop ? res.total_price_cop * 100 : null) || res.amount_in_cents || totalCop * 100,
             totalLeadsTarget: volume,
           })
         );
@@ -702,6 +713,7 @@ export const OrderGenerator: React.FC = () => {
           city: primaryCity,
           limit: volume,
           tier: tier,
+          currency: currency,
           offer_description: offerDescription || undefined,
           target_roles: targetRoles.length > 0 ? targetRoles : undefined,
           target_ciiu_codes: targetCiiuCodes.length > 0 ? targetCiiuCodes : (discoveryResult?.ciiu_codes && discoveryResult.ciiu_codes.length > 0 ? discoveryResult.ciiu_codes : undefined),
@@ -722,7 +734,7 @@ export const OrderGenerator: React.FC = () => {
           orderCreatedSuccess({
             orderId: res.order_id,
             status: res.order_status,
-            totalAmountInCents: res.amount_in_cents || totalCop * 100,
+            totalAmountInCents: res.amount_in_cents_cop || (res.total_price_cop ? res.total_price_cop * 100 : null) || res.amount_in_cents || totalCop * 100,
             totalLeadsTarget: volume,
           })
         );
@@ -1066,71 +1078,102 @@ export const OrderGenerator: React.FC = () => {
 
                     {/* Discovery Match Card */}
                     {discoveryResult && (
-                      <div className="discovery-card">
-                        <div className="discovery-match-header">
-                          <div>
-                            <span className="discovery-match-badge">
-                              <CheckCircle2 style={{ width: 16, height: 16 }} />
-                              {discoveryResult.recommended_limit} {g.discoveryMatches}{" "}
-                              {discoveryResult.city}
-                            </span>
-                            <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
-                              {discoveryResult.summary_message}
-                            </p>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
-                              {g.suggestedBatch}
-                            </span>
-                            <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
-                              {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
-                              {formatCurrencyAmount(
-                                discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
-                                (discoveryResult.pricing?.currency as SupportedCurrency) || currency
-                              )})
-                            </strong>
-                          </div>
-                        </div>
-
-                        {discoveryResult.sample_preview && (
-                          <div className="discovery-sample-preview">
-                            <div className="discovery-sample-title">
-                              {g.samplePreviewTitle}
-                            </div>
-                            <div className="discovery-sample-company">
-                              {discoveryResult.sample_preview.company_name}
-                            </div>
-                            <div className="discovery-sample-person">
-                              {discoveryResult.sample_preview.masked_decision_maker} (
-                              {discoveryResult.sample_preview.title})
-                            </div>
-                            <div className="discovery-sample-badges">
-                              <span className="discovery-sample-badge">
-                                {discoveryResult.sample_preview.statutory_badge || (
-                                  discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
-                                  discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
-                                  discoveryResult.country === "CL" ? "✓ RUT Vigente" :
-                                  g.sampleBadgeNit
-                                )}
+                      isDiscoveryUnfulfillable ? (
+                        <div className="discovery-card-unavailable">
+                          <div className="discovery-match-header">
+                            <div>
+                              <span className="discovery-match-badge">
+                                <AlertTriangle style={{ width: 16, height: 16 }} />
+                                0 {g.discoveryMatches} {discoveryResult.city}
                               </span>
-                              <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
-                              <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
+                              <p className="discovery-unavailable-desc">
+                                {discoveryResult.summary_message}
+                              </p>
                             </div>
                           </div>
-                        )}
-
-                        <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                          <button
-                            type="button"
-                            onClick={() => setSearchMode("direct")}
-                            className="preset-chip-btn"
-                            style={{ flex: 1, justifyContent: "center", padding: "10px" }}
-                          >
-                            <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                            <span>{g.customizeAdvancedBtn}</span>
-                          </button>
+                          <div className="discovery-unavailable-guarantee">
+                            <ShieldCheck style={{ width: 15, height: 15, color: "#34d399", flexShrink: 0 }} />
+                            <span>Garantía de Integridad Comercial: Solo procesamos pedidos con verificación demostrable.</span>
+                          </div>
+                          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                            <button
+                              type="button"
+                              onClick={() => setSearchMode("direct")}
+                              className="preset-chip-btn"
+                              style={{ flex: 1, justifyContent: "center", padding: "10px" }}
+                            >
+                              <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                              <span>{g.customizeAdvancedBtn}</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="discovery-card">
+                          <div className="discovery-match-header">
+                            <div>
+                              <span className="discovery-match-badge">
+                                <CheckCircle2 style={{ width: 16, height: 16 }} />
+                                {discoveryResult.recommended_limit} {g.discoveryMatches}{" "}
+                                {discoveryResult.city}
+                              </span>
+                              <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
+                                {discoveryResult.summary_message}
+                              </p>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
+                                {g.suggestedBatch}
+                              </span>
+                              <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
+                                {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
+                                {formatCurrencyAmount(
+                                  discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
+                                  (discoveryResult.pricing?.currency as SupportedCurrency) || currency
+                                )})
+                              </strong>
+                            </div>
+                          </div>
+
+                          {discoveryResult.sample_preview && (
+                            <div className="discovery-sample-preview">
+                              <div className="discovery-sample-title">
+                                {g.samplePreviewTitle}
+                              </div>
+                              <div className="discovery-sample-company">
+                                {discoveryResult.sample_preview.company_name}
+                              </div>
+                              <div className="discovery-sample-person">
+                                {discoveryResult.sample_preview.masked_decision_maker} (
+                                {discoveryResult.sample_preview.title})
+                              </div>
+                              <div className="discovery-sample-badges">
+                                <span className="discovery-sample-badge">
+                                  {discoveryResult.sample_preview.statutory_badge || (
+                                    discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
+                                    discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
+                                    discoveryResult.country === "CL" ? "✓ RUT Vigente" :
+                                    g.sampleBadgeNit
+                                  )}
+                                </span>
+                                <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
+                                <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                            <button
+                              type="button"
+                              onClick={() => setSearchMode("direct")}
+                              className="preset-chip-btn"
+                              style={{ flex: 1, justifyContent: "center", padding: "10px" }}
+                            >
+                              <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                              <span>{g.customizeAdvancedBtn}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )
                     )}
                   </div>
                 ) : (

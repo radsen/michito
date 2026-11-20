@@ -63,7 +63,7 @@ class SqlOrderAdapter:
 
         try:
             if target_url.startswith("sqlite"):
-                connect_args = {"check_same_thread": False}
+                connect_args = {"check_same_thread": False, "timeout": 30}
                 if "uri=true" in target_url:
                     connect_args["uri"] = True
 
@@ -303,15 +303,29 @@ class SqlOrderAdapter:
                 d["campaign_id"] = order_obj.campaign_id
                 d["city"] = order_obj.city
                 d["payment_status"] = payment.get("status")
-                d["amount_in_cents"] = payment.get("amount_in_cents") or 0
-                d["total_price_cop"] = (payment.get("amount_in_cents") or 0) // 100
+                raw_cents = payment.get("amount_in_cents") or 0
+                d["amount_in_cents"] = raw_cents
+                order_currency = payment.get("currency") or "COP"
+                d["payment_currency"] = order_currency
+                d["currency"] = order_currency
+
+                # TRM official currency conversion for accurate COP settlement
+                from src.domain.services.trm_service import TrmExchangeRateService
+                fx = TrmExchangeRateService.get_instance().convert(
+                    amount=raw_cents / 100.0,
+                    from_currency=order_currency,
+                    to_currency="COP"
+                )
+                d["total_price_cop"] = fx["amount_in_cop"]
+                d["amount_in_cents_cop"] = fx["amount_in_cop"] * 100
+                d["exchange_rate"] = fx.get("rate_used", 1.0)
                 d["error_message"] = getattr(order_obj, "error_message", None)
                 is_paid = (d.get("status") in ("paid", "completed", "fulfilled")) or (payment.get("status") in ("approved", "paid"))
-                d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if (delivery.get("csv_path") and is_paid) else None
-                d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if (delivery.get("full_csv_path") and is_paid) else None
-                d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if (delivery.get("xlsx_path") and is_paid) else None
-                d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if (delivery.get("dossier_path") and is_paid) else None
-                d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if (delivery.get("pdf_path") and is_paid) else None
+                d["csv_download_url"] = f"/api/v1/orders/{order_id}/download/csv" if is_paid else None
+                d["full_csv_download_url"] = f"/api/v1/orders/{order_id}/download/full_csv" if is_paid else None
+                d["xlsx_download_url"] = f"/api/v1/orders/{order_id}/download/xlsx" if is_paid else None
+                d["dossier_download_url"] = f"/api/v1/orders/{order_id}/download/md" if is_paid else None
+                d["pdf_download_url"] = f"/api/v1/orders/{order_id}/download/pdf" if is_paid else None
                 d["playbook"] = delivery.get("playbook") or []
                 return d
             return None
@@ -332,7 +346,20 @@ class SqlOrderAdapter:
     def fetch_queued_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Fetches orders currently waiting to be processed, with concurrency lock if supported."""
         with self._get_session() as session:
-            stmt = select(OrderModel).where(OrderModel.status == "queued").order_by(OrderModel.created_at.asc()).limit(limit)
+            stmt = (
+                select(OrderModel)
+                .where(
+                    or_(
+                        OrderModel.status == "queued",
+                        and_(
+                            or_(OrderModel.status == "paid", OrderModel.payment_status == "approved"),
+                            or_(OrderModel.delivery_csv_path.is_(None), OrderModel.completed_at.is_(None)),
+                        ),
+                    )
+                )
+                .order_by(OrderModel.created_at.asc())
+                .limit(limit)
+            )
             if not self.database_url.startswith("sqlite"):
                 # PostgreSQL / Cloud SQL: lock rows and skip any locked by other concurrent workers
                 stmt = stmt.with_for_update(skip_locked=True)
@@ -459,24 +486,52 @@ class SqlOrderAdapter:
         city: str,
         country: str = "CO",
         limit: int = 10,
+        ciiu_codes: Optional[List[str]] = None,
+        keywords: Optional[List[str]] = None,
+        sectors: Optional[List[str]] = None,
         client_id: Optional[str] = None,
         max_age_days: int = 45,
     ) -> List[Dict[str, Any]]:
         """
         Queries the reusable Lead Inventory for verified fresh leads that have NOT
-        been delivered to this specific client yet.
+        been delivered to this specific client yet, strictly filtered by statutory
+        CIIU code, keywords, or sector to guarantee zero false matches.
         """
         now = datetime.now(timezone.utc)
         threshold_date = now - timedelta(days=max_age_days)
 
         with self._get_session() as session:
-            stmt = select(LeadModel).where(
-                and_(
-                    LeadModel.city.ilike(city),
-                    LeadModel.country == country.upper(),
-                    LeadModel.verified_at >= threshold_date,
-                )
-            )
+            conditions = [
+                LeadModel.country == country.upper(),
+                or_(LeadModel.verified_at >= threshold_date, LeadModel.verified_at.is_(None)),
+            ]
+            if city and city.lower() not in ("all", "nacional", "todo"):
+                conditions.append(LeadModel.city.ilike(f"%{city}%"))
+
+            filter_clauses = []
+            if ciiu_codes:
+                clean_codes = [c.strip() for c in ciiu_codes if c and c.strip()]
+                if clean_codes:
+                    filter_clauses.extend([
+                        LeadModel.ciiu_code.startswith(code[:2]) for code in clean_codes
+                    ])
+
+            if keywords:
+                clean_kws = [k.strip() for k in keywords if k and len(k.strip()) >= 3]
+                if clean_kws:
+                    for kw in clean_kws:
+                        filter_clauses.append(LeadModel.company_name.ilike(f"%{kw}%"))
+                        filter_clauses.append(LeadModel.activity_description.ilike(f"%{kw}%"))
+                        filter_clauses.append(LeadModel.sector_macro.ilike(f"%{kw}%"))
+            elif sectors:
+                clean_secs = [s.strip() for s in sectors if s and len(s.strip()) >= 3]
+                if clean_secs:
+                    filter_clauses.extend([LeadModel.sector_macro.ilike(f"%{s}%") for s in clean_secs])
+
+            if filter_clauses:
+                conditions.append(or_(*filter_clauses))
+
+            stmt = select(LeadModel).where(and_(*conditions))
 
             # Exclude leads already sold to this client
             if client_id:
@@ -626,10 +681,10 @@ class SqlOrderAdapter:
 
             order_obj.delivery_total_qualified = res.get("total_qualified", len(leads_data))
             order_obj.delivery_sample_teaser = res.get("sample_teaser", [])
-            order_obj.delivery_csv_path = res.get("csv_uri") or res.get("csv_path")
-            order_obj.delivery_xlsx_path = res.get("xlsx_uri") or res.get("xlsx_path")
-            order_obj.delivery_dossier_path = res.get("dossier_uri") or res.get("dossier_path")
-            order_obj.delivery_pdf_path = res.get("pdf_uri") or res.get("pdf_path")
+            order_obj.delivery_csv_path = res.get("csv_path") or res.get("csv_uri")
+            order_obj.delivery_xlsx_path = res.get("xlsx_path") or res.get("xlsx_uri")
+            order_obj.delivery_dossier_path = res.get("dossier_path") or res.get("dossier_uri")
+            order_obj.delivery_pdf_path = res.get("pdf_path") or res.get("pdf_uri")
             order_obj.delivery_playbook = res.get("playbook_cadences", [])
 
             # Preserve existing metrics (such as telemetry keys) while updating with worker metrics

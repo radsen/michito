@@ -89,6 +89,7 @@ class RequestDto(BaseModel):
     city: Optional[str] = "Medellín"
     limit: Optional[int] = 10
     tier: Optional[int] = 2
+    currency: Optional[str] = None
     segment: Optional[str] = None
     sector: Optional[str] = None
     offer_description: Optional[str] = None
@@ -333,6 +334,45 @@ def get_partner_settlement_statement(partner_id: str):
         "statement": statement
     }
 
+# -------------------------------------------------------------
+# OFFICIAL TRM & CURRENCY CONVERSION ENDPOINTS
+# -------------------------------------------------------------
+
+@app.get("/api/v1/fx/trm")
+def get_trm_rates():
+    """
+    Returns live official TRM exchange rates from Superintendencia Financiera / datos.gov.co
+    for transparent cross-border conversion into COP for Wompi settlement.
+    """
+    from src.domain.services.trm_service import TrmExchangeRateService
+    service = TrmExchangeRateService.get_instance()
+    return service.get_rates()
+
+@app.get("/api/v1/fx/convert")
+def convert_currency_get(
+    amount: float = Query(..., description="Amount to convert"),
+    from_currency: str = Query("COP", alias="from"),
+    to_currency: str = Query("COP", alias="to"),
+):
+    """
+    Converts amount between supported currencies (USD, DOP, COP) using official TRM rate.
+    """
+    from src.domain.services.trm_service import TrmExchangeRateService
+    service = TrmExchangeRateService.get_instance()
+    return service.convert(amount=amount, from_currency=from_currency, to_currency=to_currency)
+
+@app.post("/api/v1/fx/convert")
+def convert_currency_post(payload: Dict[str, Any]):
+    """
+    Converts amount via POST body between currencies using official TRM rate.
+    """
+    from src.domain.services.trm_service import TrmExchangeRateService
+    service = TrmExchangeRateService.get_instance()
+    amount = float(payload.get("amount", 0.0))
+    from_c = str(payload.get("from_currency") or payload.get("from") or "COP")
+    to_c = str(payload.get("to_currency") or payload.get("to") or "COP")
+    return service.convert(amount=amount, from_currency=from_c, to_currency=to_c)
+
 @app.post("/api/v1/intent/profile")
 def profile_b2b_intent(payload: IntentProfileRequest, request: Request):
     """
@@ -495,6 +535,10 @@ def run_fast_radar_scan(
     or territory-specific statutory business registers with ZERO-KNOWLEDGE obfuscation.
     """
     c_upper = (country or "CO").upper()
+    if c_upper == "MULTI":
+        c_upper = "CO"
+    if city and "," in city:
+        city = city.split(",")[0].strip()
     excluded = set(excluded_tax_ids or [])
     samples: List[Dict[str, Any]] = []
 
@@ -504,7 +548,10 @@ def run_fast_radar_scan(
             city=city,
             country=c_upper,
             limit=limit + len(excluded),
-            max_age_days=60,
+            ciiu_codes=target_ciiu_codes,
+            keywords=keywords_include,
+            sectors=target_sectors,
+            max_age_days=365,
         )
         for lead in cached:
             l_id = lead.get("tax_id") or lead.get("nit") or lead.get("rnc") or lead.get("ruc")
@@ -574,224 +621,34 @@ def run_fast_radar_scan(
         except Exception as e:
             logger.warning(f"Radar live probe failed for {c_upper}: {e}")
 
-    # 3. Territory Statutory Registry Fallback (Guarantee samples for any country without assuming Colombian data)
-    if len(samples) < limit:
-        TERRITORY_STATUTORY_SAMPLES = {
-            "DO": [
-                {
-                    "company_name": "Servicios Financieros & Fintech del Caribe S.R.L.",
-                    "nit": "131.849.201",
-                    "tax_id": "131.849.201",
-                    "city": city or "Santo Domingo",
-                    "sector": "Fintech & Servicios Empresariales",
-                    "decision_maker_name": "José Rafael Castillo",
-                    "decision_maker_title": "Director General / Country Manager",
-                    "email": "jcastillo@caribefintech.do",
-                    "phone": "+18095428901",
-                },
-                {
-                    "company_name": "Inversiones Comerciales Santo Domingo S.R.L.",
-                    "nit": "130.982.341",
-                    "tax_id": "130.982.341",
-                    "city": city or "Santo Domingo",
-                    "sector": "Comercio Corporativo & Coworking",
-                    "decision_maker_name": "Manuel Antonio Peña",
-                    "decision_maker_title": "Gerente General",
-                    "email": "mpena@inversionesdr.com.do",
-                    "phone": "+18096894520",
-                },
-                {
-                    "company_name": "Caribe Logistics & Supply Chain S.R.L.",
-                    "nit": "131.456.789",
-                    "tax_id": "131.456.789",
-                    "city": city or "Santo Domingo",
-                    "sector": "Logística & Transporte Marítimo",
-                    "decision_maker_name": "Altagracia Guzmán",
-                    "decision_maker_title": "Directora de Operaciones",
-                    "email": "aguzman@caribelogistics.do",
-                    "phone": "+18097321144",
-                },
-            ],
-            "EC": [
-                {
-                    "company_name": "Soluciones Corporativas del Pacífico Cía. Ltda.",
-                    "nit": "1792489102001",
-                    "tax_id": "1792489102001",
-                    "city": city or "Quito",
-                    "sector": "Servicios Empresariales & Oficinas",
-                    "decision_maker_name": "Esteban Reyes",
-                    "decision_maker_title": "Gerente General",
-                    "email": "ereyes@pacificocorporativo.ec",
-                    "phone": "+593994821102",
-                },
-                {
-                    "company_name": "Andina de Distribución & Alimentos Cía. Ltda.",
-                    "nit": "0992384109001",
-                    "tax_id": "0992384109001",
-                    "city": city or "Guayaquil",
-                    "sector": "Comercio Mayorista & Distribución",
-                    "decision_maker_name": "María Belén Andrade",
-                    "decision_maker_title": "Directora Comercial",
-                    "email": "bandrade@andinadistribucion.ec",
-                    "phone": "+593987123450",
-                },
-                {
-                    "company_name": "Constructora e Inmobiliaria Pichincha S.A.",
-                    "nit": "1790123456001",
-                    "tax_id": "1790123456001",
-                    "city": city or "Quito",
-                    "sector": "Construcción & Infraestructura",
-                    "decision_maker_name": "Carlos Alberto Mora",
-                    "decision_maker_title": "Gerente de Proyectos",
-                    "email": "cmora@inmobiliariapichincha.ec",
-                    "phone": "+593991234567",
-                },
-            ],
-            "CL": [
-                {
-                    "company_name": "Tecnología & Servicios Corporativos SpA",
-                    "nit": "76.482.910-4",
-                    "tax_id": "76.482.910-4",
-                    "city": city or "Santiago",
-                    "sector": "Tecnología & Servicios Empresariales",
-                    "decision_maker_name": "Rodrigo Valenzuela",
-                    "decision_maker_title": "Gerente General",
-                    "email": "rvalenzuela@tecservices.cl",
-                    "phone": "+56984210933",
-                },
-                {
-                    "company_name": "Inversiones & Comercio Austral SpA",
-                    "nit": "77.109.432-8",
-                    "tax_id": "77.109.432-8",
-                    "city": city or "Santiago",
-                    "sector": "Comercio & Inversiones",
-                    "decision_maker_name": "Camila Ignacia Silva",
-                    "decision_maker_title": "Directora Comercial",
-                    "email": "csilva@inversionesaustral.cl",
-                    "phone": "+56991234567",
-                },
-                {
-                    "company_name": "Logística & Distribución Central S.A.",
-                    "nit": "96.840.120-1",
-                    "tax_id": "96.840.120-1",
-                    "city": city or "Santiago",
-                    "sector": "Logística & Transporte",
-                    "decision_maker_name": "Felipe Andrés Morales",
-                    "decision_maker_title": "Director de Operaciones",
-                    "email": "fmorales@logcentral.cl",
-                    "phone": "+56976543210",
-                },
-            ],
-            "CO": [
-                {
-                    "company_name": "Inversiones & Consultoría Andina S.A.S.",
-                    "nit": "901.482.930-1",
-                    "tax_id": "901.482.930-1",
-                    "city": city or "Medellín",
-                    "sector": "Servicios Empresariales & Consultoría",
-                    "decision_maker_name": "Carlos Andrés Mejía",
-                    "decision_maker_title": "Gerente General",
-                    "email": "cmejia@andina-consulting.co",
-                    "phone": "+573008421901",
-                },
-                {
-                    "company_name": "Constructora e Infraestructura de Colombia S.A.S.",
-                    "nit": "900.823.411-5",
-                    "tax_id": "900.823.411-5",
-                    "city": city or "Bogotá",
-                    "sector": "Construcción & Obras Civiles",
-                    "decision_maker_name": "Mauricio Gómez",
-                    "decision_maker_title": "Director de Operaciones",
-                    "email": "mgomez@infracolombia.com.co",
-                    "phone": "+573105554321",
-                },
-                {
-                    "company_name": "Logística & Distribución del Valle S.A.S.",
-                    "nit": "901.104.582-9",
-                    "tax_id": "901.104.582-9",
-                    "city": city or "Cali",
-                    "sector": "Logística & Distribución",
-                    "decision_maker_name": "Marcela Restrepo",
-                    "decision_maker_title": "Directora de Cadena de Suministro",
-                    "email": "mrestrepo@logisticadelvalle.co",
-                    "phone": "+573157298811",
-                },
-            ],
-        }
-        country_fallbacks = TERRITORY_STATUTORY_SAMPLES.get(c_upper) or TERRITORY_STATUTORY_SAMPLES["CO"]
-        for fb in country_fallbacks:
-            fb_id = fb.get("tax_id") or fb.get("nit")
-            if fb_id not in excluded and not any(s.get("nit") == fb_id for s in samples):
-                samples.append(dict(fb))
-                if len(samples) >= limit:
-                    break
+    # 3. Statutory Corporate Baseline Pool ONLY if allowed by environment (e.g. testing)
+    # In live operation, never invent mock leads if the official registry is inaccessible or returns 0
+    allow_baseline = os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true"
+    if allow_baseline and len(samples) < limit:
+        try:
+            from src.adapters.db.seed_statutory_leads import STATUTORY_CORPORATE_LEADS
+            for item in STATUTORY_CORPORATE_LEADS:
+                if item.get("country") == c_upper:
+                    if city and city.lower() not in ("all", "nacional", "todo"):
+                        if city.lower() not in (item.get("city") or "").lower():
+                            continue
+                    if target_ciiu_codes:
+                        if not any(item.get("ciiu_code", "").startswith((c)[:2]) for c in target_ciiu_codes):
+                            continue
+                    tax_id = item.get("tax_id")
+                    if tax_id not in excluded and not any(s.get("tax_id") == tax_id or s.get("nit") == tax_id for s in samples):
+                        samples.append(dict(item))
+                        if len(samples) >= limit:
+                            break
+        except Exception as e:
+            logger.debug(f"Baseline probe failed: {e}")
 
     # 4. ZERO-KNOWLEDGE Obfuscation: Prove signals & seniority while completely hiding identities
-    tax_type_map = {
-        "CO": "NIT",
-        "DO": "RNC",
-        "EC": "RUC",
-        "CL": "RUT",
-        "MX": "RFC",
-        "PE": "RUC",
-    }
-    flag_map = {
-        "CO": "🇨🇴",
-        "DO": "🇩🇴",
-        "EC": "🇪🇨",
-        "CL": "🇨🇱",
-        "MX": "🇲🇽",
-        "PE": "🇵🇪",
-    }
-    country_name_map = {
-        "CO": "Colombia",
-        "DO": "República Dominicana",
-        "EC": "Ecuador",
-        "CL": "Chile",
-        "MX": "México",
-        "PE": "Perú",
-    }
-
+    from src.domain.services.teaser_masking_service import build_zero_knowledge_teaser
     masked_samples: List[Dict[str, Any]] = []
     for s in samples:
-        raw_nit = str(s.get("nit") or s.get("tax_id") or "900000000")
-        masked_nit = f"{raw_nit[:3]}••••••"
-        if "-" in raw_nit:
-            masked_nit = f"{raw_nit.split('-')[0][:3]}••••••-{raw_nit.split('-')[1]}"
-
-        raw_company = s.get("company_name", "Empresa B2B Verificada")
-        raw_dm = s.get("decision_maker_name") or "Representante Legal"
-        raw_email = s.get("email") or "contacto@empresa.com"
-        raw_phone = s.get("phone") or "3001234567"
-
-        tax_label = tax_type_map.get(c_upper, "ID")
-        masked_samples.append({
-            "company_name": mask_teaser_company_name(raw_company),
-            "nit": f"{tax_label}: {masked_nit}",
-            "tax_id": f"{tax_label}: {masked_nit}",
-            "tax_type": tax_label,
-            "country": c_upper,
-            "country_name": country_name_map.get(c_upper, c_upper),
-            "flag": flag_map.get(c_upper, "🌎"),
-            "city": s.get("city") or city,
-            "sector": s.get("sector") or "Servicios Empresariales",
-            "decision_maker_name": mask_teaser_person_name(raw_dm),
-            "decision_maker_role": s.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)",
-            "decision_maker_title": s.get("decision_maker_title") or "Representante Legal (Firmante Estatutario)",
-            "targeted_role": "Gerente General",
-            "email": mask_teaser_email(raw_email),
-            "phone": mask_teaser_phone(raw_phone, country=c_upper),
-            "phone_line_type": "Móvil Corporativo (WhatsApp)",
-            "website": "[Disponible tras autorización]",
-            "website_url": "[Disponible tras autorización]",
-            "is_mobile": True,
-            "intent_trigger": "Alto (Actividad Comercial Verificada)",
-            "intent_level": "Alto",
-            "has_contracts": True,
-            "underwriting_grade": "A - Aprobado",
-            "solvency_tier": "AA",
-            "litigation_risk": "CLEAN",
-        })
+        teaser = build_zero_knowledge_teaser(s, country=c_upper, city=s.get("city") or city)
+        masked_samples.append(teaser)
     return masked_samples
 
 @app.post("/api/v1/orders", status_code=201)
@@ -808,9 +665,10 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
         raise HTTPException(status_code=400, detail="Requested lead limit must be between 1 and 500.")
 
     try:
-        if payload.request.country_allocations:
-            currency = "USD"
-        elif payload.request.country and payload.request.country.upper() == "EC":
+        user_curr = (payload.request.currency or "").upper()
+        if user_curr in ("COP", "DOP", "USD"):
+            currency = user_curr
+        elif payload.request.country_allocations or (payload.request.country and payload.request.country.upper() == "EC"):
             currency = "USD"
         elif payload.request.country and payload.request.country.upper() == "DO":
             currency = "DOP"
@@ -882,11 +740,31 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             limit=3,
         )
 
+        # STRICT INTEGRITY: If zero verified leads found or official registry returned 403,
+        # fail fast with 422 to prevent quoting or charging for unfulfillable leads.
+        if len(masked_samples) == 0:
+            raise HTTPException(
+                status_code=422,
+                detail="No fue posible encontrar la información solicitada en este momento. El registro oficial no está disponible o no se encontraron empresas para este criterio. No es posible generar una orden sin prospectos verificados."
+            )
+
         total_price_cents = calculate_lead_pricing(
             total_qualified=limit,
             tier=target_tier,
             currency=currency,
         )
+
+        # Official TRM conversion to ensure accurate settlement in COP via Wompi
+        from src.domain.services.trm_service import TrmExchangeRateService
+        trm_service = TrmExchangeRateService.get_instance()
+        nominal_amount = total_price_cents / 100.0
+        fx_conversion = trm_service.convert(
+            amount=nominal_amount,
+            from_currency=currency,
+            to_currency="COP"
+        )
+        total_price_cop = fx_conversion["amount_in_cop"]
+        amount_in_cents_cop = total_price_cop * 100
 
         order = sql_adapter.create_order(
             client_name=payload.client.name,
@@ -931,7 +809,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
                         "city": payload.request.city or "Medellín",
                         "requested_leads": limit,
                         "tier": f"Tier {target_tier}",
-                        "total_cop": f"${total_price_cents // 100:,.0f} COP",
+                        "total_cop": f"${total_price_cop:,.0f} COP",
                     },
                 )
         except Exception as e:
@@ -942,13 +820,21 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             "order_id": order["order_id"],
             "order_status": "awaiting_payment",
             "stream_token": stream_token,
-            "total_price_cop": total_price_cents // 100,
+            "currency": currency,
+            "payment_currency": currency,
+            "amount_in_cents": total_price_cents,
+            "amount_in_cents_cop": amount_in_cents_cop,
+            "total_price": nominal_amount,
+            "total_price_cop": total_price_cop,
+            "exchange_rate": fx_conversion.get("rate_used", 1.0),
             "sample_teaser": masked_samples,
             "sample_leads": masked_samples,
             "estimated_processing_seconds": 2,
             "message": "Radar scan complete. 3 verified sample accounts ready for review.",
             "order": order,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating prospecting order: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1139,7 +1025,12 @@ def get_order_quote_summary(order_id: str):
     tier = req.get("tier") or order.get("tier") or 2
     currency = payment.get("currency") or "COP"
     amount_in_cents = payment.get("amount_in_cents") or 0
-    total_cop = amount_in_cents // 100
+    nominal_total = amount_in_cents / 100.0
+
+    from src.domain.services.trm_service import TrmExchangeRateService
+    trm_res = TrmExchangeRateService.get_instance().convert(nominal_total, from_currency=currency, to_currency="COP")
+    total_cop = trm_res["amount_in_cop"]
+    amount_in_cents_cop = total_cop * 100
 
     tier_labels = {
         1: "Tier 1 — Mailbox Directo & Representante Legal",
@@ -1172,9 +1063,14 @@ def get_order_quote_summary(order_id: str):
         },
         "financials": {
             "currency": currency,
+            "payment_currency": currency,
             "amount_in_cents": amount_in_cents,
-            "total_price": total_cop,
-            "unit_price": total_cop // max(1, limit) if currency == "COP" else round((amount_in_cents / 100) / max(1, limit), 2),
+            "amount_in_cents_cop": amount_in_cents_cop,
+            "total_price": nominal_total if currency != "COP" else total_cop,
+            "total_price_cop": total_cop,
+            "unit_price": round(nominal_total / max(1, limit), 2) if currency != "COP" else (total_cop // max(1, limit)),
+            "unit_price_cop": total_cop // max(1, limit),
+            "exchange_rate": trm_res.get("rate_used", 1.0),
             "payment_status": payment.get("status") or "pending",
             "guarantee": "Garantía Técnica 2x1 por Rebote Duro (7 días de cobertura)",
         },
@@ -1217,6 +1113,22 @@ def pay_prospecting_order(order_id: str, request: Request):
     ok = sql_adapter.mark_order_paid(order_id, transaction_id=tx_id, amount_in_cents=amount)
     if not ok:
         raise HTTPException(status_code=400, detail="Could not mark order paid")
+
+    # Trigger order fulfillment immediately only if deliverables have not been generated yet
+    delivery = order.get("delivery", {}) if isinstance(order.get("delivery"), dict) else {}
+    has_deliverables = bool(
+        order.get("delivery_csv_path")
+        or order.get("csv_path")
+        or delivery.get("csv_path")
+        or order.get("completed_at")
+    )
+    if not has_deliverables:
+        try:
+            from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
+            daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+            daemon.process_order(order)
+        except Exception as job_err:
+            logger.error(f"Error processing order {order_id} on payment approval: {job_err}")
 
     try:
         deliver_order_use_case.execute(order_id)
@@ -1323,7 +1235,32 @@ def download_deliverable(order_id: str, file_type: str):
     except Exception as gcs_err:
         logger.warning(f"GCS stream attempt failed for {blob_name}: {gcs_err}")
 
-    # 3. Deliverable file is missing on a paid order -> Trigger critical Watchdog Alert
+    # 3. Self-Healing Deliverable Generation for Paid Orders
+    # If file is not yet cached on disk or in GCS, generate it on the fly so buyer never receives 404
+    try:
+        from src.entrypoints.workers.order_worker_daemon import OrderWorkerDaemon
+        daemon = OrderWorkerDaemon(order_repository=sql_adapter)
+        daemon.process_order(order)
+        refreshed = sql_adapter.get_order(order_id) or order
+        ref_deliv = refreshed.get("delivery", {})
+        healed_path = None
+        if ft == "csv":
+            healed_path = ref_deliv.get("csv_path")
+        elif ft in ("xlsx", "excel"):
+            healed_path = ref_deliv.get("xlsx_path")
+        elif ft in ("pdf",):
+            healed_path = ref_deliv.get("pdf_path")
+        elif ft in ("md", "dossier", "markdown"):
+            healed_path = ref_deliv.get("dossier_path")
+        elif ft in ("full_csv", "full-csv", "intelligence", "full"):
+            healed_path = ref_deliv.get("full_csv_path")
+
+        if healed_path and os.path.exists(healed_path) and os.path.isfile(healed_path):
+            return FileResponse(path=healed_path, media_type=media_type, filename=filename)
+    except Exception as heal_err:
+        logger.warning(f"Self-healing deliverable generation failed for {order_id}: {heal_err}")
+
+    # 4. Deliverable file is missing on a paid order -> Trigger critical Watchdog Alert
     if hasattr(app_container, "alert_dispatcher"):
         try:
             client_info = order.get("client", {})

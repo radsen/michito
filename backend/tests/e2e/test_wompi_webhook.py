@@ -1,11 +1,18 @@
+import os
 import unittest
 import hashlib
 from fastapi.testclient import TestClient
-from src.entrypoints.api.main import app
-from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+from src.entrypoints.api.main import app, sql_adapter
+from src.adapters.storage.deduplication_ledger import DeduplicationLedger
+
+TEST_WOMPI_LEDGER = "/tmp/test_wompi_ledger.json"
 
 class TestWompiWebhook(unittest.TestCase):
     def setUp(self):
+        if os.path.exists(TEST_WOMPI_LEDGER):
+            os.remove(TEST_WOMPI_LEDGER)
+        self.test_ledger = DeduplicationLedger(ledger_path=TEST_WOMPI_LEDGER)
+        sql_adapter.ledger = self.test_ledger
         self.client = TestClient(app)
         self.secret = "test_events_wmhM2301jwX2c9q8u4SofthtnAKUO7aK"
 
@@ -13,7 +20,7 @@ class TestWompiWebhook(unittest.TestCase):
         # 1. Create order
         payload = {
             "client": {"name": "Webhook Buyer", "email": "wh_buyer_invalid@test.com"},
-            "request": {"campaign_id": "hebi", "city": "Bogotá", "limit": 10}
+            "request": {"campaign_id": "tinkko_enterprise_offices", "city": "Medellín", "limit": 10}
         }
         res_post = self.client.post("/api/v1/orders", json=payload)
         self.assertEqual(res_post.status_code, 201)
@@ -42,7 +49,7 @@ class TestWompiWebhook(unittest.TestCase):
         # 1. Create order
         payload = {
             "client": {"name": "Webhook Buyer", "email": "wh_buyer_idemp@test.com", "phone": "555-1234"},
-            "request": {"campaign_id": "hebi", "city": "Bogotá", "limit": 10}
+            "request": {"campaign_id": "tinkko_enterprise_offices", "city": "Medellín", "limit": 10}
         }
         res_post = self.client.post("/api/v1/orders", json=payload)
         self.assertEqual(res_post.status_code, 201)

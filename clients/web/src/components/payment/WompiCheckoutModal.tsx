@@ -47,7 +47,9 @@ export const WompiCheckoutModal: React.FC = () => {
   if (!isWompiModalOpen) return null;
 
   const resolvedAmountInCents =
-    orderData?.amount_in_cents || totalAmountInCents || totalCop * 100;
+    orderData?.amount_in_cents_cop ||
+    (orderData?.total_price_cop ? Math.round(orderData.total_price_cop * 100) : null) ||
+    (totalCop > 0 ? Math.round(totalCop * 100) : orderData?.amount_in_cents || totalAmountInCents);
   const WOMPI_PUBLIC_KEY = "pub_test_IcBzwUvqUDy85sD7i3snlgxvMLj4A1eL";
   const WOMPI_INTEGRITY_SECRET = "test_integrity_r5SIpk6PnYywRaCxQlOXgySj28wNNlmj";
 
