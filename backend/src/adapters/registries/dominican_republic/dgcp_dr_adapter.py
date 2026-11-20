@@ -35,12 +35,17 @@ class DgcpDrAdapter:
         "41": ["construccion", "obras civiles", "edificaciones"],
     }
 
-    def __init__(self, timeout: int = 10):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 10):
+        self.api_key = api_key or os.environ.get("DGCP_API_KEY")
         self.timeout = timeout
         self.headers = {
             "User-Agent": "MichitoB2BIntelligence/1.0",
             "Accept": "application/json",
         }
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
+            self.headers["api-key"] = self.api_key
+            self.headers["X-API-KEY"] = self.api_key
 
     def _query_api(self, endpoint: str, params: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         query_str = f"?{urllib.parse.urlencode(params)}" if params else ""
