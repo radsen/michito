@@ -5,6 +5,7 @@ from Colombia Compra Eficiente (SECOP II Contratos Electrónicos - Resource ID: 
 Identifies companies with active expansion cash inflows and delivery obligations.
 """
 
+import os
 import json
 import urllib.parse
 import urllib.request
@@ -20,7 +21,8 @@ class SecopContractsAdapter:
     RESOURCE_ID = "jbjy-vk9h"
     BASE_URL = f"https://www.datos.gov.co/resource/{RESOURCE_ID}.json"
 
-    def __init__(self, timeout: int = 6):
+    def __init__(self, app_token: Optional[str] = None, timeout: int = 6):
+        self.app_token = app_token or os.environ.get("SECOP_APP_TOKEN")
         self.timeout = timeout
 
     def fetch_contracts_summary(self, nit: str) -> Dict[str, Any]:
@@ -41,6 +43,8 @@ class SecopContractsAdapter:
 
         url = f"{self.BASE_URL}?" + urllib.parse.urlencode(params)
         headers = {"User-Agent": "MichitoIntentIntelligence/1.0", "Accept": "application/json"}
+        if self.app_token:
+            headers["X-App-Token"] = self.app_token
         req = urllib.request.Request(url, headers=headers)
 
         try:

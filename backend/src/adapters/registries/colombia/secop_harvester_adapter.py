@@ -122,7 +122,7 @@ class SecopHarvesterAdapter:
     )
 
     def __init__(self, app_token: Optional[str] = None, timeout: int = 5):
-        self.app_token = app_token
+        self.app_token = app_token or os.environ.get("SECOP_APP_TOKEN")
         self.timeout = timeout
 
     def _is_invalid_or_bankrupt(self, name: str) -> bool:
