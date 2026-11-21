@@ -1606,48 +1606,6 @@ export const OrderGenerator: React.FC = () => {
                   )}
                 </div>
 
-                {/* Price Calculation Box */}
-                <div className="calc-summary-box">
-                  <div className="calc-row">
-                    <span>
-                      {g.pricePerAccountLabel} (
-                      {tier === 1
-                        ? g.tierBaseName
-                        : tier === 2
-                        ? g.tierDirectName
-                        : g.tierAuditName}
-                      ):
-                    </span>
-                    <span>{formatCurrencyAmount(unitPrice, currency)}</span>
-                  </div>
-                  <div className="calc-row">
-                    <span>{g.subtotalLabel} ({volume} {g.recapAccounts}):</span>
-                    <span>{formatCurrencyAmount(subtotal, currency)}</span>
-                  </div>
-                  {discountPercent > 0 && (
-                    <div className="calc-row text-emerald-400">
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <Sparkles style={{ width: 14, height: 14 }} /> {g.volumeDiscountLabel} (-
-                        {discountPercent}%):
-                      </span>
-                      <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
-                    </div>
-                  )}
-                  <div className="calc-row-total">
-                    <span>{g.summaryTotal}</span>
-                    <span className="total-cop">{formatCurrencyAmount(total, currency)}</span>
-                  </div>
-                  {currency !== "COP" && (
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px", textAlign: "right" }}>
-                      {g.wompiEquivalent} {formatCop(totalCop)} COP
-                    </div>
-                  )}
-                  <div className="fair-billing-pill">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{g.fairBillingNote}</span>
-                  </div>
-                </div>
-
                 {formError && (
                   <div className="form-error-banner" style={{ marginTop: "16px" }}>
                     <span>{formError}</span>
@@ -1660,9 +1618,16 @@ export const OrderGenerator: React.FC = () => {
                   className="generator-submit-btn"
                   style={{ marginTop: "24px" }}
                 >
-                  <span>{g.continueBtn}</span>
+                  <span>
+                    {g.continueBtn} ({formatCurrencyAmount(total, currency)})
+                  </span>
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </button>
+
+                <div className="fair-billing-pill" style={{ marginTop: "12px", justifyContent: "center" }}>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{g.fairBillingNote}</span>
+                </div>
               </div>
             ) : (
               /* Step 2: Buyer Delivery Info & Comprehensive Validation Recap */
