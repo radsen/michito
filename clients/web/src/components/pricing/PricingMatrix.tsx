@@ -1,10 +1,11 @@
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store";
-import { setTier, setVolume } from "../../store/slices/pricingSlice";
+import { setTier, setVolume, setCatalogPricing } from "../../store/slices/pricingSlice";
+import { useGetPricingCatalogQuery } from "../../store/api/michitoApi";
 import { CurrencySwitcher } from "../common/CurrencySwitcher";
 import { SUPPORTED_CURRENCIES, formatCurrencyAmount } from "../../config/currencies";
-import { Check, Star, ShieldAlert, Sparkles, ShieldCheck, Calculator, ArrowRight } from "lucide-react";
+import { Check, Star, ShieldAlert, Sparkles, Calculator, ArrowRight } from "lucide-react";
 
 export const PricingMatrix: React.FC = () => {
   const dispatch = useDispatch();
@@ -18,13 +19,65 @@ export const PricingMatrix: React.FC = () => {
     total,
     discountPercent,
     totalCop,
+    catalogTierPrices,
+    catalogDiscounts,
   } = useSelector((state: RootState) => state.pricing);
   const p = dict.pricing;
 
+  // Live dynamic catalog query from database
+  const { data: catalogData } = useGetPricingCatalogQuery(currency);
+
+  React.useEffect(() => {
+    if (catalogData && catalogData.status === "success") {
+      dispatch(
+        setCatalogPricing({
+          tierPrices: catalogData.tier_prices,
+          discounts: catalogData.volume_discount_curve,
+        })
+      );
+    }
+  }, [catalogData, dispatch]);
+
   const curConfig = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
-  const tier1PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[1], currency);
-  const tier2PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[2], currency);
-  const tier3PriceFormatted = formatCurrencyAmount(curConfig.tierPrices[3], currency);
+  const tier1Price = (catalogTierPrices && catalogTierPrices[1]) || curConfig.tierPrices[1];
+  const tier2Price = (catalogTierPrices && catalogTierPrices[2]) || curConfig.tierPrices[2];
+  const tier3Price = (catalogTierPrices && catalogTierPrices[3]) || curConfig.tierPrices[3];
+
+  const tier1PriceFormatted = formatCurrencyAmount(tier1Price, currency);
+  const tier2PriceFormatted = formatCurrencyAmount(tier2Price, currency);
+  const tier3PriceFormatted = formatCurrencyAmount(tier3Price, currency);
+
+  // Dynamic maximum discount percentage
+  const maxDiscount = React.useMemo(() => {
+    if (catalogDiscounts && catalogDiscounts.length > 0) {
+      return Math.max(...catalogDiscounts.map((d) => d.discount_percentage));
+    }
+    return 32;
+  }, [catalogDiscounts]);
+
+  // Dynamic simulator presets
+  const presets = React.useMemo(() => {
+    const list = [{ qty: 25, label: "25", pct: 0 }];
+    if (catalogDiscounts && catalogDiscounts.length > 0) {
+      const sorted = [...catalogDiscounts].sort((a, b) => a.min_quantity - b.min_quantity);
+      sorted.forEach((d) => {
+        const label =
+          d.min_quantity >= 1000
+            ? `1.000+ (-${d.discount_percentage}%)`
+            : `${d.min_quantity} (-${d.discount_percentage}%)`;
+        list.push({ qty: d.min_quantity, label, pct: d.discount_percentage });
+      });
+      return list;
+    }
+    return [
+      { qty: 25, label: "25", pct: 0 },
+      { qty: 50, label: "50 (-5%)", pct: 5 },
+      { qty: 100, label: "100 (-10%)", pct: 10 },
+      { qty: 250, label: "250 (-18%)", pct: 18 },
+      { qty: 500, label: "500 (-25%)", pct: 25 },
+      { qty: 1000, label: "1.000+ (-32%)", pct: 32 },
+    ];
+  }, [catalogDiscounts]);
 
   const handleChooseTier = (t: 1 | 2 | 3) => {
     dispatch(setTier(t));
@@ -88,7 +141,9 @@ export const PricingMatrix: React.FC = () => {
               </li>
               <li>
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{p.tier1Feature6}</span>
+                <span>
+                  {p.tier1Feature6?.replace("42%", `${maxDiscount}%`) || `Descuentos por volumen hasta ${maxDiscount}%`}
+                </span>
               </li>
             </ul>
             <button
@@ -207,11 +262,7 @@ export const PricingMatrix: React.FC = () => {
           </div>
         </div>
 
-        <div className="volume-discount-notice">
-          <p>{p.volumeDiscounts}</p>
-        </div>
-
-        {/* Interactive Volume & Investment Calculator */}
+        {/* Interactive Dynamic Volume & Investment Simulator */}
         <div className="pricing-calculator-card">
           <div className="calc-card-header">
             <div className="calc-card-title-box">
@@ -219,7 +270,8 @@ export const PricingMatrix: React.FC = () => {
               <h3 className="calc-card-title">{p.calcTitle}</h3>
             </div>
             <p className="calc-card-subtitle">
-              {p.calcSubtitle}
+              {p.calcSubtitle?.replace("42%", `${maxDiscount}%`) ||
+                `Pagas únicamente por las cuentas verificadas. Descuentos automáticos hasta ${maxDiscount}% a partir de 50 cuentas.`}
             </p>
           </div>
 
@@ -227,67 +279,34 @@ export const PricingMatrix: React.FC = () => {
             <div className="calc-volume-picker">
               <label className="form-label">
                 <span>{p.calcVolumeLabel}</span>
-                <strong className="text-sky-400 font-bold ml-1">{volume} {p.calcAccountsUnit}</strong>
+                <strong className="text-sky-400 font-bold ml-1">
+                  {volume} {p.calcAccountsUnit}
+                </strong>
               </label>
 
               <div className="pricing-volume-presets-grid">
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(10))}
-                  className={`pricing-preset-btn ${volume === 10 ? "active" : ""}`}
-                >
-                  10
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(25))}
-                  className={`pricing-preset-btn ${volume === 25 ? "active" : ""}`}
-                >
-                  25 (-6%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(50))}
-                  className={`pricing-preset-btn ${volume === 50 ? "active" : ""}`}
-                >
-                  50 (-12%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(100))}
-                  className={`pricing-preset-btn ${volume === 100 ? "active" : ""}`}
-                >
-                  100 (-20%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(250))}
-                  className={`pricing-preset-btn ${volume === 250 ? "active" : ""}`}
-                >
-                  250 (-28%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(500))}
-                  className={`pricing-preset-btn ${volume === 500 ? "active" : ""}`}
-                >
-                  500 (-35%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setVolume(1000))}
-                  className={`pricing-preset-btn ${volume >= 1000 ? "active" : ""}`}
-                >
-                  1.000+ (-42%)
-                </button>
+                {presets.map((preset) => {
+                  const isActive =
+                    preset.qty === 1000 ? volume >= 1000 : volume === preset.qty;
+                  return (
+                    <button
+                      key={preset.qty}
+                      type="button"
+                      onClick={() => dispatch(setVolume(preset.qty))}
+                      className={`pricing-preset-btn ${isActive ? "active" : ""}`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <input
                 type="range"
-                min="10"
+                min="25"
                 max="1000"
-                step="5"
-                value={volume}
+                step="25"
+                value={Math.max(25, volume)}
                 onChange={(e) => dispatch(setVolume(Number(e.target.value)))}
                 className="pricing-volume-slider"
               />
@@ -315,7 +334,8 @@ export const PricingMatrix: React.FC = () => {
               {discountPercent > 0 && (
                 <div className="calc-row text-emerald-400">
                   <span className="flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> {p.calcDiscount.replace("{percent}", String(discountPercent))}
+                    <Sparkles className="w-3.5 h-3.5" />{" "}
+                    {p.calcDiscount.replace("{percent}", String(discountPercent))}
                   </span>
                   <span>-{formatCurrencyAmount(subtotal - total, currency)}</span>
                 </div>

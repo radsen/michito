@@ -158,7 +158,7 @@
     "tier1Feature3": "CIIU Industry Code & Economic Sector",
     "tier1Feature4": "Address & Audited Active Website",
     "tier1Feature5": "Institutional Phone / Switchboard",
-    "tier1Feature6": "Volume discounts up to 42%",
+    "tier1Feature6": "Volume discounts up to 32%",
     "tier1Cta": "Choose Directory",
     "tier1Selected": "Tier 1 Selected",
 
@@ -189,10 +189,10 @@
     "tier3Cta": "Choose Full Audit",
     "tier3Selected": "Tier 3 Selected",
 
-    "volumeDiscounts": "Volume discounts: 25 accounts (-6%) • 50 accounts (-12%) • 100 accounts (-20%) • 250 accounts (-28%) • 500 accounts (-35%) • 1,000+ accounts (-42%)",
+    "volumeDiscounts": "Volume discount schedule: 50 accounts (-5%) • 100 accounts (-10%) • 250 accounts (-18%) • 500 accounts (-25%) • 1,000+ accounts (-32%)",
 
     "calcTitle": "Simulate Your Volume Investment",
-    "calcSubtitle": "Pay strictly for verified accounts. Automatic volume discounts up to 42%.",
+    "calcSubtitle": "Pay strictly for verified accounts. Automatic volume discounts up to 32% starting at 50 accounts.",
     "calcVolumeLabel": "Number of Accounts:",
     "calcAccountsUnit": "accounts",
     "calcSelectedTier": "Selected Package:",

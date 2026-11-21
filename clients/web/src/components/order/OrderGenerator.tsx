@@ -1522,7 +1522,7 @@ export const OrderGenerator: React.FC = () => {
                         </span>
                       </label>
                       <div className="volume-presets-grid">
-                        {[10, 25, 50, 100, 250, 500, 1000].map((v) => (
+                        {[25, 50, 100, 250, 500, 1000].map((v) => (
                           <button
                             key={v}
                             type="button"

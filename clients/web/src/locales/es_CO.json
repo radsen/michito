@@ -158,7 +158,7 @@
     "tier1Feature3": "Sector CIIU & Actividad Económica",
     "tier1Feature4": "Dirección & Sitio Web Auditado",
     "tier1Feature5": "Teléfono Institucional / Centralita",
-    "tier1Feature6": "Descuentos por volumen hasta 42%",
+    "tier1Feature6": "Descuentos por volumen hasta 32%",
     "tier1Cta": "Elegir Directorio",
     "tier1Selected": "Tier 1 Seleccionado",
 
@@ -189,10 +189,10 @@
     "tier3Cta": "Elegir Auditoría",
     "tier3Selected": "Tier 3 Seleccionado",
 
-    "volumeDiscounts": "Descuentos por volumen: 25 cuentas (-6%) • 50 cuentas (-12%) • 100 cuentas (-20%) • 250 cuentas (-28%) • 500 cuentas (-35%) • 1.000+ cuentas (-42%)",
+    "volumeDiscounts": "Escala de descuentos por volumen: 50 cuentas (-5%) • 100 cuentas (-10%) • 250 cuentas (-18%) • 500 cuentas (-25%) • 1.000+ cuentas (-32%)",
 
     "calcTitle": "Simula tu Inversión por Volumen",
-    "calcSubtitle": "Pagas únicamente por las cuentas verificadas. Descuentos automáticos hasta 42%.",
+    "calcSubtitle": "Pagas únicamente por las cuentas verificadas. Descuentos automáticos hasta 32% a partir de 50 cuentas.",
     "calcVolumeLabel": "Cantidad de Cuentas:",
     "calcAccountsUnit": "cuentas",
     "calcSelectedTier": "Paquete Seleccionado:",
