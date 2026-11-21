@@ -232,7 +232,7 @@
     "buyerPhone": "WhatsApp / Mobile (Optional)",
     "buyerPhoneHint": "Optional. We will notify you via WhatsApp as soon as your batch is audited and ready to review.",
     "summaryTotal": "Total Batch Investment:",
-    "fairBillingNote": "Fair Billing: You only pay for accounts that pass all verification gates.",
+    "fairBillingNote": "Fair Billing: You only pay for accounts that pass our verification gates.",
     "submitBtn": "Audit and Prepare My Batch",
     "disclaimer": "Note: Michito delivers verified contact intelligence and intent data. We do not guarantee closed business transactions.",
 
@@ -386,7 +386,7 @@
     "deliveryConfirmed": "Delivery Confirmed",
     "teaserSampleQualified": "Batch Audited & Ready • Verified Sample and Exact Quote",
     "paymentCtaTitle": "Audited Batch Ready for Instant Download",
-    "paymentCtaDesc": "We identified and verified {verified} active companies passing 100% of technical quality gates. Review the sample below. Upon confirming payment, your Excel (.xlsx), CSV, and PDF Executive Dossier unlock immediately without delay.",
+    "paymentCtaDesc": "We identified and verified {verified} active companies passing our technical quality gates. Review the sample below. Upon confirming payment, your Excel (.xlsx), CSV, and PDF Executive Dossier unlock immediately without delay.",
     "paymentCtaBtn": "Pay & Unlock Batch ({amount})",
     "paymentCtaGuarantee": "Fair Price Guarantee: You only pay for verified accounts ({verified} accounts). No subscriptions or expiring credits.",
     "auditingFinancials": "Checking company standing and official registries in real time...",

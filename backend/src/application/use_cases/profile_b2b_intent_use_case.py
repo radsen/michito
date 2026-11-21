@@ -308,7 +308,7 @@ class ProfileB2BIntentUseCase:
                 "amount_in_cents_cop": total_cop * 100,
                 "currency": target_currency,
                 "exchange_rate": fx_pricing.get("rate_used", 1.0),
-                "guarantee": "Solo pagas por cuentas que superen el 100% de los filtros de verificación.",
+                "guarantee": "Solo pagas por cuentas que superen nuestros filtros de validación.",
             },
             "summary_message": summary_msg,
         }

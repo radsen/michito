@@ -829,8 +829,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   </strong>
                   <p className="leading-relaxed m-0 text-slate-300">
                     {currentLanguage === "en_US"
-                      ? `You requested ${requestedLimit} accounts, but only ${verifiedYield} companies met 100% of legal registration, active website, and verified corporate inbox standards. In compliance with our Fair Price Policy, your quote was automatically reduced to strictly charge you for ${verifiedYield} accounts.`
-                      : `Solicitaste ${requestedLimit} cuentas, pero únicamente ${verifiedYield} empresas cumplieron con el 100% de los estándares legales, presencia web y buzón corporativo activo. En cumplimiento de nuestra Política de Cobro Justo, tu cotización se redujo automáticamente para cobrarte estrictamente por las ${verifiedYield} cuentas verificadas.`}
+                      ? `You requested ${requestedLimit} accounts, but only ${verifiedYield} companies met our legal registration, active website, and verified corporate inbox standards. In compliance with our Fair Price Policy, your quote was automatically reduced to strictly charge you for ${verifiedYield} accounts.`
+                      : `Solicitaste ${requestedLimit} cuentas, pero únicamente ${verifiedYield} empresas cumplieron con nuestros estándares legales, presencia web y buzón corporativo activo. En cumplimiento de nuestra Política de Cobro Justo, tu cotización se redujo automáticamente para cobrarte estrictamente por las ${verifiedYield} cuentas verificadas.`}
                   </p>
                 </div>
               </div>
@@ -851,7 +851,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 mt-1 mb-0 max-w-2xl leading-relaxed">
-                    {(dict.tracker.paymentCtaDesc || "Identificamos y verificamos {verified} empresas activas que superaron el 100% de los filtros técnicos. Revisa la muestra a continuación. Al confirmar tu pago, tus archivos Excel (.xlsx), CSV y Dossier PDF se desbloquean inmediatamente sin esperas.")
+                    {(dict.tracker.paymentCtaDesc || "Identificamos y verificamos {verified} empresas activas que superaron nuestros filtros técnicos de validación. Revisa la muestra a continuación. Al confirmar tu pago, tus archivos Excel (.xlsx), CSV y Dossier PDF se desbloquean inmediatamente sin esperas.")
                       .replace("{verified}", String(verifiedYield))
                       .replace("{total}", String(verifiedYield))}
                   </p>
