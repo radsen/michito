@@ -16,41 +16,28 @@ from src.application.ports.storage_port import StoragePort
 from src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase, run_prospecting_job
 
 
-def calculate_lead_pricing(total_qualified: int, tier: int = 2, currency: str = "COP") -> int:
+def calculate_lead_pricing(
+    total_qualified: int,
+    tier: int = 2,
+    currency: str = "COP",
+    allow_courtesy: bool = True,
+    partner_id: Optional[str] = None,
+) -> int:
     """
-    Calculates fair, tiered batch pricing in cents according to the Michito Financial Model
-    (docs/strategy/financial_model_unit_economics.md) with statutory volume discount curves.
+    Calculates fair, tiered batch pricing in cents by delegating to the centralized
+    PricingCatalogService, enforcing dynamic database price books, volume discount
+    brackets, and courtesy micro-batch policies.
     """
-    if total_qualified <= 0:
-        return 0
-
-    if currency.upper() == "DOP":
-        base_rates = {1: 10000, 2: 35000, 3: 75000}  # 100, 350, 750 DOP in cents
-    elif currency.upper() == "USD":
-        base_rates = {1: 150, 2: 750, 3: 1600}  # $1.50, $7.50, $16.00 USD in cents
-    else:
-        base_rates = {1: 500000, 2: 3000000, 3: 6500000}  # $5.000, $30.000, $65.000 COP in cents
-
-    unit_base = base_rates.get(tier, base_rates[2])
-
-    # Volume discount curve
-    if total_qualified >= 1000:
-        discount = 0.42
-    elif total_qualified >= 500:
-        discount = 0.35
-    elif total_qualified >= 250:
-        discount = 0.28
-    elif total_qualified >= 100:
-        discount = 0.20
-    elif total_qualified >= 50:
-        discount = 0.12
-    elif total_qualified >= 25:
-        discount = 0.06
-    else:
-        discount = 0.0
-
-    discounted_unit = int(unit_base * (1.0 - discount))
-    return total_qualified * discounted_unit
+    from src.domain.services.pricing_catalog_service import PricingCatalogService
+    service = PricingCatalogService.get_instance()
+    quote = service.calculate_quote(
+        total_qualified=total_qualified,
+        tier=tier,
+        currency=currency,
+        partner_id=partner_id,
+        allow_courtesy=allow_courtesy,
+    )
+    return quote["total_cents"]
 
 
 class OrderWorkerDaemon:
@@ -264,10 +251,12 @@ class OrderWorkerDaemon:
             else:
                 currency = job_result.get("currency", "COP")
 
+            partner_ref = order.get("referral_partner") or (order.get("client") or {}).get("referral_partner")
             total_price_cents = calculate_lead_pricing(
                 total_qualified=total_qualified,
                 tier=tier,
-                currency=currency
+                currency=currency,
+                partner_id=partner_ref,
             )
 
             # Upload deliverables to Storage Adapter (Local or GCS)

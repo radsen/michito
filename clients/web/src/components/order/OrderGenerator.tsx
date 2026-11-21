@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../store";
 import { selectCampaign, selectCity } from "../../store/slices/campaignSlice";
-import { setTier, setVolume, setCurrency } from "../../store/slices/pricingSlice";
+import { setTier, setVolume, setCurrency, setCatalogPricing } from "../../store/slices/pricingSlice";
 import {
   setBuyerInfo,
   startOrderSubmission,
@@ -11,6 +11,7 @@ import {
   resetOrder,
 } from "../../store/slices/orderSlice";
 import {
+  useGetPricingCatalogQuery,
   useCreateOrderMutation,
   useProfileIntentMutation,
   useSearchRolesQuery,
@@ -295,6 +296,7 @@ export const OrderGenerator: React.FC = () => {
     subtotal,
     total,
     totalCop,
+    catalogTierPrices,
   } = useSelector((state: RootState) => state.pricing);
   const {
     activeOrderId,
@@ -306,6 +308,18 @@ export const OrderGenerator: React.FC = () => {
   const g = dict.generator;
 
   const curConfig = SUPPORTED_CURRENCIES[currency] || SUPPORTED_CURRENCIES.COP;
+  const { data: pricingCatalogData } = useGetPricingCatalogQuery(currency);
+
+  useEffect(() => {
+    if (pricingCatalogData && pricingCatalogData.tier_prices) {
+      dispatch(
+        setCatalogPricing({
+          tierPrices: pricingCatalogData.tier_prices as any,
+          discounts: pricingCatalogData.volume_discount_curve,
+        })
+      );
+    }
+  }, [pricingCatalogData, dispatch]);
 
   // Selected Preset or "custom" Universal Mode
   const [selectedPresetId, setSelectedPresetId] = useState<string>(
@@ -1439,7 +1453,7 @@ export const OrderGenerator: React.FC = () => {
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
-                              {formatUnitCurrency(curConfig.tierPrices[1], currency)}
+                              {formatUnitCurrency(catalogTierPrices?.[1] || curConfig.tierPrices[1], currency)}
                             </span>
                             <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>
@@ -1455,7 +1469,7 @@ export const OrderGenerator: React.FC = () => {
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
-                              {formatUnitCurrency(curConfig.tierPrices[2], currency)}
+                              {formatUnitCurrency(catalogTierPrices?.[2] || curConfig.tierPrices[2], currency)}
                             </span>
                             <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>
@@ -1482,7 +1496,7 @@ export const OrderGenerator: React.FC = () => {
                           </div>
                           <div className="tier-pill-price-row">
                             <span className="tier-pill-price">
-                              {formatUnitCurrency(curConfig.tierPrices[3], currency)}
+                              {formatUnitCurrency(catalogTierPrices?.[3] || curConfig.tierPrices[3], currency)}
                             </span>
                             <span className="tier-pill-unit">{g.tierUnitAccount}</span>
                           </div>

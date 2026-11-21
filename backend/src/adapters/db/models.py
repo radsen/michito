@@ -409,3 +409,145 @@ class SearchIntentQueryModel(Base):
             "session_id": self.session_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# ==============================================================================
+# CHIKETTO UNIVERSAL PRODUCT & PRICING CATALOG (DYNAMIC PIM ENGINE)
+# ==============================================================================
+
+class ProductCatalogModel(Base):
+    """
+    Master product definitions supporting Michito B2B data tiers now,
+    and Zebra Print-on-Demand (CR80/NFC) & Digital Wallet Passes in the future.
+    """
+    __tablename__ = "pricing_catalog"
+
+    id: Any = Column(String(64), primary_key=True, index=True)  # e.g. "michito_tier_1", "michito_tier_2", "michito_tier_3"
+    category: Any = Column(String(32), nullable=False, default="data_intelligence", index=True)
+    tier: Any = Column(Integer, nullable=True, index=True)  # 1, 2, 3 for data intelligence
+    name: Any = Column(String(128), nullable=False)
+    description: Any = Column(Text, nullable=True)
+    fulfillment_type: Any = Column(String(32), nullable=False, default="data_harvest")  # data_harvest, print_spool, wallet_signer
+    is_active: Any = Column(Boolean, nullable=False, default=True, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    regional_prices: Any = relationship("ProductRegionalPriceModel", back_populates="product", cascade="all, delete-orphan", uselist=True)
+    volume_discounts: Any = relationship("ProductVolumeDiscountModel", back_populates="product", cascade="all, delete-orphan", uselist=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "category": self.category,
+            "tier": self.tier,
+            "name": self.name,
+            "description": self.description,
+            "fulfillment_type": self.fulfillment_type,
+            "is_active": bool(self.is_active),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ProductRegionalPriceModel(Base):
+    """
+    Territory-specific price books decoupling products from local currency and tax rates.
+    """
+    __tablename__ = "product_regional_prices"
+
+    id: Any = Column(String(64), primary_key=True, index=True)  # e.g. "michito_t2_cop", "michito_t2_usd"
+    product_id: Any = Column(String(64), ForeignKey("pricing_catalog.id"), nullable=False, index=True)
+    country_code: Any = Column(String(8), nullable=False, default="CO", index=True)  # CO, DO, EC, MULTI
+    currency: Any = Column(String(8), nullable=False, default="COP", index=True)      # COP, DOP, USD
+    base_unit_price_cents: Any = Column(Integer, nullable=False)                      # In cents e.g. 620000 = $6.200 COP
+    min_order_quantity: Any = Column(Integer, nullable=False, default=25)
+    max_order_quantity: Any = Column(Integer, nullable=False, default=1000)
+    tax_rate_percent: Any = Column(Float, nullable=False, default=19.0)               # 19% IVA CO, 18% DO, 0% EC
+    is_active: Any = Column(Boolean, nullable=False, default=True, index=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    product: Any = relationship("ProductCatalogModel", back_populates="regional_prices")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "country_code": self.country_code,
+            "currency": self.currency,
+            "base_unit_price_cents": self.base_unit_price_cents,
+            "min_order_quantity": self.min_order_quantity,
+            "max_order_quantity": self.max_order_quantity,
+            "tax_rate_percent": self.tax_rate_percent,
+            "is_active": bool(self.is_active),
+        }
+
+
+class ProductVolumeDiscountModel(Base):
+    """
+    Progressive volume discount curves per product.
+    """
+    __tablename__ = "product_volume_discounts"
+
+    id: Any = Column(Integer, primary_key=True, autoincrement=True)
+    product_id: Any = Column(String(64), ForeignKey("pricing_catalog.id"), nullable=False, index=True)
+    min_quantity: Any = Column(Integer, nullable=False, index=True)                   # 50, 100, 250, 500, 1000
+    discount_percentage: Any = Column(Float, nullable=False)                          # 5.0, 10.0, 18.0, 25.0, 32.0
+
+    product: Any = relationship("ProductCatalogModel", back_populates="volume_discounts")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "min_quantity": self.min_quantity,
+            "discount_percentage": self.discount_percentage,
+        }
+
+
+class AffiliateModel(Base):
+    """
+    Commercial affiliate / partner directory (e.g. Tinkko).
+    """
+    __tablename__ = "affiliates"
+
+    partner_id: Any = Column(String(32), primary_key=True, index=True)  # "tinkko", "direct"
+    name: Any = Column(String(128), nullable=False)
+    tax_id: Any = Column(String(32), nullable=True)
+    contact_email: Any = Column(String(255), nullable=True)
+    is_active: Any = Column(Boolean, nullable=False, default=True)
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    commission_rules: Any = relationship("AffiliateCommissionRuleModel", back_populates="affiliate", cascade="all, delete-orphan")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "partner_id": self.partner_id,
+            "name": self.name,
+            "tax_id": self.tax_id,
+            "contact_email": self.contact_email,
+            "is_active": bool(self.is_active),
+        }
+
+
+class AffiliateCommissionRuleModel(Base):
+    """
+    Specific revenue share and customer discount rules per partner and product/category.
+    """
+    __tablename__ = "affiliate_commission_rules"
+
+    id: Any = Column(Integer, primary_key=True, autoincrement=True)
+    partner_id: Any = Column(String(32), ForeignKey("affiliates.partner_id"), nullable=False, index=True)
+    product_id: Any = Column(String(64), ForeignKey("pricing_catalog.id"), nullable=True, index=True)
+    commission_percentage: Any = Column(Float, nullable=False, default=25.0)          # 25% for Michito
+    customer_discount_percentage: Any = Column(Float, nullable=False, default=10.0)   # 10% tenant discount
+
+    affiliate: Any = relationship("AffiliateModel", back_populates="commission_rules")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "partner_id": self.partner_id,
+            "product_id": self.product_id,
+            "commission_percentage": self.commission_percentage,
+            "customer_discount_percentage": self.customer_discount_percentage,
+        }

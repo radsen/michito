@@ -95,6 +95,7 @@ class SqlOrderAdapter:
             Base.metadata.create_all(bind=self.engine)
             self._ensure_schema()
             self.seed_taxonomy_if_empty()
+            self.seed_pricing_catalog_if_empty()
             self.database_url = target_url
         except Exception as exc:
             # Option A: Strict Fail-Fast. Do not silently fallback to a local SQLite file.
@@ -701,8 +702,11 @@ class SqlOrderAdapter:
             order_obj.verified_yield = verified_count
 
             is_payment_approved = (order_obj.payment_status or "").lower() in ("approved", "paid") or order_obj.status == "paid"
-            if is_payment_approved:
+            is_courtesy_sample = (amount_in_cents == 0 and verified_count > 0)
+
+            if is_payment_approved or is_courtesy_sample:
                 order_obj.status = "paid"
+                order_obj.payment_status = "APPROVED"
                 order_obj.delivery_delivered_at = now
             else:
                 order_obj.status = "awaiting_payment"
@@ -718,6 +722,8 @@ class SqlOrderAdapter:
             cur_metrics = dict(order_obj.metrics or {})
             if res.get("metrics") and isinstance(res["metrics"], dict):
                 cur_metrics.update(res["metrics"])
+            if is_courtesy_sample:
+                cur_metrics["is_courtesy_sample"] = True
             order_obj.metrics = cur_metrics
 
             order_obj.completed_at = now
@@ -725,9 +731,8 @@ class SqlOrderAdapter:
 
             if amount_in_cents > 0:
                 order_obj.payment_amount_in_cents = amount_in_cents
-
-            if amount_in_cents == 0:
-                order_obj.delivery_delivered_at = now
+            else:
+                order_obj.payment_amount_in_cents = 0
 
             session.commit()
             return True
@@ -1094,7 +1099,10 @@ class SqlOrderAdapter:
             stmt = select(OrderModel).where(
                 and_(
                     OrderModel.referral_partner == partner.partner_id,
-                    OrderModel.payment_status == "approved"
+                    or_(
+                        OrderModel.payment_status.in_(["approved", "APPROVED", "paid", "PAID"]),
+                        OrderModel.status.in_(["paid", "completed", "fulfilled"])
+                    )
                 )
             )
             orders = session.scalars(stmt).all()
@@ -1168,6 +1176,14 @@ class SqlOrderAdapter:
                 if not has_loc:
                     from src.adapters.db.seed_taxonomy import seed_all_taxonomy
                     seed_all_taxonomy(session)
+        except Exception:
+            pass
+
+    def seed_pricing_catalog_if_empty(self) -> None:
+        """Seeds dynamic pricing catalog if tables are empty."""
+        try:
+            from src.domain.services.pricing_catalog_service import PricingCatalogService
+            PricingCatalogService.get_instance(session_factory=self._get_session).seed_catalog_if_empty()
         except Exception:
             pass
 

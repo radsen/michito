@@ -27,22 +27,38 @@ class TestCrossBorderProspecting(unittest.TestCase):
         self.ledger = DeduplicationLedger(ledger_path=self.ledger_path)
 
     def test_calculate_lead_pricing_usd(self):
-        """Verify USD lead pricing in cents for cross-border and Ecuador orders"""
-        # 10 leads, Tier 2: 10 * 750 cents = 7500 cents ($75.00 USD)
+        """Verify USD and COP lead pricing in cents according to Scenario B with floor and courtesy rules"""
+        # 10 leads, Tier 2 USD: 10 * 155 cents = 1550 cents ($15.50 USD)
         p10 = calculate_lead_pricing(10, tier=2, currency="USD")
-        self.assertEqual(p10, 7500)
+        self.assertEqual(p10, 1550)
 
-        # 50 leads, Tier 2 with 12% discount: 750 * 0.88 = 660 cents -> 50 * 660 = 33000 cents ($330.00 USD)
+        # 50 leads, Tier 2 USD with 5% discount: 155 * 0.95 = 147 cents -> 50 * 147 = 7350 cents ($73.50 USD)
         p50 = calculate_lead_pricing(50, tier=2, currency="USD")
-        self.assertEqual(p50, 33000)
+        self.assertEqual(p50, 7350)
 
-        # 10 leads, Tier 1: 10 * 150 cents = 1500 cents ($15.00 USD)
+        # 100 leads, Tier 2 USD with 10% discount: 155 * 0.90 = 139 cents -> 100 * 139 = 13900 cents ($139.00 USD)
+        p100 = calculate_lead_pricing(100, tier=2, currency="USD")
+        self.assertEqual(p100, 13900)
+
+        # 10 leads, Tier 1 USD: 10 * 38 cents = 380 cents -> enforced minimum floor 625 cents ($6.25 USD)
         p_t1 = calculate_lead_pricing(10, tier=1, currency="USD")
-        self.assertEqual(p_t1, 1500)
+        self.assertEqual(p_t1, 625)
 
-        # 10 leads, Tier 3: 10 * 1600 cents = 16000 cents ($160.00 USD)
+        # 10 leads, Tier 3 USD: 10 * 375 cents = 3750 cents ($37.50 USD)
         p_t3 = calculate_lead_pricing(10, tier=3, currency="USD")
-        self.assertEqual(p_t3, 16000)
+        self.assertEqual(p_t3, 3750)
+
+        # Micro-batch courtesy rule: < 5 leads returns 0 cents to prevent payment gateway fee cannibalization
+        p_courtesy = calculate_lead_pricing(3, tier=2, currency="USD")
+        self.assertEqual(p_courtesy, 0)
+
+        # COP minimum floor test: 10 Tier 1 leads = 1,500,000 cents -> enforced floor 2,500,000 cents ($25.000 COP)
+        p_cop_floor = calculate_lead_pricing(10, tier=1, currency="COP")
+        self.assertEqual(p_cop_floor, 2500000)
+
+        # COP 100 leads Tier 2 with 10% discount: 100 * (620.000 * 0.90) = 55.800.000 cents ($558.000 COP)
+        p_cop_100 = calculate_lead_pricing(100, tier=2, currency="COP")
+        self.assertEqual(p_cop_100, 55800000)
 
     @patch("src.application.use_cases.generate_prospects_use_case.SercopEcuadorAdapter")
     @patch("src.application.use_cases.generate_prospects_use_case.WebsiteAuditor")
@@ -225,6 +241,7 @@ class TestCrossBorderProspecting(unittest.TestCase):
         self.assertIn("DO", teaser_countries)
         self.assertIn("EC", teaser_countries)
 
+    @patch.dict(os.environ, {"ALLOW_STATUTORY_FALLBACK": "true"})
     def test_run_fast_radar_scan_dominican_republic(self):
         """Verify radar scan returns Dominican Republic samples with RNC and 🇩🇴 flag"""
         from src.entrypoints.api.main import run_fast_radar_scan
@@ -235,6 +252,7 @@ class TestCrossBorderProspecting(unittest.TestCase):
         self.assertEqual(first["flag"], "🇩🇴")
         self.assertTrue(first["nit"].startswith("RNC"))
 
+    @patch.dict(os.environ, {"ALLOW_STATUTORY_FALLBACK": "true"})
     def test_run_fast_radar_scan_chile_support(self):
         """Verify radar scan returns Chilean samples with RUT and 🇨🇱 flag"""
         from src.entrypoints.api.main import run_fast_radar_scan
@@ -245,6 +263,7 @@ class TestCrossBorderProspecting(unittest.TestCase):
         self.assertEqual(first["flag"], "🇨🇱")
         self.assertTrue(first["nit"].startswith("RUT"))
 
+    @patch.dict(os.environ, {"ALLOW_STATUTORY_FALLBACK": "true"})
     def test_run_fast_radar_scan_ecuador_support(self):
         """Verify radar scan returns Ecuador samples with RUC and 🇪🇨 flag"""
         from src.entrypoints.api.main import run_fast_radar_scan

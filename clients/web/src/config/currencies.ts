@@ -24,9 +24,9 @@ export const SUPPORTED_CURRENCIES: Record<SupportedCurrency, CurrencyConfig> = {
     country: "Colombia",
     shortLabel: "🇨🇴 COP",
     tierPrices: {
-      1: 5000,
-      2: 30000,
-      3: 65000,
+      1: 1500,
+      2: 6200,
+      3: 15000,
     },
     conversionRateToCop: 1,
   },
@@ -40,9 +40,9 @@ export const SUPPORTED_CURRENCIES: Record<SupportedCurrency, CurrencyConfig> = {
     country: "Rep. Dominicana",
     shortLabel: "🇩🇴 DOP",
     tierPrices: {
-      1: 100,
-      2: 350,
-      3: 750,
+      1: 25,
+      2: 100,
+      3: 250,
     },
     conversionRateToCop: 70, // 1 DOP ~ 70 COP
   },
@@ -56,9 +56,9 @@ export const SUPPORTED_CURRENCIES: Record<SupportedCurrency, CurrencyConfig> = {
     country: "Internacional",
     shortLabel: "🇺🇸 USD",
     tierPrices: {
-      1: 1.5,
-      2: 7.5,
-      3: 16.0,
+      1: 0.38,
+      2: 1.55,
+      3: 3.75,
     },
     conversionRateToCop: 4100, // 1 USD ~ 4,100 COP
   },

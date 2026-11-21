@@ -221,6 +221,18 @@ class ReplacementClaimRequest(BaseModel):
     company_name: Optional[str] = None
     reason: Optional[str] = "hard_bounce"
 
+
+@app.get("/api/v1/pricing/catalog")
+def get_pricing_catalog(currency: str = "COP"):
+    """
+    Returns the dynamic pricing catalog including products, regional price books,
+    minimum order quantities, and progressive volume discount curves.
+    """
+    from src.domain.services.pricing_catalog_service import PricingCatalogService
+    service = PricingCatalogService.get_instance()
+    return service.get_active_catalog(currency=currency)
+
+
 @app.get("/api/v1/campaigns/presets")
 def get_campaign_presets():
     """

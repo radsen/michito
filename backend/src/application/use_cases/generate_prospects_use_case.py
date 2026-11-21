@@ -927,7 +927,14 @@ class GenerateProspectsUseCase:
                 else:
                     is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
                     if not is_active_web:
-                        continue
+                        if tier == 3:
+                            continue
+                        # In Tier 2, if corporate domain and MX host are verified, validate via registry rather than discarding
+                        if is_corporate_domain and ok_mx:
+                            audited_url = candidate_url or f"https://{email.split('@')[1].strip()}"
+                            audit_note = "Validado por Registro Mercantil & Servidor MX"
+                        else:
+                            continue
 
                 # DANE / Regional Activity Classification
                 ciiu_obj = CiiuCode.infer_from_text(
@@ -992,12 +999,16 @@ class GenerateProspectsUseCase:
                     expansion_flag = "Operación Corporativa en Expansión Local"
 
                 clean_name = clean_company_name(company_name)
-                rep_name = (item.get("decision_maker_name") or "").strip()
-                if tier >= 2:
-                    if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia"):
+                rep_name = (
+                    item.get("decision_maker_name")
+                    or item.get("nombre_representante_legal")
+                    or item.get("representante_legal")
+                    or ""
+                ).strip()
+                if not rep_name or rep_name.lower() in ("no provisto", "no definido", "s.a.s.", "gerencia", "n/a", "none"):
+                    if tier == 3:
                         continue
-                if not rep_name:
-                    rep_name = "Representante Legal"
+                    rep_name = "Representante Legal & Gerente General"
                 first_name = get_first_name(rep_name)
                 seg_name, rev_range, emp_range = get_segment_metrics(
                     item.get("tama_o_entidad", "Mediana"), country=c_code

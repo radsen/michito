@@ -131,10 +131,10 @@ class TestOrderWorker(unittest.TestCase):
             output_format="both"
         )
 
-        # Tier 3 unit base is $65.000 COP = 6.500.000 cents. For 10 leads, 65.000.000 cents ($650.000 COP)
+        # Tier 3 unit base is $15.000 COP = 1.500.000 cents. For 10 leads, 15.000.000 cents ($150.000 COP)
         updated = self.adapter.get_order(order_id)
         self.assertEqual(updated["status"], "awaiting_payment")
-        self.assertEqual(updated["payment"]["amount_in_cents"], 65000000)
+        self.assertEqual(updated["payment"]["amount_in_cents"], 15000000)
         self.assertEqual(updated["delivery"]["sample_teaser"][0]["underwriting_grade"], "AAA - Solvente y de Máxima Confianza")
 
 if __name__ == "__main__":

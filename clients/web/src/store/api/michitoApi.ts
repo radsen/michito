@@ -264,11 +264,24 @@ export interface FxConvertResponse {
   timestamp: string;
 }
 
+export interface PricingCatalogResponse {
+  status: string;
+  currency: string;
+  min_order_leads: number;
+  tier_prices: Record<number, number>;
+  tier_prices_cents: Record<number, number>;
+  volume_discount_curve: Array<{ min_quantity: number; discount_percentage: number }>;
+  products: any[];
+}
+
 export const michitoApi = createApi({
   reducerPath: "michitoApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/v1" }),
   tagTypes: ["Campaigns", "Order", "Partner", "TaxonomySectors", "TaxonomyRoles"],
   endpoints: (builder) => ({
+    getPricingCatalog: builder.query<PricingCatalogResponse, string | void>({
+      query: (currency = "COP") => `/pricing/catalog?currency=${currency || "COP"}`,
+    }),
     getCampaigns: builder.query<{ status: string; count: number; campaigns: any[] }, void>({
       query: () => "/campaigns",
       providesTags: ["Campaigns"],
@@ -401,6 +414,8 @@ export const michitoApi = createApi({
 });
 
 export const {
+  useGetPricingCatalogQuery,
+  useLazyGetPricingCatalogQuery,
   useGetCampaignsQuery,
   useGetPartnerQuery,
   useLazyGetPartnerQuery,
