@@ -4081,44 +4081,145 @@ main {
 .calc-volume-picker {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
-.pricing-volume-presets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
-  gap: 8px;
+.pricing-volume-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.pricing-preset-btn {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 8px 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: center;
-}
-
-.pricing-preset-btn:hover {
-  border-color: rgba(56, 189, 248, 0.4);
+.pricing-volume-val {
+  font-size: 1.25rem;
+  font-weight: 800;
   color: #fff;
 }
 
-.pricing-preset-btn.active {
-  background: var(--accent-blue);
-  color: #0b0f19;
-  border-color: var(--accent-blue);
+.pricing-discount-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.25s ease;
+}
+
+.pricing-discount-badge.active-discount {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.pricing-discount-badge.base-rate {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+.pricing-slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .pricing-volume-slider {
   width: 100%;
-  accent-color: var(--accent-blue);
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(30, 41, 59, 0.8);
+  outline: none;
+  accent-color: #38bdf8;
   cursor: pointer;
-  margin-top: 6px;
+  margin-top: 4px;
+}
+
+.pricing-thresholds-track {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.threshold-tick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 2px;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.threshold-tick-btn .tick-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(71, 85, 105, 0.8);
+  transition: all 0.2s ease;
+}
+
+.threshold-tick-btn .tick-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.threshold-tick-btn .tick-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(30, 41, 59, 0.5);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.threshold-tick-btn.reached .tick-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+.threshold-tick-btn.reached .tick-label {
+  color: #fff;
+}
+
+.threshold-tick-btn.reached .tick-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.threshold-tick-btn.selected .tick-dot {
+  transform: scale(1.35);
+  background: #fff;
+  box-shadow: 0 0 10px #38bdf8;
+}
+
+.threshold-tick-btn.selected .tick-label {
+  color: #38bdf8;
+}
+
+.pricing-next-tier-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px dashed rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #94a3b8;
 }
 
 .pricing-calc-summary {

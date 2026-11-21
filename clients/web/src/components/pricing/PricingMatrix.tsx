@@ -55,29 +55,25 @@ export const PricingMatrix: React.FC = () => {
     return 32;
   }, [catalogDiscounts]);
 
-  // Dynamic simulator presets
-  const presets = React.useMemo(() => {
-    const list = [{ qty: 25, label: "25", pct: 0 }];
-    if (catalogDiscounts && catalogDiscounts.length > 0) {
-      const sorted = [...catalogDiscounts].sort((a, b) => a.min_quantity - b.min_quantity);
-      sorted.forEach((d) => {
-        const label =
-          d.min_quantity >= 1000
-            ? `1.000+ (-${d.discount_percentage}%)`
-            : `${d.min_quantity} (-${d.discount_percentage}%)`;
-        list.push({ qty: d.min_quantity, label, pct: d.discount_percentage });
-      });
-      return list;
-    }
-    return [
-      { qty: 25, label: "25", pct: 0 },
-      { qty: 50, label: "50 (-5%)", pct: 5 },
-      { qty: 100, label: "100 (-10%)", pct: 10 },
-      { qty: 250, label: "250 (-18%)", pct: 18 },
-      { qty: 500, label: "500 (-25%)", pct: 25 },
-      { qty: 1000, label: "1.000+ (-32%)", pct: 32 },
-    ];
-  }, [catalogDiscounts]);
+  // Volume threshold scale milestones
+  const thresholds = [
+    { qty: 25, label: "25", pct: 0 },
+    { qty: 50, label: "50", pct: 5 },
+    { qty: 100, label: "100", pct: 10 },
+    { qty: 250, label: "250", pct: 18 },
+    { qty: 500, label: "500", pct: 25 },
+    { qty: 1000, label: "1.000+", pct: 32 },
+  ];
+
+  // Calculate accounts needed to unlock the next discount tier
+  const nextTierInfo = React.useMemo(() => {
+    if (volume < 50) return { needed: 50 - volume, nextPct: 5 };
+    if (volume < 100) return { needed: 100 - volume, nextPct: 10 };
+    if (volume < 250) return { needed: 250 - volume, nextPct: 18 };
+    if (volume < 500) return { needed: 500 - volume, nextPct: 25 };
+    if (volume < 1000) return { needed: 1000 - volume, nextPct: 32 };
+    return null;
+  }, [volume]);
 
   const handleChooseTier = (t: 1 | 2 | 3) => {
     dispatch(setTier(t));
@@ -269,49 +265,96 @@ export const PricingMatrix: React.FC = () => {
               <Calculator className="w-5 h-5 text-sky-400" />
               <h3 className="calc-card-title">{p.calcTitle}</h3>
             </div>
-            <p className="calc-card-subtitle">
-              {p.calcSubtitle?.replace("42%", `${maxDiscount}%`) ||
-                `Pagas únicamente por las cuentas verificadas. Descuentos automáticos hasta ${maxDiscount}% a partir de 50 cuentas.`}
-            </p>
+            <p className="calc-card-subtitle">{p.calcSubtitle}</p>
           </div>
 
           <div className="calc-controls-grid">
             <div className="calc-volume-picker">
-              <label className="form-label">
-                <span>{p.calcVolumeLabel}</span>
-                <strong className="text-sky-400 font-bold ml-1">
-                  {volume} {p.calcAccountsUnit}
-                </strong>
-              </label>
+              {/* Prominent Header with Quantity and Live Status Badge */}
+              <div className="pricing-volume-header">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    {p.calcVolumeLabel}
+                  </span>
+                  <span className="pricing-volume-val">
+                    {volume} {p.calcAccountsUnit}
+                  </span>
+                </div>
 
-              <div className="pricing-volume-presets-grid">
-                {presets.map((preset) => {
-                  const isActive =
-                    preset.qty === 1000 ? volume >= 1000 : volume === preset.qty;
-                  return (
-                    <button
-                      key={preset.qty}
-                      type="button"
-                      onClick={() => dispatch(setVolume(preset.qty))}
-                      className={`pricing-preset-btn ${isActive ? "active" : ""}`}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
+                <div>
+                  {discountPercent > 0 ? (
+                    <span className="pricing-discount-badge active-discount">
+                      <Sparkles className="w-3.5 h-3.5 fill-current" />
+                      {p.calcSavingsBadge?.replace("{percent}", String(discountPercent)) ||
+                        `-${discountPercent}% Ahorro por Volumen`}
+                    </span>
+                  ) : (
+                    <span className="pricing-discount-badge base-rate">
+                      {p.calcBaseRate || "Tarifa Base (Mínimo 25)"}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <input
-                type="range"
-                min="25"
-                max="1000"
-                step="25"
-                value={Math.max(25, volume)}
-                onChange={(e) => dispatch(setVolume(Number(e.target.value)))}
-                className="pricing-volume-slider"
-              />
+              {/* Slider with Milestone Threshold Scale */}
+              <div className="pricing-slider-container">
+                <input
+                  type="range"
+                  min={25}
+                  max={1000}
+                  step={5}
+                  value={Math.max(25, volume)}
+                  onChange={(e) => dispatch(setVolume(Number(e.target.value)))}
+                  className="pricing-volume-slider"
+                  aria-label={p.calcVolumeLabel}
+                />
+
+                <div className="pricing-thresholds-track">
+                  {thresholds.map((t) => {
+                    const isReached = volume >= t.qty;
+                    const isExact = volume === t.qty;
+                    return (
+                      <button
+                        key={t.qty}
+                        type="button"
+                        onClick={() => dispatch(setVolume(t.qty))}
+                        className={`threshold-tick-btn ${isReached ? "reached" : ""} ${
+                          isExact ? "selected" : ""
+                        }`}
+                        title={`Seleccionar ${t.qty} cuentas`}
+                      >
+                        <span className="tick-dot" />
+                        <span className="tick-label">{t.label}</span>
+                        <span className="tick-badge">{t.pct > 0 ? `-${t.pct}%` : "Base"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Motivational Unlock Progress Hint */}
+              {nextTierInfo ? (
+                <div className="pricing-next-tier-hint">
+                  <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span>
+                    {p.calcNextTierHint
+                      ?.replace("{needed}", String(nextTierInfo.needed))
+                      ?.replace("{nextPercent}", `${nextTierInfo.nextPct}%`) ||
+                      `Agrega ${nextTierInfo.needed} cuentas más para activar ${nextTierInfo.nextPct}% de ahorro`}
+                  </span>
+                </div>
+              ) : (
+                <div className="pricing-next-tier-hint text-emerald-400 border-emerald-500/30">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    {p.calcMaxDiscountReached?.replace("{percent}", `${maxDiscount}`) ||
+                      `¡Descuento máximo del ${maxDiscount}% activado!`}
+                  </span>
+                </div>
+              )}
             </div>
 
+            {/* Live Financial Breakdown Summary */}
             <div className="pricing-calc-summary">
               <div className="calc-row">
                 <span>{p.calcSelectedTier}</span>
