@@ -1547,64 +1547,64 @@ export const OrderGenerator: React.FC = () => {
                         ))}
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Collapsible Customer & Domain Exclusion Drawer */}
-                <div className="exclusions-section" style={{ marginTop: "16px" }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
-                    className="exclusions-toggle-btn"
-                    aria-expanded={isExclusionsOpen}
-                  >
-                    <div className="exclusions-toggle-title">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>{g.exclusionsToggle}</span>
-                      {allExclusions.length > 0 && (
-                        <span className="exclusions-count-badge">
-                          {allExclusions.length}{" "}
-                          {allExclusions.length === 1
-                            ? g.activeExclusionSingle
-                            : g.activeExclusionPlural}
-                        </span>
+                    {/* Collapsible Customer & Domain Exclusion Drawer (Visible only in Manual Advanced Filters) */}
+                    <div className="exclusions-section" style={{ marginTop: "16px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
+                        className="exclusions-toggle-btn"
+                        aria-expanded={isExclusionsOpen}
+                      >
+                        <div className="exclusions-toggle-title">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>{g.exclusionsToggle}</span>
+                          {allExclusions.length > 0 && (
+                            <span className="exclusions-count-badge">
+                              {allExclusions.length}{" "}
+                              {allExclusions.length === 1
+                                ? g.activeExclusionSingle
+                                : g.activeExclusionPlural}
+                            </span>
+                          )}
+                        </div>
+                        {isExclusionsOpen ? (
+                          <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {isExclusionsOpen && (
+                        <div className="exclusions-drawer">
+                          <p className="exclusions-hint">
+                            {g.exclusionsHint}
+                          </p>
+
+                          <TagPillInput
+                            tags={negativeExclusions}
+                            onChange={setNegativeExclusions}
+                            color="rose"
+                            placeholder={g.exclusionsPlaceholder}
+                          />
+
+                          <div style={{ marginTop: "10px" }}>
+                            <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
+                              {g.exclusionsBulkLabel}
+                            </span>
+                            <textarea
+                              value={exclusionsText}
+                              onChange={(e) => setExclusionsText(e.target.value)}
+                              placeholder="cliente1.com, 901234567, empresa.co..."
+                              className="exclusions-textarea"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
-                    {isExclusionsOpen ? (
-                      <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                    )}
-                  </button>
-
-                  {isExclusionsOpen && (
-                    <div className="exclusions-drawer">
-                      <p className="exclusions-hint">
-                        {g.exclusionsHint}
-                      </p>
-
-                      <TagPillInput
-                        tags={negativeExclusions}
-                        onChange={setNegativeExclusions}
-                        color="rose"
-                        placeholder={g.exclusionsPlaceholder}
-                      />
-
-                      <div style={{ marginTop: "10px" }}>
-                        <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
-                          {g.exclusionsBulkLabel}
-                        </span>
-                        <textarea
-                          value={exclusionsText}
-                          onChange={(e) => setExclusionsText(e.target.value)}
-                          placeholder="cliente1.com, 901234567, empresa.co..."
-                          className="exclusions-textarea"
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {formError && (
                   <div className="form-error-banner" style={{ marginTop: "16px" }}>
