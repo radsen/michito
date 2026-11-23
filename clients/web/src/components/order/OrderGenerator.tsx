@@ -470,15 +470,15 @@ export const OrderGenerator: React.FC = () => {
     apiRoles && apiRoles.length > 0
       ? apiRoles
       : [
-          "Gerente General",
-          "Director de Operaciones",
-          "Director de Compras / Abastecimiento",
-          "Director Comercial / Ventas",
-          "Gerente Financiero (CFO)",
-          "Director de Tecnología (CTO)",
-          "Gerente de Logística",
-          "Director de Recursos Humanos",
-        ];
+        "Gerente General",
+        "Director de Operaciones",
+        "Director de Compras / Abastecimiento",
+        "Director Comercial / Ventas",
+        "Gerente Financiero (CFO)",
+        "Director de Tecnología (CTO)",
+        "Gerente de Logística",
+        "Director de Recursos Humanos",
+      ];
 
   // API Order Mutation
   const [createOrderMutation, { isLoading: isSubmitting }] = useCreateOrderMutation();
@@ -532,8 +532,8 @@ export const OrderGenerator: React.FC = () => {
     // Auto-record and persist newly added roles in taxonomy
     const addedRole = newRoles.find((r) => !targetRoles.includes(r));
     if (addedRole) {
-      recordRoleUsage({ role_title: addedRole }).catch(() => {});
-      createCustomTaxonomy({ type: "role", name: addedRole }).catch(() => {});
+      recordRoleUsage({ role_title: addedRole }).catch(() => { });
+      createCustomTaxonomy({ type: "role", name: addedRole }).catch(() => { });
     }
   };
 
@@ -955,998 +955,995 @@ export const OrderGenerator: React.FC = () => {
               </div>
             ) : (
               <>
-            {activeOrderId && (
-              <div className="active-order-floating-banner" data-testid="active-order-banner">
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: "#34d399",
-                    }}
-                  />
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff" }}>
-                    {g.activeFloating}{" "}
-                    <strong style={{ fontFamily: "monospace", color: "#38bdf8" }}>
-                      {activeOrderId}
-                    </strong>
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsFormCollapsed(true)}
-                    className="active-order-action-link"
-                    title={g.hideCriteria}
-                  >
-                    {g.hideCriteria}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document
-                        .querySelector(".generator-tracker-area")
-                        ?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="active-order-action-link"
-                  >
-                    {g.viewStatus}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAdjustParameters}
-                    className="active-order-reset-link"
-                  >
-                    {g.newSearch}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Guided 2-Step Stepper Header */}
-            <div className="generator-stepper-header">
-              <button
-                type="button"
-                onClick={() => {
-                  setFormError(null);
-                  setCurrentStep(1);
-                }}
-                className={`stepper-pill ${currentStep === 1 ? "active" : "done"}`}
-              >
-                <span className="stepper-circle">{currentStep === 2 ? "✓" : "1"}</span>
-                <span>1. {g.step1Heading?.replace(/^1\.\s*/, "") || "Qué Empresas Buscas"}</span>
-              </button>
-              <div className="stepper-divider-line" />
-              <button
-                type="button"
-                onClick={handleProceedToStep2}
-                className={`stepper-pill ${currentStep === 2 ? "active" : ""}`}
-              >
-                <span className="stepper-circle">2</span>
-                <span>2. {g.buyerSection}</span>
-              </button>
-            </div>
-
-            {currentStep === 1 ? (
-              <div className="generator-step-1">
-                <div className="card-header-box">
-                  <h3 className="generator-card-title">{g.step1Heading}</h3>
-                  <p className="generator-card-sub">{g.step1Sub}</p>
-
-                  {partner.isAffiliate && (
-                    <div className="partner-attribution-notice" data-testid="partner-order-notice">
-                      <span className="partner-notice-text">
-                        Alianza Oficial: <strong>{partner.name}</strong>
-                      </span>
-                      {partner.discountRate > 0 && (
-                        <span className="partner-notice-discount">
-                          • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Directionality Switcher: Vender vs Comprar / Cotizar */}
-                <div style={{ marginBottom: "16px" }}>
-                  <div style={{ display: "flex", gap: "8px", background: "rgba(15, 23, 42, 0.6)", padding: "4px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                    <button
-                      type="button"
-                      onClick={() => setDirectionality("vendor_to_clients")}
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "8px",
-                        padding: "10px 14px",
-                        borderRadius: "8px",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        background: directionality === "vendor_to_clients" ? "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)" : "transparent",
-                        color: directionality === "vendor_to_clients" ? "#ffffff" : "var(--text-muted)",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <TrendingUp style={{ width: 16, height: 16 }} />
-                      <span>{g.directionVendor}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDirectionality("client_to_vendors");
-                        if (targetRoles.length === 0 || targetRoles.includes("Director de Operaciones")) {
-                          setTargetRoles(["Director Comercial", "Gerente Comercial", "Gerente de Ventas", "Gerente General"]);
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "8px",
-                        padding: "10px 14px",
-                        borderRadius: "8px",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        background: directionality === "client_to_vendors" ? "linear-gradient(135deg, #059669 0%, #10b981 100%)" : "transparent",
-                        color: directionality === "client_to_vendors" ? "#ffffff" : "var(--text-muted)",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <ShoppingCart style={{ width: 16, height: 16 }} />
-                      <span>{g.directionBuyer}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mode Switcher Tabs */}
-                <div className="generator-mode-tabs">
-                  <button
-                    type="button"
-                    onClick={() => setSearchMode("ai")}
-                    className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
-                  >
-                    <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
-                    <span>{g.aiModeTab}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSearchMode("direct")}
-                    className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
-                  >
-                    <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                    <span>{g.manualModeTab}</span>
-                  </button>
-                </div>
-
-                {searchMode === "ai" ? (
-                  /* AI Natural Language Intent Hero */
-                  <div className="ai-intent-hero">
-                    <div className="ai-intent-header">
-                      <span className="ai-intent-badge">
-                        <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
-                        Michito Intent Engine™
-                      </span>
-                      <h3 className="ai-intent-title">
-                        {directionality === "client_to_vendors" ? g.aiBuyerTitle : g.aiTitle}
-                      </h3>
-                      <p className="ai-intent-subtitle">
-                        {g.aiSubtitle}
-                      </p>
-                    </div>
-
-                    <div className="ai-intent-input-wrap">
-                      <input
-                        type="text"
-                        value={aiQuery}
-                        onChange={(e) => setAiQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleProfileIntent();
-                          }
-                        }}
-                        placeholder={g.aiPlaceholder}
-                        className="ai-intent-input"
-                        disabled={isProfiling}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleProfileIntent()}
-                        disabled={isProfiling || !aiQuery.trim()}
-                        className="ai-intent-submit-btn"
-                      >
-                        {isProfiling ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>{g.aiLoading}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles style={{ width: 16, height: 16 }} />
-                            <span>{g.aiSubmit}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Quick Suggestion Pills */}
-                    <div className="ai-pills-container">
-                      <span className="ai-pills-label">{g.aiQuickLabel}</span>
-                      <div className="ai-pills-grid">
-                        {[
-                          {
-                            label: g.aiPill1,
-                            query: g.aiPill1Query,
-                          },
-                          {
-                            label: g.aiPill2,
-                            query: g.aiPill2Query,
-                          },
-                          {
-                            label: g.aiPill3,
-                            query: g.aiPill3Query,
-                          },
-                          {
-                            label: g.aiPill4,
-                            query: g.aiPill4Query,
-                          },
-                        ].map((pill, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setAiQuery(pill.query);
-                              handleProfileIntent(pill.query);
-                            }}
-                            className="ai-quick-pill"
-                          >
-                            <span>{pill.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Discovery Match Card */}
-                    {discoveryResult && (
-                      isOnDemandHarvest ? (
-                        <div className="discovery-card" style={{ border: "1px solid rgba(56, 189, 248, 0.35)", background: "rgba(15, 23, 42, 0.75)" }}>
-                          <div className="discovery-match-header">
-                            <div>
-                              <span className="discovery-match-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
-                                <Sparkles style={{ width: 14, height: 14 }} />
-                                {discoveryResult.country === "DO" ? "🇩🇴 Registro DGCP República Dominicana" : discoveryResult.country === "EC" ? "🇪🇨 Registro SERCOP Ecuador" : discoveryResult.country === "CL" ? "🇨🇱 Registro Mercantil Chile" : "🇨🇴 Registro SECOP II Colombia"} — Búsqueda en Vivo
-                              </span>
-                              <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#f8fafc", marginTop: "8px", marginBottom: "4px" }}>
-                                Auditoría y Recolección en Tiempo Real en {discoveryResult.city || "Santo Domingo"}
-                              </h4>
-                              <p style={{ fontSize: "0.825rem", color: "#cbd5e1", lineHeight: 1.45 }}>
-                                Este segmento requiere consulta activa en los registros oficiales. Michito rastreará empresas activas, validará los buzones corporativos en servidores de correo y clasificará celulares directos.
-                              </p>
-                            </div>
-                            <div style={{ textAlign: "right", minWidth: "140px" }}>
-                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
-                                {g.suggestedBatch}
-                              </span>
-                              <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
-                                {discoveryResult.recommended_limit || volume} decisores
-                              </strong>
-                            </div>
-                          </div>
-
-                          <div className="discovery-unavailable-guarantee" style={{ marginTop: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
-                            <ShieldCheck style={{ width: 16, height: 16, color: "#34d399", flexShrink: 0 }} />
-                            <span style={{ fontSize: "0.8rem", color: "#e2e8f0" }}>
-                              <strong>Garantía Fair Price:</strong> $0 anticipo. Solo pagarás tras auditar el lote y confirmar cuántas empresas verificadas encontramos.
-                            </span>
-                          </div>
-
-                          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                            <button
-                              type="button"
-                              onClick={handleProceedToStep2}
-                              className="generator-submit-btn"
-                              style={{ flex: 2, justifyContent: "center", padding: "12px", background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", color: "#fff", fontWeight: 600 }}
-                            >
-                              <span>Programar Auditoría Gratuita</span>
-                              <ArrowRight className="w-4 h-4 ml-2" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setSearchMode("direct")}
-                              className="preset-chip-btn"
-                              style={{ flex: 1, justifyContent: "center", padding: "12px" }}
-                            >
-                              <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                              <span>{g.customizeAdvancedBtn}</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="discovery-card">
-                          <div className="discovery-match-header">
-                            <div>
-                              <span className="discovery-match-badge">
-                                <CheckCircle2 style={{ width: 16, height: 16 }} />
-                                {discoveryResult.recommended_limit} {g.discoveryMatches}{" "}
-                                {discoveryResult.city}
-                              </span>
-                              <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
-                                {discoveryResult.summary_message}
-                              </p>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
-                                {g.suggestedBatch}
-                              </span>
-                              <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
-                                {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
-                                {formatCurrencyAmount(
-                                  discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
-                                  (discoveryResult.pricing?.currency as SupportedCurrency) || currency
-                                )})
-                              </strong>
-                            </div>
-                          </div>
-
-                          {discoveryResult.sample_preview && (
-                            <div className="discovery-sample-preview">
-                              <div className="discovery-sample-title">
-                                {g.samplePreviewTitle}
-                              </div>
-                              <div className="discovery-sample-company">
-                                {discoveryResult.sample_preview.company_name}
-                              </div>
-                              <div className="discovery-sample-person">
-                                {discoveryResult.sample_preview.masked_decision_maker} (
-                                {discoveryResult.sample_preview.title})
-                              </div>
-                              <div className="discovery-sample-badges">
-                                <span className="discovery-sample-badge">
-                                  {discoveryResult.sample_preview.statutory_badge || (
-                                    discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
-                                    discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
-                                    discoveryResult.country === "CL" ? "✓ RUT Vigente" :
-                                    g.sampleBadgeNit
-                                  )}
-                                </span>
-                                <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
-                                <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                            <button
-                              type="button"
-                              onClick={() => setSearchMode("direct")}
-                              className="preset-chip-btn"
-                              style={{ flex: 1, justifyContent: "center", padding: "10px" }}
-                            >
-                              <SlidersHorizontal style={{ width: 14, height: 14 }} />
-                              <span>{g.customizeAdvancedBtn}</span>
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                ) : (
-                  /* Advanced Direct Selection Configuration */
-                  <div className="direct-selection-wrapper">
-                    {/* Preset Catalog / Template Selector Bar */}
-                    <div className="preset-catalog-bar">
-                      <div className="preset-catalog-header">
-                        <span className="preset-catalog-title">
-                          <Compass style={{ width: 15, height: 15, color: "#38bdf8" }} />
-                          <span>{g.quickTemplates}</span>
-                        </span>
-                        {selectedPresetId !== "custom" && (
-                          <button
-                            type="button"
-                            onClick={() => handlePresetChange("custom")}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              color: "var(--accent-blue)",
-                              fontSize: "0.75rem",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <RotateCcw style={{ width: 12, height: 12 }} />
-                            <span>{g.freeSearchFromScratch}</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="preset-pills-row">
-                        <button
-                          type="button"
-                          onClick={() => handlePresetChange("custom")}
-                          className={`preset-chip-btn universal-btn ${
-                            selectedPresetId === "custom" ? "active" : ""
-                          }`}
-                        >
-                          <Sparkles style={{ width: 14, height: 14 }} />
-                          <span>{g.universalFreeSearch}</span>
-                        </button>
-                        {availablePresets.map((p: PresetTemplate) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => handlePresetChange(p.id)}
-                            className={`preset-chip-btn ${
-                              selectedPresetId === p.id ? "active" : ""
-                            }`}
-                          >
-                            <span>{p.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Offer Description Field */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <FileText className={`form-label-icon ${directionality === "client_to_vendors" ? "text-emerald-400" : "text-sky-400"}`} />
-                        <span>
-                          {directionality === "client_to_vendors"
-                            ? g.offerLabelBuyer
-                            : g.offerLabelVendor}
-                        </span>
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={offerDescription}
-                        onChange={(e) => setOfferDescription(e.target.value)}
-                        placeholder={
-                          directionality === "client_to_vendors"
-                            ? g.offerPlaceholderBuyer
-                            : g.offerPlaceholderVendor
-                        }
-                        className="form-textarea"
-                      />
-                      <span className="form-hint">
-                        {directionality === "client_to_vendors"
-                          ? g.offerHintBuyer
-                          : g.offerHintVendor}
-                      </span>
-                    </div>
-
-                    {/* RFQ Specifications (Visible only in Procurement / Comprar mode) */}
-                    {directionality === "client_to_vendors" && (
-                      <div className="form-group">
-                        <label className="form-label">
-                          <FileText className="form-label-icon text-emerald-400" />
-                          <span>{g.rfqSpecLabel}</span>
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={rfqSpecifications}
-                          onChange={(e) => setRfqSpecifications(e.target.value)}
-                          placeholder={g.rfqSpecPlaceholder}
-                          className="form-textarea"
-                          style={{ borderColor: "rgba(16, 185, 129, 0.4)" }}
-                        />
-                        <span className="form-hint" style={{ color: "#34d399" }}>
-                          {g.rfqSpecHint}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Macro-Sector & CIIU Code Selector */}
-                    <div className="form-group">
-                      <SectorSelector
-                        selectedSectors={selectedSectors}
-                        onChange={setSelectedSectors}
-                        onKeywordsSuggested={handleKeywordsSuggested}
-                      />
-                      {targetCiiuCodes.length > 0 && (
-                        <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: "8px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#60a5fa", display: "block", marginBottom: "4px" }}>
-                            {g.ciiuIdentifiedByAi}
-                          </span>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                            {targetCiiuCodes.map((code) => (
-                              <span key={code} style={{ fontSize: "0.72rem", padding: "2px 8px", background: "rgba(59, 130, 246, 0.2)", borderRadius: "4px", color: "#93c5fd" }}>
-                                CIIU {code}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Target Roles & Decision Makers */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <Target className="form-label-icon text-indigo-400" />
-                        <span>{g.targetRolesLabel}</span>
-                      </label>
-                      <TagPillInput
-                        tags={targetRoles}
-                        onChange={handleRolesChange}
-                        suggestions={suggestedRoles}
-                        color="indigo"
-                        placeholder={g.targetRolesPlaceholder}
-                        helperText={g.targetRolesHelper}
-                      />
-                      <div
+                {activeOrderId && (
+                  <div className="active-order-floating-banner" data-testid="active-order-banner">
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
                         style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: "6px",
-                          marginTop: "6px",
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          backgroundColor: "#34d399",
                         }}
-                      >
-                        <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", alignSelf: "center" }}>
-                          {g.popularSuggestions}
-                        </span>
-                        {(g.popularRoles || [
-                          "Gerente General",
-                          "Director de Operaciones",
-                          "Director de Compras",
-                          "Director Comercial",
-                          "Gerente Financiero (CFO)",
-                          "Director de Tecnología (CTO)",
-                        ]).map((role: string) => (
-                          <button
-                            key={role}
-                            type="button"
-                            onClick={() => {
-                              if (!targetRoles.includes(role)) {
-                                handleRolesChange([...targetRoles, role]);
-                              }
-                            }}
-                            className="tag-pill-add-action-btn"
-                            style={{ opacity: targetRoles.includes(role) ? 0.4 : 1 }}
-                            disabled={targetRoles.includes(role)}
-                          >
-                            + {role}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Multi-Territory Geo-Quota Allocator */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <MapPin className="form-label-icon text-emerald-400" />
-                        <span>{g.geoQuotaLabel}</span>
-                      </label>
-                      <GeoQuotaAllocator
-                        allocations={locationAllocations}
-                        onChange={handleLocationsChange}
-                        totalVolume={volume}
-                        onTotalVolumeChange={handleTotalVolumeChange}
                       />
-                    </div>
-
-                    {/* Positive Keywords / Target Signals */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <Sparkles className="form-label-icon text-emerald-400" />
-                        <span>{g.positiveKeywordsLabel}</span>
-                      </label>
-                      <TagPillInput
-                        tags={positiveKeywords}
-                        onChange={setPositiveKeywords}
-                        color="emerald"
-                        placeholder={g.positiveKeywordsPlaceholder}
-                        helperText={g.positiveKeywordsHelper}
-                      />
-                    </div>
-
-                    {/* Enrichment Tier Selector */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <Layers className="form-label-icon text-sky-400" />
-                        <span>{g.tierLabel}</span>
-                      </label>
-                      <div className="tier-pills-selector">
-                        <button
-                          type="button"
-                          onClick={() => dispatch(setTier(1))}
-                          className={`tier-pill ${tier === 1 ? "active" : ""}`}
-                        >
-                          <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">{g.tierBaseName}</span>
-                          </div>
-                          <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">
-                              {formatUnitCurrency(catalogTierPrices?.[1] || curConfig.tierPrices[1], currency)}
-                            </span>
-                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => dispatch(setTier(2))}
-                          className={`tier-pill ${tier === 2 ? "active" : ""}`}
-                        >
-                          <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">{g.tierDirectName}</span>
-                            <span className="tier-pill-badge">{g.tierRecBadge}</span>
-                          </div>
-                          <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">
-                              {formatUnitCurrency(catalogTierPrices?.[2] || curConfig.tierPrices[2], currency)}
-                            </span>
-                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!hasNonColombiaLocations) {
-                              dispatch(setTier(3));
-                            }
-                          }}
-                          disabled={hasNonColombiaLocations}
-                          className={`tier-pill ${tier === 3 ? "active" : ""} ${
-                            hasNonColombiaLocations ? "opacity-50 cursor-not-allowed bg-slate-900/40" : ""
-                          }`}
-                        >
-                          <div className="tier-pill-title-row">
-                            <span className="tier-pill-name">{g.tierAuditName}</span>
-                            {hasNonColombiaLocations && (
-                              <span className="tier-pill-badge text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
-                                {g.tier3ColombiaOnlyBadge || "Solo Colombia"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="tier-pill-price-row">
-                            <span className="tier-pill-price">
-                              {formatUnitCurrency(catalogTierPrices?.[3] || curConfig.tierPrices[3], currency)}
-                            </span>
-                            <span className="tier-pill-unit">{g.tierUnitAccount}</span>
-                          </div>
-                        </button>
-                      </div>
-                      {hasNonColombiaLocations && (
-                        <div className="mt-3 p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs text-slate-300 flex items-start gap-2.5">
-                          <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                          <p className="leading-relaxed">
-                            {g.tier3CountryNotice}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Volume Presets & Slider */}
-                    <div className="form-group">
-                      <label className="form-label">
-                        <Hash className="form-label-icon text-purple-400" />
-                        <span>
-                          {g.volumeLabel}{" "}
-                          <strong className="text-sky-400">{volume} {g.recapAccounts}</strong>
-                        </span>
-                      </label>
-                      <div className="volume-presets-grid">
-                        {[25, 50, 100, 250, 500, 1000].map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => {
-                              dispatch(setVolume(v));
-                              if (locationAllocations.length > 0) {
-                                const perCity = Math.max(1, Math.round(v / locationAllocations.length));
-                                const updated = locationAllocations.map((a, idx) => ({
-                                  ...a,
-                                  allocated_leads:
-                                    idx === locationAllocations.length - 1
-                                      ? Math.max(1, v - perCity * (locationAllocations.length - 1))
-                                      : perCity,
-                                }));
-                                setLocationAllocations(updated);
-                              }
-                            }}
-                            className={`preset-btn ${volume === v ? "active" : ""}`}
-                          >
-                            {v >= 1000 ? "1.000+" : v}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Collapsible Customer & Domain Exclusion Drawer (Visible only in Manual Advanced Filters) */}
-                    <div className="exclusions-section" style={{ marginTop: "16px" }}>
-                      <button
-                        type="button"
-                        onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
-                        className="exclusions-toggle-btn"
-                        aria-expanded={isExclusionsOpen}
-                      >
-                        <div className="exclusions-toggle-title">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                          <span>{g.exclusionsToggle}</span>
-                          {allExclusions.length > 0 && (
-                            <span className="exclusions-count-badge">
-                              {allExclusions.length}{" "}
-                              {allExclusions.length === 1
-                                ? g.activeExclusionSingle
-                                : g.activeExclusionPlural}
-                            </span>
-                          )}
-                        </div>
-                        {isExclusionsOpen ? (
-                          <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                        )}
-                      </button>
-
-                      {isExclusionsOpen && (
-                        <div className="exclusions-drawer">
-                          <p className="exclusions-hint">
-                            {g.exclusionsHint}
-                          </p>
-
-                          <TagPillInput
-                            tags={negativeExclusions}
-                            onChange={setNegativeExclusions}
-                            color="rose"
-                            placeholder={g.exclusionsPlaceholder}
-                          />
-
-                          <div style={{ marginTop: "10px" }}>
-                            <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
-                              {g.exclusionsBulkLabel}
-                            </span>
-                            <textarea
-                              value={exclusionsText}
-                              onChange={(e) => setExclusionsText(e.target.value)}
-                              placeholder="cliente1.com, 901234567, empresa.co..."
-                              className="exclusions-textarea"
-                              rows={2}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {formError && (
-                  <div className="form-error-banner" style={{ marginTop: "16px" }}>
-                    <span>{formError}</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleProceedToStep2}
-                  className="generator-submit-btn"
-                  style={{ marginTop: "24px" }}
-                >
-                  <span>
-                    {g.continueBtn} ({volume} {g.recapAccounts})
-                  </span>
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </button>
-
-                <div className="fair-billing-pill" style={{ marginTop: "12px", justifyContent: "center" }}>
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>
-                    {g.fairBillingNote} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"} ($0 anticipo)
-                  </span>
-                </div>
-              </div>
-            ) : (
-              /* Step 2: Buyer Delivery Info & Comprehensive Validation Recap */
-              <form onSubmit={handleSubmitOrder} className="generator-step-2">
-                <div className="card-header-box">
-                  <h3 className="generator-card-title">2. {g.buyerSection}</h3>
-                  <p className="generator-card-sub">{g.buyerSectionSub}</p>
-                </div>
-
-                {/* Selected Order Comprehensive Recap */}
-                <div className="generator-recap-box">
-                  <div className="recap-item">
-                    <span className="recap-label">{g.recapOffer}</span>
-                    <span className="recap-value">
-                      {offerDescription ? `"${offerDescription.slice(0, 80)}..."` : g.recapUniversal}
-                    </span>
-                  </div>
-
-                  <div className="recap-item">
-                    <span className="recap-label">{g.recapSectors}</span>
-                    <span className="recap-value">
-                      {selectedSectors.length > 0 ? selectedSectors.join(", ") : g.recapOpenSector}
-                    </span>
-                  </div>
-
-                  <div className="recap-item">
-                    <span className="recap-label">{g.recapRoles}</span>
-                    <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                      {targetRoles.map((r, i) => (
-                        <span key={i} className="tag-pill-chip indigo" style={{ fontSize: "0.72rem" }}>
-                          {r}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-
-                  <div className="recap-item">
-                    <span className="recap-label">{g.recapTerritories}</span>
-                    <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                      {locationAllocations.map((loc, i) => (
-                        <span key={i} style={{ color: "#34d399", fontWeight: 600 }}>
-                          {loc.city}: {loc.allocated_leads} {g.recapLeads}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-
-                  {allExclusions.length > 0 && (
-                    <div className="recap-item">
-                      <span className="recap-label">{g.recapExclusions}</span>
-                      <span className="recap-value text-amber-300 font-medium">
-                        {allExclusions.length}{" "}
-                        {allExclusions.length === 1 ? g.recapExclSingle : g.recapExclPlural}
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#fff" }}>
+                        {g.activeFloating}{" "}
+                        <strong style={{ fontFamily: "monospace", color: "#38bdf8" }}>
+                          {activeOrderId}
+                        </strong>
                       </span>
                     </div>
-                  )}
-
-                  <div className="recap-item">
-                    <span className="recap-label">{g.recapInvestment}</span>
-                    <span className="recap-value text-emerald-400">
-                      {g.recapPostAuditEstimate || "Cotización calculada post-auditoría"} ({volume} {g.recapAccounts} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"})
-                    </span>
-                  </div>
-                </div>
-
-                <div className="buyer-fields-grid">
-                  <div className="form-group">
-                    <label className="form-label">
-                      <User className="form-label-icon" />
-                      <span>{g.buyerName}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      autoComplete="name"
-                      required
-                      placeholder={g.buyerNamePlaceholder}
-                      value={buyerName}
-                      onChange={(e) => {
-                        setLocalName(e.target.value);
-                        if (invalidField === "name") setInvalidField(null);
-                      }}
-                      className={`form-input ${invalidField === "name" ? "input-error" : ""}`}
-                    />
-                    <span className="form-hint">{g.buyerNameHint}</span>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">
-                      <Mail className="form-label-icon" />
-                      <span>{g.buyerEmail}</span>
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      autoComplete="email"
-                      required
-                      placeholder={g.buyerEmailPlaceholder}
-                      value={buyerEmail}
-                      onChange={(e) => {
-                        setLocalEmail(e.target.value);
-                        if (invalidField === "email") setInvalidField(null);
-                      }}
-                      className={`form-input ${invalidField === "email" ? "input-error" : ""}`}
-                    />
-                    <span className="form-hint">{g.buyerEmailHint}</span>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">
-                      <Phone className="form-label-icon" />
-                      <span>{g.buyerPhone}</span>
-                    </label>
-                    <input
-                      type="tel"
-                      name="tel"
-                      autoComplete="tel"
-                      placeholder={g.buyerPhonePlaceholder}
-                      value={buyerPhone}
-                      onChange={(e) => {
-                        setLocalPhone(e.target.value);
-                        if (invalidField === "phone") setInvalidField(null);
-                      }}
-                      className={`form-input ${invalidField === "phone" ? "input-error" : ""}`}
-                    />
-                    <span className="form-hint">{g.buyerPhoneHint}</span>
-                  </div>
-                </div>
-
-                <div className="fair-billing-pill" style={{ marginTop: "16px" }}>
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{g.fairBillingNote}</span>
-                </div>
-
-                {formError && (
-                  <div className="form-error-banner" style={{ marginTop: "16px" }}>
-                    <span>{formError}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setIsFormCollapsed(true)}
+                        className="active-order-action-link"
+                        title={g.hideCriteria}
+                      >
+                        {g.hideCriteria}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          document
+                            .querySelector(".generator-tracker-area")
+                            ?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="active-order-action-link"
+                      >
+                        {g.viewStatus}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAdjustParameters}
+                        className="active-order-reset-link"
+                      >
+                        {g.newSearch}
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                <div className="generator-step-actions">
+                {/* Guided 2-Step Stepper Header */}
+                <div className="generator-stepper-header">
                   <button
                     type="button"
                     onClick={() => {
                       setFormError(null);
                       setCurrentStep(1);
                     }}
-                    className="generator-back-btn"
+                    className={`stepper-pill ${currentStep === 1 ? "active" : "done"}`}
                   >
-                    {g.backBtn}
+                    <span className="stepper-circle">{currentStep === 2 ? "✓" : "1"}</span>
+                    <span>1. {g.step1Heading?.replace(/^1\.\s*/, "") || "Qué Empresas Buscas"}</span>
                   </button>
+                  <div className="stepper-divider-line" />
                   <button
                     type="button"
-                    onClick={handleShareQuote}
-                    disabled={isSubmitting || isSharingQuote}
-                    className="generator-share-quote-btn"
-                    style={{
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(56, 189, 248, 0.4)",
-                      background: "rgba(14, 165, 233, 0.12)",
-                      color: "#38bdf8",
-                      fontWeight: 600,
-                      fontSize: "0.85rem",
-                      cursor: isSubmitting || isSharingQuote ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      transition: "all 0.2s ease",
-                    }}
-                    title={g.shareQuoteTooltip}
+                    onClick={handleProceedToStep2}
+                    className={`stepper-pill ${currentStep === 2 ? "active" : ""}`}
                   >
-                    {isSharingQuote ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-                    ) : (
-                      <Share2 className="w-4 h-4 text-sky-400" />
-                    )}
-                    <span>{g.shareQuoteBtn}</span>
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || isSharingQuote}
-                    className="generator-submit-btn"
-                    style={{ flex: 1 }}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>{g.submittingBtn}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5 fill-current" />
-                        <span>{g.submitBtn}</span>
-                      </>
-                    )}
+                    <span className="stepper-circle">2</span>
+                    <span>2. {g.buyerSection}</span>
                   </button>
                 </div>
 
-                {quoteSharedToast && (
-                  <div className="claim-alert-success mt-3">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>{quoteSharedToast}</span>
-                  </div>
-                )}
+                {currentStep === 1 ? (
+                  <div className="generator-step-1">
+                    <div className="card-header-box">
+                      <h3 className="generator-card-title">{g.step1Heading}</h3>
+                      <p className="generator-card-sub">{g.step1Sub}</p>
 
-                <p className="generator-disclaimer">{g.disclaimer}</p>
-              </form>
-            )}
+                      {partner.isAffiliate && (
+                        <div className="partner-attribution-notice" data-testid="partner-order-notice">
+                          <span className="partner-notice-text">
+                            Alianza Oficial: <strong>{partner.name}</strong>
+                          </span>
+                          {partner.discountRate > 0 && (
+                            <span className="partner-notice-discount">
+                              • {(partner.discountRate * 100).toFixed(0)}% dto. preferencial aplicado
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Directionality Switcher: Vender vs Comprar / Cotizar */}
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ display: "flex", gap: "8px", background: "rgba(15, 23, 42, 0.6)", padding: "4px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setDirectionality("vendor_to_clients")}
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            background: directionality === "vendor_to_clients" ? "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)" : "transparent",
+                            color: directionality === "vendor_to_clients" ? "#ffffff" : "var(--text-muted)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <TrendingUp style={{ width: 16, height: 16 }} />
+                          <span>{g.directionVendor}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDirectionality("client_to_vendors");
+                            if (targetRoles.length === 0 || targetRoles.includes("Director de Operaciones")) {
+                              setTargetRoles(["Director Comercial", "Gerente Comercial", "Gerente de Ventas", "Gerente General"]);
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            background: directionality === "client_to_vendors" ? "linear-gradient(135deg, #059669 0%, #10b981 100%)" : "transparent",
+                            color: directionality === "client_to_vendors" ? "#ffffff" : "var(--text-muted)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <ShoppingCart style={{ width: 16, height: 16 }} />
+                          <span>{g.directionBuyer}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mode Switcher Tabs */}
+                    <div className="generator-mode-tabs">
+                      <button
+                        type="button"
+                        onClick={() => setSearchMode("ai")}
+                        className={`generator-mode-tab ${searchMode === "ai" ? "active" : ""}`}
+                      >
+                        <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
+                        <span>{g.aiModeTab}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSearchMode("direct")}
+                        className={`generator-mode-tab ${searchMode === "direct" ? "active" : ""}`}
+                      >
+                        <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                        <span>{g.manualModeTab}</span>
+                      </button>
+                    </div>
+
+                    {searchMode === "ai" ? (
+                      /* AI Natural Language Intent Hero */
+                      <div className="ai-intent-hero">
+                        <div className="ai-intent-header">
+                          <span className="ai-intent-badge">
+                            <Sparkles style={{ width: 14, height: 14, color: "#38bdf8" }} />
+                            Michito Intent Engine™
+                          </span>
+                          <h3 className="ai-intent-title">
+                            {directionality === "client_to_vendors" ? g.aiBuyerTitle : g.aiTitle}
+                          </h3>
+                          <p className="ai-intent-subtitle">
+                            {g.aiSubtitle}
+                          </p>
+                        </div>
+
+                        <div className="ai-intent-input-wrap">
+                          <input
+                            type="text"
+                            value={aiQuery}
+                            onChange={(e) => setAiQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleProfileIntent();
+                              }
+                            }}
+                            placeholder={g.aiPlaceholder}
+                            className="ai-intent-input"
+                            disabled={isProfiling}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleProfileIntent()}
+                            disabled={isProfiling || !aiQuery.trim()}
+                            className="ai-intent-submit-btn"
+                          >
+                            {isProfiling ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>{g.aiLoading}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles style={{ width: 16, height: 16 }} />
+                                <span>{g.aiSubmit}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Quick Suggestion Pills */}
+                        <div className="ai-pills-container">
+                          <span className="ai-pills-label">{g.aiQuickLabel}</span>
+                          <div className="ai-pills-grid">
+                            {[
+                              {
+                                label: g.aiPill1,
+                                query: g.aiPill1Query,
+                              },
+                              {
+                                label: g.aiPill2,
+                                query: g.aiPill2Query,
+                              },
+                              {
+                                label: g.aiPill3,
+                                query: g.aiPill3Query,
+                              },
+                              {
+                                label: g.aiPill4,
+                                query: g.aiPill4Query,
+                              },
+                            ].map((pill, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setAiQuery(pill.query);
+                                  handleProfileIntent(pill.query);
+                                }}
+                                className="ai-quick-pill"
+                              >
+                                <span>{pill.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Discovery Match Card */}
+                        {discoveryResult && (
+                          isOnDemandHarvest ? (
+                            <div className="discovery-card" style={{ border: "1px solid rgba(56, 189, 248, 0.35)", background: "rgba(15, 23, 42, 0.75)" }}>
+                              <div className="discovery-match-header">
+                                <div>
+                                  <span className="discovery-match-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
+                                    <Sparkles style={{ width: 14, height: 14 }} />
+                                    {discoveryResult.country === "DO" ? "🇩🇴 Registro DGCP República Dominicana" : discoveryResult.country === "EC" ? "🇪🇨 Registro SERCOP Ecuador" : discoveryResult.country === "CL" ? "🇨🇱 Registro Mercantil Chile" : "🇨🇴 Registro SECOP II Colombia"} — Búsqueda en Vivo
+                                  </span>
+                                  <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#f8fafc", marginTop: "8px", marginBottom: "4px" }}>
+                                    Auditoría y Recolección en Tiempo Real en {discoveryResult.city || "Santo Domingo"}
+                                  </h4>
+                                  <p style={{ fontSize: "0.825rem", color: "#cbd5e1", lineHeight: 1.45 }}>
+                                    Este segmento requiere consulta activa en los registros oficiales. Michito rastreará empresas activas, validará los buzones corporativos en servidores de correo y clasificará celulares directos.
+                                  </p>
+                                </div>
+                                <div style={{ textAlign: "right", minWidth: "140px" }}>
+                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
+                                    {g.suggestedBatch}
+                                  </span>
+                                  <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
+                                    {discoveryResult.recommended_limit || volume} decisores
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="discovery-unavailable-guarantee" style={{ marginTop: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <ShieldCheck style={{ width: 16, height: 16, color: "#34d399", flexShrink: 0 }} />
+                                <span style={{ fontSize: "0.8rem", color: "#e2e8f0" }}>
+                                  <strong>Garantía Fair Price:</strong> $0 anticipo. Solo pagarás tras auditar el lote y confirmar cuántas empresas verificadas encontramos.
+                                </span>
+                              </div>
+
+                              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                                <button
+                                  type="button"
+                                  onClick={handleProceedToStep2}
+                                  className="generator-submit-btn"
+                                  style={{ flex: 2, justifyContent: "center", padding: "12px", background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", color: "#fff", fontWeight: 600 }}
+                                >
+                                  <span>Programar Auditoría Gratuita</span>
+                                  <ArrowRight className="w-4 h-4 ml-2" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchMode("direct")}
+                                  className="preset-chip-btn"
+                                  style={{ flex: 1, justifyContent: "center", padding: "12px" }}
+                                >
+                                  <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                                  <span>{g.customizeAdvancedBtn}</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="discovery-card">
+                              <div className="discovery-match-header">
+                                <div>
+                                  <span className="discovery-match-badge">
+                                    <CheckCircle2 style={{ width: 16, height: 16 }} />
+                                    {discoveryResult.recommended_limit} {g.discoveryMatches}{" "}
+                                    {discoveryResult.city}
+                                  </span>
+                                  <p style={{ fontSize: "0.8rem", color: "#cbd5e1", marginTop: "4px" }}>
+                                    {discoveryResult.summary_message}
+                                  </p>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>
+                                    {g.suggestedBatch}
+                                  </span>
+                                  <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
+                                    {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
+                                    {formatCurrencyAmount(
+                                      discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
+                                      (discoveryResult.pricing?.currency as SupportedCurrency) || currency
+                                    )})
+                                  </strong>
+                                </div>
+                              </div>
+
+                              {discoveryResult.sample_preview && (
+                                <div className="discovery-sample-preview">
+                                  <div className="discovery-sample-title">
+                                    {g.samplePreviewTitle}
+                                  </div>
+                                  <div className="discovery-sample-company">
+                                    {discoveryResult.sample_preview.company_name}
+                                  </div>
+                                  <div className="discovery-sample-person">
+                                    {discoveryResult.sample_preview.masked_decision_maker} (
+                                    {discoveryResult.sample_preview.title})
+                                  </div>
+                                  <div className="discovery-sample-badges">
+                                    <span className="discovery-sample-badge">
+                                      {discoveryResult.sample_preview.statutory_badge || (
+                                        discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
+                                          discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
+                                            discoveryResult.country === "CL" ? "✓ RUT Vigente" :
+                                              g.sampleBadgeNit
+                                      )}
+                                    </span>
+                                    <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
+                                    <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchMode("direct")}
+                                  className="preset-chip-btn"
+                                  style={{ flex: 1, justifyContent: "center", padding: "10px" }}
+                                >
+                                  <SlidersHorizontal style={{ width: 14, height: 14 }} />
+                                  <span>{g.customizeAdvancedBtn}</span>
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    ) : (
+                      /* Advanced Direct Selection Configuration */
+                      <div className="direct-selection-wrapper">
+                        {/* Preset Catalog / Template Selector Bar */}
+                        <div className="preset-catalog-bar">
+                          <div className="preset-catalog-header">
+                            <span className="preset-catalog-title">
+                              <Compass style={{ width: 15, height: 15, color: "#38bdf8" }} />
+                              <span>{g.quickTemplates}</span>
+                            </span>
+                            {selectedPresetId !== "custom" && (
+                              <button
+                                type="button"
+                                onClick={() => handlePresetChange("custom")}
+                                style={{
+                                  background: "transparent",
+                                  border: "none",
+                                  color: "var(--accent-blue)",
+                                  fontSize: "0.75rem",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                              >
+                                <RotateCcw style={{ width: 12, height: 12 }} />
+                                <span>{g.freeSearchFromScratch}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="preset-pills-row">
+                            <button
+                              type="button"
+                              onClick={() => handlePresetChange("custom")}
+                              className={`preset-chip-btn universal-btn ${selectedPresetId === "custom" ? "active" : ""
+                                }`}
+                            >
+                              <Sparkles style={{ width: 14, height: 14 }} />
+                              <span>{g.universalFreeSearch}</span>
+                            </button>
+                            {availablePresets.map((p: PresetTemplate) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handlePresetChange(p.id)}
+                                className={`preset-chip-btn ${selectedPresetId === p.id ? "active" : ""
+                                  }`}
+                              >
+                                <span>{p.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Offer Description Field */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <FileText className={`form-label-icon ${directionality === "client_to_vendors" ? "text-emerald-400" : "text-sky-400"}`} />
+                            <span>
+                              {directionality === "client_to_vendors"
+                                ? g.offerLabelBuyer
+                                : g.offerLabelVendor}
+                            </span>
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={offerDescription}
+                            onChange={(e) => setOfferDescription(e.target.value)}
+                            placeholder={
+                              directionality === "client_to_vendors"
+                                ? g.offerPlaceholderBuyer
+                                : g.offerPlaceholderVendor
+                            }
+                            className="form-textarea"
+                          />
+                          <span className="form-hint">
+                            {directionality === "client_to_vendors"
+                              ? g.offerHintBuyer
+                              : g.offerHintVendor}
+                          </span>
+                        </div>
+
+                        {/* RFQ Specifications (Visible only in Procurement / Comprar mode) */}
+                        {directionality === "client_to_vendors" && (
+                          <div className="form-group">
+                            <label className="form-label">
+                              <FileText className="form-label-icon text-emerald-400" />
+                              <span>{g.rfqSpecLabel}</span>
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={rfqSpecifications}
+                              onChange={(e) => setRfqSpecifications(e.target.value)}
+                              placeholder={g.rfqSpecPlaceholder}
+                              className="form-textarea"
+                              style={{ borderColor: "rgba(16, 185, 129, 0.4)" }}
+                            />
+                            <span className="form-hint" style={{ color: "#34d399" }}>
+                              {g.rfqSpecHint}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Macro-Sector & CIIU Code Selector */}
+                        <div className="form-group">
+                          <SectorSelector
+                            selectedSectors={selectedSectors}
+                            onChange={setSelectedSectors}
+                            onKeywordsSuggested={handleKeywordsSuggested}
+                          />
+                          {targetCiiuCodes.length > 0 && (
+                            <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: "8px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#60a5fa", display: "block", marginBottom: "4px" }}>
+                                {g.ciiuIdentifiedByAi}
+                              </span>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                {targetCiiuCodes.map((code) => (
+                                  <span key={code} style={{ fontSize: "0.72rem", padding: "2px 8px", background: "rgba(59, 130, 246, 0.2)", borderRadius: "4px", color: "#93c5fd" }}>
+                                    CIIU {code}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Target Roles & Decision Makers */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <Target className="form-label-icon text-indigo-400" />
+                            <span>{g.targetRolesLabel}</span>
+                          </label>
+                          <TagPillInput
+                            tags={targetRoles}
+                            onChange={handleRolesChange}
+                            suggestions={suggestedRoles}
+                            color="indigo"
+                            placeholder={g.targetRolesPlaceholder}
+                            helperText={g.targetRolesHelper}
+                          />
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "6px",
+                              marginTop: "6px",
+                            }}
+                          >
+                            <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", alignSelf: "center" }}>
+                              {g.popularSuggestions}
+                            </span>
+                            {(g.popularRoles || [
+                              "Gerente General",
+                              "Director de Operaciones",
+                              "Director de Compras",
+                              "Director Comercial",
+                              "Gerente Financiero (CFO)",
+                              "Director de Tecnología (CTO)",
+                            ]).map((role: string) => (
+                              <button
+                                key={role}
+                                type="button"
+                                onClick={() => {
+                                  if (!targetRoles.includes(role)) {
+                                    handleRolesChange([...targetRoles, role]);
+                                  }
+                                }}
+                                className="tag-pill-add-action-btn"
+                                style={{ opacity: targetRoles.includes(role) ? 0.4 : 1 }}
+                                disabled={targetRoles.includes(role)}
+                              >
+                                + {role}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Multi-Territory Geo-Quota Allocator */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <MapPin className="form-label-icon text-emerald-400" />
+                            <span>{g.geoQuotaLabel}</span>
+                          </label>
+                          <GeoQuotaAllocator
+                            allocations={locationAllocations}
+                            onChange={handleLocationsChange}
+                            totalVolume={volume}
+                            onTotalVolumeChange={handleTotalVolumeChange}
+                          />
+                        </div>
+
+                        {/* Positive Keywords / Target Signals */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <Sparkles className="form-label-icon text-emerald-400" />
+                            <span>{g.positiveKeywordsLabel}</span>
+                          </label>
+                          <TagPillInput
+                            tags={positiveKeywords}
+                            onChange={setPositiveKeywords}
+                            color="emerald"
+                            placeholder={g.positiveKeywordsPlaceholder}
+                            helperText={g.positiveKeywordsHelper}
+                          />
+                        </div>
+
+                        {/* Enrichment Tier Selector */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <Layers className="form-label-icon text-sky-400" />
+                            <span>{g.tierLabel}</span>
+                          </label>
+                          <div className="tier-pills-selector">
+                            <button
+                              type="button"
+                              onClick={() => dispatch(setTier(1))}
+                              className={`tier-pill ${tier === 1 ? "active" : ""}`}
+                            >
+                              <div className="tier-pill-title-row">
+                                <span className="tier-pill-name">{g.tierBaseName}</span>
+                              </div>
+                              <div className="tier-pill-price-row">
+                                <span className="tier-pill-price">
+                                  {formatUnitCurrency(catalogTierPrices?.[1] || curConfig.tierPrices[1], currency)}
+                                </span>
+                                <span className="tier-pill-unit">{g.tierUnitAccount}</span>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => dispatch(setTier(2))}
+                              className={`tier-pill ${tier === 2 ? "active" : ""}`}
+                            >
+                              <div className="tier-pill-title-row">
+                                <span className="tier-pill-name">{g.tierDirectName}</span>
+                                <span className="tier-pill-badge">{g.tierRecBadge}</span>
+                              </div>
+                              <div className="tier-pill-price-row">
+                                <span className="tier-pill-price">
+                                  {formatUnitCurrency(catalogTierPrices?.[2] || curConfig.tierPrices[2], currency)}
+                                </span>
+                                <span className="tier-pill-unit">{g.tierUnitAccount}</span>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!hasNonColombiaLocations) {
+                                  dispatch(setTier(3));
+                                }
+                              }}
+                              disabled={hasNonColombiaLocations}
+                              className={`tier-pill ${tier === 3 ? "active" : ""} ${hasNonColombiaLocations ? "opacity-50 cursor-not-allowed bg-slate-900/40" : ""
+                                }`}
+                            >
+                              <div className="tier-pill-title-row">
+                                <span className="tier-pill-name">{g.tierAuditName}</span>
+                                {hasNonColombiaLocations && (
+                                  <span className="tier-pill-badge text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
+                                    {g.tier3ColombiaOnlyBadge || "Solo Colombia"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="tier-pill-price-row">
+                                <span className="tier-pill-price">
+                                  {formatUnitCurrency(catalogTierPrices?.[3] || curConfig.tierPrices[3], currency)}
+                                </span>
+                                <span className="tier-pill-unit">{g.tierUnitAccount}</span>
+                              </div>
+                            </button>
+                          </div>
+                          {hasNonColombiaLocations && (
+                            <div className="mt-3 p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs text-slate-300 flex items-start gap-2.5">
+                              <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                              <p className="leading-relaxed">
+                                {g.tier3CountryNotice}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Volume Presets & Slider */}
+                        <div className="form-group">
+                          <label className="form-label">
+                            <Hash className="form-label-icon text-purple-400" />
+                            <span>
+                              {g.volumeLabel}{" "}
+                              <strong className="text-sky-400">{volume} {g.recapAccounts}</strong>
+                            </span>
+                          </label>
+                          <div className="volume-presets-grid">
+                            {[25, 50, 100, 250, 500, 1000].map((v) => (
+                              <button
+                                key={v}
+                                type="button"
+                                onClick={() => {
+                                  dispatch(setVolume(v));
+                                  if (locationAllocations.length > 0) {
+                                    const perCity = Math.max(1, Math.round(v / locationAllocations.length));
+                                    const updated = locationAllocations.map((a, idx) => ({
+                                      ...a,
+                                      allocated_leads:
+                                        idx === locationAllocations.length - 1
+                                          ? Math.max(1, v - perCity * (locationAllocations.length - 1))
+                                          : perCity,
+                                    }));
+                                    setLocationAllocations(updated);
+                                  }
+                                }}
+                                className={`preset-btn ${volume === v ? "active" : ""}`}
+                              >
+                                {v >= 1000 ? "1.000+" : v}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Collapsible Customer & Domain Exclusion Drawer (Visible only in Manual Advanced Filters) */}
+                        <div className="exclusions-section" style={{ marginTop: "16px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsExclusionsOpen(!isExclusionsOpen)}
+                            className="exclusions-toggle-btn"
+                            aria-expanded={isExclusionsOpen}
+                          >
+                            <div className="exclusions-toggle-title">
+                              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <span>{g.exclusionsToggle}</span>
+                              {allExclusions.length > 0 && (
+                                <span className="exclusions-count-badge">
+                                  {allExclusions.length}{" "}
+                                  {allExclusions.length === 1
+                                    ? g.activeExclusionSingle
+                                    : g.activeExclusionPlural}
+                                </span>
+                              )}
+                            </div>
+                            {isExclusionsOpen ? (
+                              <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                            )}
+                          </button>
+
+                          {isExclusionsOpen && (
+                            <div className="exclusions-drawer">
+                              <p className="exclusions-hint">
+                                {g.exclusionsHint}
+                              </p>
+
+                              <TagPillInput
+                                tags={negativeExclusions}
+                                onChange={setNegativeExclusions}
+                                color="rose"
+                                placeholder={g.exclusionsPlaceholder}
+                              />
+
+                              <div style={{ marginTop: "10px" }}>
+                                <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", display: "block", marginBottom: "4px" }}>
+                                  {g.exclusionsBulkLabel}
+                                </span>
+                                <textarea
+                                  value={exclusionsText}
+                                  onChange={(e) => setExclusionsText(e.target.value)}
+                                  placeholder="cliente1.com, 901234567, empresa.co..."
+                                  className="exclusions-textarea"
+                                  rows={2}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {formError && (
+                      <div className="form-error-banner" style={{ marginTop: "16px" }}>
+                        <span>{formError}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleProceedToStep2}
+                      className="generator-submit-btn"
+                      style={{ marginTop: "24px" }}
+                    >
+                      <span>
+                        {g.continueBtn} ({volume} {g.recapAccounts})
+                      </span>
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </button>
+
+                    <div className="fair-billing-pill" style={{ marginTop: "12px", justifyContent: "center" }}>
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>
+                        {g.fairBillingNote} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"} ($0 anticipo)
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Step 2: Buyer Delivery Info & Comprehensive Validation Recap */
+                  <form onSubmit={handleSubmitOrder} className="generator-step-2">
+                    <div className="card-header-box">
+                      <h3 className="generator-card-title">2. {g.buyerSection}</h3>
+                      <p className="generator-card-sub">{g.buyerSectionSub}</p>
+                    </div>
+
+                    {/* Selected Order Comprehensive Recap */}
+                    <div className="generator-recap-box">
+                      <div className="recap-item">
+                        <span className="recap-label">{g.recapOffer}</span>
+                        <span className="recap-value">
+                          {offerDescription ? `"${offerDescription.slice(0, 80)}..."` : g.recapUniversal}
+                        </span>
+                      </div>
+
+                      <div className="recap-item">
+                        <span className="recap-label">{g.recapSectors}</span>
+                        <span className="recap-value">
+                          {selectedSectors.length > 0 ? selectedSectors.join(", ") : g.recapOpenSector}
+                        </span>
+                      </div>
+
+                      <div className="recap-item">
+                        <span className="recap-label">{g.recapRoles}</span>
+                        <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                          {targetRoles.map((r, i) => (
+                            <span key={i} className="tag-pill-chip indigo" style={{ fontSize: "0.72rem" }}>
+                              {r}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+
+                      <div className="recap-item">
+                        <span className="recap-label">{g.recapTerritories}</span>
+                        <span className="recap-value" style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {locationAllocations.map((loc, i) => (
+                            <span key={i} style={{ color: "#34d399", fontWeight: 600 }}>
+                              {loc.city}: {loc.allocated_leads} {g.recapLeads}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+
+                      {allExclusions.length > 0 && (
+                        <div className="recap-item">
+                          <span className="recap-label">{g.recapExclusions}</span>
+                          <span className="recap-value text-amber-300 font-medium">
+                            {allExclusions.length}{" "}
+                            {allExclusions.length === 1 ? g.recapExclSingle : g.recapExclPlural}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="recap-item">
+                        <span className="recap-label">{g.recapInvestment}</span>
+                        <span className="recap-value text-emerald-400">
+                          {g.recapPostAuditEstimate || "Cotización calculada post-auditoría"} ({volume} {g.recapAccounts} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="buyer-fields-grid">
+                      <div className="form-group">
+                        <label className="form-label">
+                          <User className="form-label-icon" />
+                          <span>{g.buyerName}</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          autoComplete="name"
+                          required
+                          placeholder={g.buyerNamePlaceholder}
+                          value={buyerName}
+                          onChange={(e) => {
+                            setLocalName(e.target.value);
+                            if (invalidField === "name") setInvalidField(null);
+                          }}
+                          className={`form-input ${invalidField === "name" ? "input-error" : ""}`}
+                        />
+                        <span className="form-hint">{g.buyerNameHint}</span>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <Mail className="form-label-icon" />
+                          <span>{g.buyerEmail}</span>
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          autoComplete="email"
+                          required
+                          placeholder={g.buyerEmailPlaceholder}
+                          value={buyerEmail}
+                          onChange={(e) => {
+                            setLocalEmail(e.target.value);
+                            if (invalidField === "email") setInvalidField(null);
+                          }}
+                          className={`form-input ${invalidField === "email" ? "input-error" : ""}`}
+                        />
+                        <span className="form-hint">{g.buyerEmailHint}</span>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <Phone className="form-label-icon" />
+                          <span>{g.buyerPhone}</span>
+                        </label>
+                        <input
+                          type="tel"
+                          name="tel"
+                          autoComplete="tel"
+                          placeholder={g.buyerPhonePlaceholder}
+                          value={buyerPhone}
+                          onChange={(e) => {
+                            setLocalPhone(e.target.value);
+                            if (invalidField === "phone") setInvalidField(null);
+                          }}
+                          className={`form-input ${invalidField === "phone" ? "input-error" : ""}`}
+                        />
+                        <span className="form-hint">{g.buyerPhoneHint}</span>
+                      </div>
+                    </div>
+
+                    <div className="fair-billing-pill" style={{ marginTop: "16px" }}>
+                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{g.fairBillingNote}</span>
+                    </div>
+
+                    {formError && (
+                      <div className="form-error-banner" style={{ marginTop: "16px" }}>
+                        <span>{formError}</span>
+                      </div>
+                    )}
+
+                    <div className="generator-step-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormError(null);
+                          setCurrentStep(1);
+                        }}
+                        className="generator-back-btn"
+                      >
+                        {g.backBtn}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleShareQuote}
+                        disabled={isSubmitting || isSharingQuote}
+                        className="generator-share-quote-btn"
+                        style={{
+                          padding: "10px 16px",
+                          borderRadius: "12px",
+                          border: "1px solid rgba(56, 189, 248, 0.4)",
+                          background: "rgba(14, 165, 233, 0.12)",
+                          color: "#38bdf8",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          cursor: isSubmitting || isSharingQuote ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          transition: "all 0.2s ease",
+                        }}
+                        title={g.shareQuoteTooltip}
+                      >
+                        {isSharingQuote ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                        ) : (
+                          <Share2 className="w-4 h-4 text-sky-400" />
+                        )}
+                        <span>{g.shareQuoteBtn}</span>
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || isSharingQuote}
+                        className="generator-submit-btn"
+                        style={{ flex: 1 }}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span>{g.submittingBtn}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-5 h-5 fill-current" />
+                            <span>{g.submitBtn}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {quoteSharedToast && (
+                      <div className="claim-alert-success mt-3">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>{quoteSharedToast}</span>
+                      </div>
+                    )}
+
+                    <p className="generator-disclaimer">{g.disclaimer}</p>
+                  </form>
+                )}
               </>
             )}
           </div>
