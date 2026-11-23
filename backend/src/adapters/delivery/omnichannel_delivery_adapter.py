@@ -762,7 +762,8 @@ Chiketto B2B Operations
                     bucket_name = os.environ.get("GCS_BUCKET_NAME")
                     if bucket_name:
                         try:
-                            from google.cloud import storage
+                            import importlib
+                            storage = importlib.import_module("google.cloud.storage")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(f"orders/{order_id}/{filename_in_gcs}")
@@ -798,8 +799,6 @@ Chiketto B2B Operations
                     encoders.encode_base64(part)
                     part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.csv")
                     msg.attach(part)
-                part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.csv")
-                msg.attach(part)
 
             recipients = [buyer_email]
             if dev_email and dev_email != buyer_email:
