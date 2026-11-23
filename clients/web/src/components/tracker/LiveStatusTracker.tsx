@@ -111,6 +111,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const shouldPoll =
     Boolean(activeOrderId) &&
     orderStatus !== "paid" &&
+    orderStatus !== "delivered" &&
+    orderStatus !== "courtesy_delivered" &&
     orderStatus !== "error" &&
     orderStatus !== "failed";
   const { data: orderData, refetch, isFetching, isError, error } = useGetOrderQuery(
@@ -121,10 +123,18 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     }
   );
 
+  const isCourtesyDelivered =
+    orderStatus === "courtesy_delivered" ||
+    (orderData as any)?.order_status === "courtesy_delivered" ||
+    (orderData as any)?.status === "courtesy_delivered" ||
+    (orderData as any)?.payment_status === "COURTESY_FREE";
+
   const isQueued = orderStatus === "queued" || orderStatus === "intake_submitted";
   const isProcessing = orderStatus === "processing";
-  const isAwaitingPayment = orderStatus === "awaiting_payment" || orderStatus === "ready_for_review";
-  const isPaid = orderStatus === "paid";
+  const isAwaitingPayment =
+    (orderStatus === "awaiting_payment" || orderStatus === "ready_for_review") &&
+    !isCourtesyDelivered;
+  const isPaid = orderStatus === "paid" || orderStatus === "delivered" || isCourtesyDelivered;
   const isFailed = orderStatus === "failed" || orderStatus === "error";
 
   // Handle API error (e.g. 404 Not Found in this environment)
@@ -729,9 +739,20 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
           <div className="unlocked-header">
             <Sparkles className="w-6 h-6 text-emerald-400" />
             <div>
-              <h4 className="text-lg font-bold text-white">{dict.tracker.deliverablesTitle}</h4>
+              {isCourtesyDelivered && (
+                <div style={{ marginBottom: "6px" }}>
+                  <span className="payment-cta-badge">OBSEQUIO DE CORTESÍA • $0 COP</span>
+                </div>
+              )}
+              <h4 className="text-lg font-bold text-white">
+                {isCourtesyDelivered
+                  ? "Lote de Cortesía ($0 COP) - Entregables Desbloqueados"
+                  : dict.tracker.deliverablesTitle}
+              </h4>
               <p className="text-sm text-slate-300">
-                {dict.tracker.deliverablesSub}
+                {isCourtesyDelivered
+                  ? `Identificamos menos de 3 empresas verificadas (${(orderData as any)?.verified_yield || orderData?.total_qualified || 2} empresas). Michito te obsequia estos contactos verificados 100% gratis sin requerir pago.`
+                  : dict.tracker.deliverablesSub}
               </p>
             </div>
           </div>
@@ -856,17 +877,17 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
 
         return (
           <div
-            className="payment-authorization-card mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 shadow-xl"
+            className="payment-authorization-card"
             data-testid="payment-authorization-card"
           >
             {hasQuotaAdjustment && (
-              <div className="mb-4 p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-start gap-3 text-xs text-amber-200">
+              <div className="fair-price-adjustment-banner">
                 <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-amber-300 font-semibold text-sm block mb-1">
+                  <strong className="fair-price-banner-title">
                     {currentLanguage === "en_US" ? "Automatic Fair Price Adjustment" : "Ajuste Automático por Cobro Justo"}
                   </strong>
-                  <p className="leading-relaxed m-0 text-slate-300">
+                  <p className="fair-price-banner-desc">
                     {currentLanguage === "en_US"
                       ? `You requested ${requestedLimit} accounts, but only ${verifiedYield} companies met our legal registration, active website, and verified corporate inbox standards. In compliance with our Fair Price Policy, your quote was automatically reduced to strictly charge you for ${verifiedYield} accounts.`
                       : `Solicitaste ${requestedLimit} cuentas, pero únicamente ${verifiedYield} empresas cumplieron con nuestros estándares legales, presencia web y buzón corporativo activo. En cumplimiento de nuestra Política de Cobro Justo, tu cotización se redujo automáticamente para cobrarte estrictamente por las ${verifiedYield} cuentas verificadas.`}
@@ -875,26 +896,26 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+            <div className="payment-cta-layout">
+              <div className="payment-cta-left">
+                <div className="payment-cta-icon-box">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-base font-bold text-white">
+                  <div className="payment-cta-heading-row">
+                    <h4 className="payment-cta-title">
                       {dict.tracker.paymentCtaTitle || "Lote Auditado y Listo para Descarga Inmediata"}
                     </h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold uppercase">
+                    <span className="payment-cta-badge">
                       {verifiedYield} {dict.tracker.verifiedUnits || "Cuentas Verificadas"}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 mt-1 mb-0 max-w-2xl leading-relaxed">
+                  <p className="payment-cta-desc">
                     {(dict.tracker.paymentCtaDesc || "Identificamos y verificamos {verified} empresas activas que superaron nuestros filtros técnicos de validación. Revisa la muestra a continuación. Al confirmar tu pago, tus archivos Excel (.xlsx), CSV y Dossier PDF se desbloquean inmediatamente sin esperas.")
                       .replace("{verified}", String(verifiedYield))
                       .replace("{total}", String(verifiedYield))}
                   </p>
-                  <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-400 font-medium">
+                  <div className="payment-cta-guarantee-line">
                     <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {(dict.tracker.paymentCtaGuarantee || "Política de Cobro Justo: Solo pagas por cuentas verificadas ({verified} cuentas). Sin suscripciones ni créditos que expiran.")
@@ -907,10 +928,10 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               <button
                 type="button"
                 onClick={() => dispatch(setWompiModalOpen(true))}
-                className="w-full md:w-auto px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-emerald-500/20 cursor-pointer shrink-0"
+                className="main-payment-cta-btn"
                 data-testid="main-payment-cta-btn"
               >
-                <CreditCard className="w-5 h-5 text-slate-950" />
+                <CreditCard className="w-5 h-5" />
                 <span>
                   {(dict.tracker.paymentCtaBtn || "Pagar y Desbloquear Lote ({amount})")
                     .replace("{amount}", formatOrderCurrency(orderAmount, orderCurrency))}
@@ -983,35 +1004,35 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="claim-modal-header">
+              <div className="claim-modal-icon-box">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-base font-bold text-white">{dict.tracker.guaranteeModalTitle}</h4>
-                <p className="text-xs text-slate-400">{dict.tracker.guaranteeModalSub}</p>
+                <h4 className="claim-modal-title">{dict.tracker.guaranteeModalTitle}</h4>
+                <p className="claim-modal-sub">{dict.tracker.guaranteeModalSub}</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+            <p className="claim-modal-desc">
               {dict.tracker.guaranteeModalDesc}
             </p>
 
             {claimSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+              <div className="claim-alert-success">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                 <span>{claimSuccess}</span>
               </div>
             )}
 
             {claimError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+              <div className="claim-alert-error">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                 <span>{claimError}</span>
               </div>
             )}
 
-            <form onSubmit={handleClaimSubmit} className="space-y-3">
+            <form onSubmit={handleClaimSubmit} className="claim-form-stack">
               <div>
                 <label className="claim-form-label">
                   {dict.tracker.guaranteeModalEmailLabel}
@@ -1025,8 +1046,8 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                   className="claim-form-input"
                 />
                 {teaserLeads && teaserLeads.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                    <span className="text-[11px] text-slate-400">{dict.tracker.guaranteeModalSuggested}</span>
+                  <div className="claim-suggested-row">
+                    <span className="claim-suggested-label">{dict.tracker.guaranteeModalSuggested}</span>
                     {teaserLeads.slice(0, 4).map((l, i) => (
                       <button
                         key={i}
@@ -1035,7 +1056,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                           setClaimEmail(l.email);
                           if (l.company_name) setClaimCompany(l.company_name);
                         }}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 truncate max-w-[140px]"
+                        className="claim-suggested-btn"
                       >
                         {l.email}
                       </button>
@@ -1073,7 +1094,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
                 </select>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="claim-modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowGuaranteeModal(false)}

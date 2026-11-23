@@ -401,6 +401,7 @@ export const OrderGenerator: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [searchMode, setSearchMode] = useState<"direct" | "ai">("ai");
   const [isFormCollapsed, setIsFormCollapsed] = useState(Boolean(activeOrderId));
+  const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
 
   useEffect(() => {
     if (activeOrderId) {
@@ -644,8 +645,26 @@ export const OrderGenerator: React.FC = () => {
     setCurrentStep(2);
   };
 
+  const handleResetToStart = () => {
+    setFormError(null);
+    setQuoteSharedToast(null);
+    setShowOrderConfirmation(false);
+    setIsFormCollapsed(false);
+    setCurrentStep(1);
+    dispatch(resetOrder());
+    setTimeout(() => {
+      const elem = document.getElementById("generador");
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  };
+
   const handleAdjustParameters = () => {
     setFormError(null);
+    setShowOrderConfirmation(false);
     setCurrentStep(1);
     setIsFormCollapsed(false);
     dispatch(resetOrder());
@@ -720,6 +739,7 @@ export const OrderGenerator: React.FC = () => {
 
       const res = await createOrderMutation(payload).unwrap();
       if (res.status === "success") {
+        setShowOrderConfirmation(true);
         setIsFormCollapsed(true);
         dispatch(
           orderCreatedSuccess({
@@ -827,30 +847,90 @@ export const OrderGenerator: React.FC = () => {
         <div className="generator-layout">
           {/* Form Card */}
           <div className="generator-card">
-            {activeOrderId && isFormCollapsed ? (
+            {showOrderConfirmation && activeOrderId ? (
+              <div className="order-confirmation-card" data-testid="order-confirmation-view">
+                <div className="confirmation-badge-wrapper">
+                  <div className="confirmation-badge-icon">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                </div>
+                <span className="confirmation-kicker">MICHITO INTENT ENGINE™</span>
+                <h3 className="confirmation-title">¡Tu solicitud está en marcha!</h3>
+                <div className="confirmation-order-id-pill">
+                  <span className="collapsed-pulse-dot" />
+                  <span>ID de Orden: #{activeOrderId}</span>
+                </div>
+                <p className="confirmation-summary-text">
+                  Estamos auditando y verificando tus prospectos contra registros oficiales en segundo plano. Te acabamos de enviar un correo de confirmación a <strong>{buyerEmail}</strong>.
+                </p>
+                <div className="confirmation-steps-box">
+                  <div className="confirmation-step-item">
+                    <span className="confirmation-step-bullet">1</span>
+                    <div className="confirmation-step-text">
+                      <strong>Procesamiento Asíncrono:</strong> Validamos existencia legal, web activa y buzón corporativo activo (garantía anti-rebote).
+                    </div>
+                  </div>
+                  <div className="confirmation-step-item">
+                    <span className="confirmation-step-bullet">2</span>
+                    <div className="confirmation-step-text">
+                      <strong>Garantía de Cobro Justo:</strong> Te avisaremos por correo a <strong>{buyerEmail}</strong> en cuanto el lote esté listo. Solo pagarás por las cuentas que superen el 100% de los filtros.
+                    </div>
+                  </div>
+                  <div className="confirmation-step-item">
+                    <span className="confirmation-step-bullet">3</span>
+                    <div className="confirmation-step-text">
+                      <strong>Cortesía si el lote es menor a 3 empresas:</strong> Si encontramos únicamente 1 o 2 contactos verificados, te los entregamos 100% gratis sin cotización ni cobro alguno.
+                    </div>
+                  </div>
+                </div>
+                <div className="confirmation-actions">
+                  <button
+                    type="button"
+                    onClick={handleResetToStart}
+                    className="btn-confirmation-ok"
+                    data-testid="confirmation-ok-btn"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Entendido, Volver al Inicio</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOrderConfirmation(false);
+                      setTimeout(() => {
+                        document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
+                      }, 200);
+                    }}
+                    className="btn-confirmation-track"
+                  >
+                    <span>Ver Radar en Vivo →</span>
+                  </button>
+                </div>
+              </div>
+            ) : activeOrderId && isFormCollapsed ? (
               <div
-                className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg"
+                className="active-order-collapsed-summary"
                 data-testid="active-order-collapsed-summary"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+                <div className="collapsed-summary-left">
+                  <div className="collapsed-summary-icon-box">
                     <Target className="w-5 h-5 text-sky-400" />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-sky-300 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <div className="collapsed-summary-meta">
+                      <span className="collapsed-pulse-dot" />
                       <span>{g.collapsedActive} • {activeOrderId}</span>
                     </div>
-                    <div className="text-sm font-bold text-white mt-0.5">
+                    <div className="collapsed-summary-title">
                       {volume} {g.recapAccounts} • Tier {tier} • {locationAllocations[0]?.city || "Medellín"}, {locationAllocations[0]?.country || "CO"}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="collapsed-summary-actions">
                   <button
                     type="button"
                     onClick={() => setIsFormCollapsed(false)}
-                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="btn-summary-modify"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
                     <span>{g.modifyCriteria}</span>
@@ -858,14 +938,14 @@ export const OrderGenerator: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleAdjustParameters}
-                    className="px-3.5 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-400 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="btn-summary-reset"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>{g.newSearch}</span>
                   </button>
                   <a
                     href={`/rastrear?order_id=${activeOrderId}`}
-                    className="px-3.5 py-2 rounded-lg bg-sky-950/60 hover:bg-sky-900/80 text-sky-300 border border-sky-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="btn-summary-dedicated"
                     title={g.dedicatedSpace}
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1858,7 +1938,7 @@ export const OrderGenerator: React.FC = () => {
                 </div>
 
                 {quoteSharedToast && (
-                  <div className="mt-3 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                  <div className="claim-alert-success mt-3">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{quoteSharedToast}</span>
                   </div>

@@ -85,9 +85,9 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
   return (
     <div className="teaser-container">
       {isPartialFill && (
-        <div className="mb-4 p-3 rounded-lg bg-sky-950/40 border border-sky-500/30 flex items-start gap-2.5">
+        <div className="fair-price-adjustment-banner" style={{ marginBottom: "16px" }}>
           <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-300">
+          <div className="fair-price-banner-desc">
             {dict.tracker.fairBillingNotice
               .replace("{requested}", String(requestedLeads))
               .replace("{delivered}", String(totalLeads))}
@@ -122,7 +122,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                   <div className="flex items-center gap-2">
                     <span>{lead.company_name}</span>
                     {lead.is_guarantee_replacement && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-semibold">
+                      <span className="payment-cta-badge">
                         {dict.tracker.guarantee2x1Badge}
                       </span>
                     )}
@@ -174,30 +174,30 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
 
       {/* Unlock / Pay Action Bar or Instant Deliverables Download Receipt */}
       {isPaid ? (
-        <div className="teaser-unlocked-receipt-bar p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/50 mt-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+        <div className="teaser-unlocked-receipt-bar">
+          <div className="receipt-bar-left">
+            <div className="receipt-bar-icon-box">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white flex items-center gap-2">
+              <div className="receipt-bar-title">
                 <span>{dict.tracker.unlockedBarTitle.replace("{total}", String(totalLeads))}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500/30">
+                <span className="receipt-bar-badge">
                   {dict.tracker.unlockedBarBadge}
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5 mb-0">
+              <p className="receipt-bar-sub">
                 {dict.tracker.unlockedBarSub}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2">
+          <div className="receipt-bar-actions">
             {(xlsxUrl || csvUrl) && (
               <a
                 href={xlsxUrl || `/api/v1/orders/${activeOrderId}/download/xlsx`}
                 download
-                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                className="btn-receipt-download primary"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -209,7 +209,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
               <a
                 href={csvUrl}
                 download
-                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                className="btn-receipt-download secondary"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -221,7 +221,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
               <a
                 href={pdfUrl || `/api/v1/orders/${activeOrderId}/download/pdf`}
                 download
-                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                className="btn-receipt-download secondary"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -233,7 +233,7 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
               <a
                 href={fullCsvUrl || `/api/v1/orders/${activeOrderId}/download/full_csv`}
                 download
-                className="px-3 py-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/40 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                className="btn-receipt-download secondary"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -248,10 +248,12 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
           <div className="unlock-info">
             <Lock className="w-5 h-5 text-amber-400" />
             <span>
-              {dict.tracker.unlockRemaining.replace(
-                "{remaining}",
-                String(Math.max(1, totalLeads - leads.length))
-              )}
+              {totalLeads > leads.length
+                ? dict.tracker.unlockRemaining.replace(
+                    "{remaining}",
+                    String(totalLeads - leads.length)
+                  )
+                : "Completa el pago para desbloquear el lote completo y descargar tus archivos."}
             </span>
           </div>
           <button

@@ -208,6 +208,272 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
 
         return True
 
+    def send_order_received_notification(self, order: Dict[str, Any]) -> bool:
+        """
+        Dispatches an immediate, crisp acknowledgment email confirming order intake
+        and notifying the buyer that the asynchronous audit has started.
+        """
+        order_id = order.get("order_id") or order.get("id") or "ord_unknown"
+        client_data = order.get("client", {})
+        buyer_name = (client_data.get("name") or "Estimado Cliente").strip()
+        buyer_email = (client_data.get("email") or order.get("customer_email") or "").strip()
+        buyer_phone = (client_data.get("phone") or order.get("customer_phone") or "").strip()
+
+        if not buyer_email or "@" not in buyer_email:
+            return False
+
+        req = order.get("request", {})
+        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        city = req.get("city") or order.get("city") or "Colombia"
+
+        base_url = (
+            os.environ.get("FRONTEND_URL")
+            or os.environ.get("BASE_URL")
+            or os.environ.get("API_BASE_URL")
+            or "https://michito.co"
+        )
+        tracking_url = f"{base_url.rstrip('/')}/rastrear?order_id={order_id}"
+
+        subject = f"Recibimos tu solicitud de auditoría — Orden #{order_id}"
+
+        html_content = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Solicitud Recibida — Michito Intent Engine</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #f1f5f9; margin: 0; padding: 24px; }}
+    .container {{ max-width: 560px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }}
+    .header {{ background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 24px 20px; text-align: center; }}
+    .header h1 {{ margin: 0; font-size: 20px; color: #ffffff; font-weight: 700; }}
+    .content {{ padding: 28px 24px; }}
+    .greeting {{ font-size: 15px; margin-bottom: 16px; color: #e2e8f0; line-height: 1.5; }}
+    .card {{ background-color: #1e293b; border-radius: 8px; padding: 14px 18px; margin: 18px 0; border-left: 4px solid #38bdf8; font-size: 13px; }}
+    .card-row {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
+    .card-row:last-child {{ margin-bottom: 0; }}
+    .label {{ color: #94a3b8; }}
+    .value {{ color: #ffffff; font-weight: 600; }}
+    .actions {{ margin: 24px 0; text-align: center; }}
+    .btn {{ display: inline-block; background-color: #0284c7; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center; }}
+    .footer {{ padding: 16px 20px; text-align: center; border-top: 1px solid #1e293b; font-size: 11px; color: #64748b; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MICHITO INTENT ENGINE™</h1>
+    </div>
+    <div class="content">
+      <div class="greeting">
+        Hola <strong>{buyer_name}</strong>, hemos recibido tu solicitud de prospección B2B.
+      </div>
+      <p style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin: 0 0 16px 0;">
+        Nuestro motor asíncrono está consultando registros mercantiles oficiales y auditando buzones corporativos en tiempo real para <strong>{city}</strong>.
+      </p>
+      <div class="card">
+        <div class="card-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
+        <div class="card-row"><span class="label">Campaña / Segmento:</span> <span class="value">{campaign_id}</span></div>
+        <div class="card-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
+      </div>
+      <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">
+        No necesitas esperar en la web. Te enviaremos tus resultados por este medio tan pronto finalice la validación técnica.
+      </p>
+      <div class="actions">
+        <a href="{tracking_url}" class="btn">Ver Estado de mi Orden en Vivo</a>
+      </div>
+    </div>
+    <div class="footer">
+      Michito B2B Intent Engine • Chiketto Operations
+    </div>
+  </div>
+</body>
+</html>"""
+
+        text_content = f"""Hola {buyer_name},
+
+Hemos recibido tu solicitud de prospección B2B para {campaign_id} en {city} (Orden #{order_id}).
+
+Nuestro motor asíncrono está auditando registros oficiales y servidores corporativos en tiempo real.
+No necesitas esperar en el sitio web: te notificaremos por correo tan pronto tu lote esté listo.
+
+Puedes consultar el estado de tu orden aquí:
+{tracking_url}
+
+Atentamente,
+Equipo Michito Intent Engine
+"""
+
+        whatsapp_text = (
+            f"*Hola {buyer_name}! Recibimos tu solicitud de auditoria B2B* (Orden #{order_id}).\n\n"
+            f"Estamos auditando empresas en *{city}*. Te avisaremos por aqui cuando tu lote este listo.\n\n"
+            f"Rastreo en vivo: {tracking_url}"
+        )
+
+        self._dispatch_smtp_email(
+            order_id=order_id,
+            buyer_email=buyer_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            csv_path=None,
+            xlsx_path=None,
+            pdf_path=None,
+            attach_files=False,
+        )
+
+        if buyer_phone and buyer_phone.lower() not in ("unknown", "none", ""):
+            self._dispatch_whatsapp(
+                order_id=order_id,
+                buyer_phone=buyer_phone,
+                message_text=whatsapp_text,
+            )
+
+        return True
+
+    def send_courtesy_gift_notification(self, order: Dict[str, Any]) -> bool:
+        """
+        Dispatches ONE SINGLE courtesy email when verified yield is under 3 leads (1 or 2).
+        Delivers the verified contacts 100% free of charge with direct downloads/attachments,
+        explaining why no payment is required.
+        """
+        order_id = order.get("order_id") or order.get("id") or "ord_unknown"
+        client_data = order.get("client", {})
+        buyer_name = (client_data.get("name") or "Estimado Cliente").strip()
+        buyer_email = (client_data.get("email") or order.get("customer_email") or "").strip()
+        buyer_phone = (client_data.get("phone") or order.get("customer_phone") or "").strip()
+
+        if not buyer_email or "@" not in buyer_email:
+            return False
+
+        req = order.get("request", {})
+        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        city = req.get("city") or order.get("city") or "Colombia"
+        requested_limit = order.get("requested_limit") or req.get("limit") or 10
+        verified_yield = order.get("verified_yield") if order.get("verified_yield") is not None else order.get("delivery", {}).get("total_qualified", 1)
+
+        base_url = (
+            os.environ.get("FRONTEND_URL")
+            or os.environ.get("BASE_URL")
+            or os.environ.get("API_BASE_URL")
+            or "https://michito.co"
+        )
+        csv_url = f"{base_url.rstrip('/')}/api/v1/orders/{order_id}/download/csv"
+        xlsx_url = f"{base_url.rstrip('/')}/api/v1/orders/{order_id}/download/xlsx"
+
+        csv_path = order.get("csv_path") or order.get("delivery", {}).get("csv_path")
+        xlsx_path = order.get("xlsx_path") or order.get("delivery", {}).get("xlsx_path")
+        pdf_path = order.get("pdf_path") or order.get("delivery", {}).get("pdf_path")
+
+        subject = f"Resultado de tu auditoría — Tus prospectos de cortesía (Orden #{order_id})"
+
+        html_content = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Tus Prospectos de Cortesía — Michito Intent Engine</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #f1f5f9; margin: 0; padding: 24px; }}
+    .container {{ max-width: 600px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }}
+    .header {{ background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 28px 20px; text-align: center; }}
+    .header h1 {{ margin: 0; font-size: 20px; color: #ffffff; font-weight: 700; }}
+    .content {{ padding: 28px 24px; }}
+    .greeting {{ font-size: 15px; margin-bottom: 16px; color: #e2e8f0; line-height: 1.5; }}
+    .courtesy-box {{ background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 16px; margin: 18px 0; }}
+    .courtesy-box h4 {{ margin: 0 0 6px; color: #34d399; font-size: 14px; }}
+    .courtesy-box p {{ margin: 0; font-size: 13px; color: #a7f3d0; line-height: 1.5; }}
+    .card {{ background-color: #1e293b; border-radius: 8px; padding: 14px 18px; margin: 18px 0; border-left: 4px solid #10b981; font-size: 13px; }}
+    .card-row {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
+    .card-row:last-child {{ margin-bottom: 0; }}
+    .label {{ color: #94a3b8; }}
+    .value {{ color: #ffffff; font-weight: 600; }}
+    .actions {{ margin: 24px 0; text-align: center; }}
+    .btn {{ display: inline-block; background-color: #059669; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center; margin: 6px; }}
+    .footer {{ padding: 16px 20px; text-align: center; border-top: 1px solid #1e293b; font-size: 11px; color: #64748b; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MICHITO INTENT ENGINE™</h1>
+      <p style="margin: 6px 0 0; color: #a7f3d0; font-size: 13px;">Garantía de Cobro Justo • Entrega de Cortesía</p>
+    </div>
+    <div class="content">
+      <div class="greeting">
+        Hola <strong>{buyer_name}</strong>, hemos finalizado la auditoría de tu lote.
+      </div>
+      <div class="card">
+        <div class="card-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
+        <div class="card-row"><span class="label">Campaña / Segmento:</span> <span class="value">{campaign_id}</span></div>
+        <div class="card-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
+        <div class="card-row"><span class="label">Cuentas Solicitadas:</span> <span class="value">{requested_limit}</span></div>
+        <div class="card-row"><span class="label">Cuentas Verificadas:</span> <span class="value" style="color:#34d399;">{verified_yield} empresas</span></div>
+        <div class="card-row"><span class="label">Cobro Total:</span> <span class="value" style="color:#34d399;">$0 COP (Cortesía)</span></div>
+      </div>
+      <div class="courtesy-box">
+        <h4>Obsequio de Cortesía Michito</h4>
+        <p>
+          Solicitaste {requested_limit} cuentas, pero únicamente encontramos <strong>{verified_yield} empresas</strong> que superaron nuestros estrictos filtros de existencia legal y buzón corporativo activo en {city}.
+          En Michito no cobramos por lotes de menos de 3 cuentas: <strong>te obsequiamos estos contactos verificados sin costo alguno</strong>.
+        </p>
+      </div>
+      <div class="actions">
+        <a href="{xlsx_url}" class="btn">Descargar Formato Excel (.XLSX)</a>
+        <a href="{csv_url}" class="btn" style="background:#334155;">Descargar para CRM (.CSV)</a>
+      </div>
+    </div>
+    <div class="footer">
+      Michito B2B Intent Engine • Chiketto Operations
+    </div>
+  </div>
+</body>
+</html>"""
+
+        text_content = f"""Hola {buyer_name},
+
+Finalizamos la auditoría técnica para tu búsqueda ({campaign_id} en {city}, Orden #{order_id}).
+
+Solicitaste {requested_limit} cuentas, pero únicamente {verified_yield} empresas superaron nuestros filtros de validación técnica en {city}.
+
+En Michito no cobramos por lotes de menos de 3 cuentas: te obsequiamos estos {verified_yield} contactos verificados 100% gratis ($0 COP).
+
+Descargar tus prospectos:
+- Formato Excel (.XLSX): {xlsx_url}
+- Formato CRM (.CSV): {csv_url}
+
+Atentamente,
+Equipo Michito Intent Engine
+"""
+
+        whatsapp_text = (
+            f"*Hola {buyer_name}! Tu lote de cortesia de Michito esta listo.* (Orden #{order_id})\n\n"
+            f"Solicitaste {requested_limit} cuentas en *{city}*, pero unicamente {verified_yield} superaron nuestros filtros tecnicos.\n"
+            f"*No te cobramos nada ($0 COP).* Te obsequiamos estos contactos verificados:\n\n"
+            f"Descarga Excel: {xlsx_url}\n\n"
+            f"_Equipo Michito Intent Engine_"
+        )
+
+        # Send courtesy email with attachments directly attached
+        self._dispatch_smtp_email(
+            order_id=order_id,
+            buyer_email=buyer_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            csv_path=csv_path,
+            xlsx_path=xlsx_path,
+            pdf_path=pdf_path,
+            attach_files=True,
+        )
+
+        if buyer_phone and buyer_phone.lower() not in ("unknown", "none", ""):
+            self._dispatch_whatsapp(
+                order_id=order_id,
+                buyer_phone=buyer_phone,
+                message_text=whatsapp_text,
+            )
+
+        return True
+
     def send_ready_for_review_notification(self, order: Dict[str, Any]) -> bool:
         """
         Dispatches notification (Email and WhatsApp) informing the buyer that their batch

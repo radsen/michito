@@ -320,18 +320,26 @@ class OrderWorkerDaemon:
                 amount_in_cents=total_price_cents
             )
 
-            # Trigger buyer review notification (Email + WhatsApp)
+            # Trigger buyer notification (Email + WhatsApp)
             if hasattr(self.order_repository, "get_order"):
                 fresh_order = self.order_repository.get_order(order_id)
                 if fresh_order and not fresh_order.get("ready_notified_at"):
                     try:
                         from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
                         delivery_adapter = OmnichannelDeliveryAdapter()
-                        delivery_adapter.send_ready_for_review_notification(fresh_order)
+                        verified_count = job_result.get("total_qualified", 0)
+                        if 1 <= verified_count < 3:
+                            # Low Yield Courtesy Gift ($0 charge, single email with downloads/attachments)
+                            delivery_adapter.send_courtesy_gift_notification(fresh_order)
+                            print(f"[WorkerDaemon] Dispatched single courtesy gift email for `{order_id}` ({verified_count} leads).")
+                        elif verified_count >= 3:
+                            # Standard Yield Fair-Price Quote (Quote email without files)
+                            delivery_adapter.send_ready_for_review_notification(fresh_order)
+                            print(f"[WorkerDaemon] Dispatched review quote notification for `{order_id}` ({verified_count} leads).")
                         if hasattr(self.order_repository, "mark_ready_notified"):
                             self.order_repository.mark_ready_notified(order_id)
                     except Exception as notify_err:
-                        print(f"[WorkerDaemon] [WARN] Error dispatching ready_for_review notification for `{order_id}`: {notify_err}")
+                        print(f"[WorkerDaemon] [WARN] Error dispatching notification for `{order_id}`: {notify_err}")
 
             if hasattr(self.alert_dispatcher, "send_feed_event"):
                 self.alert_dispatcher.send_feed_event(

@@ -744,29 +744,9 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
                 for city_name, count in raw_locs.items()
             ]
 
-        # -------------------------------------------------------------
-        # 2-SECOND PRE-PAYMENT RADAR SCAN
-        # Pull 3 authentic masked samples and calculate quote in real time.
-        # Defers heavy 100-lead batch harvesting until payment is confirmed.
-        # -------------------------------------------------------------
-        target_city = payload.request.city or "Medellín"
-        if normalized_locations and len(normalized_locations) > 0:
-            first_loc = normalized_locations[0]
-            if isinstance(first_loc, dict) and first_loc.get("city"):
-                target_city = first_loc["city"]
-
-        raw_sectors = payload.request.sector
-        sector_list = [s.strip() for s in raw_sectors.split(",") if s.strip()] if isinstance(raw_sectors, str) else raw_sectors
-
-        masked_samples = run_fast_radar_scan(
-            country=req_country,
-            city=target_city,
-            target_ciiu_codes=payload.request.target_ciiu_codes,
-            target_sectors=sector_list,
-            keywords_include=payload.request.keywords_include,
-            excluded_tax_ids=merged_exclusions,
-            limit=3,
-        )
+        # Synchronous intake: non-blocking order persistence in < 30ms.
+        # Defers heavy live harvesting and verified teaser generation strictly to the background worker.
+        masked_samples: List[Dict[str, Any]] = []
 
         total_price_cents = calculate_lead_pricing(
             total_qualified=limit,
@@ -846,6 +826,12 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
                 )
         except Exception as e:
             logger.warning(f"Could not dispatch order feed event: {e}")
+
+        # Dispatch immediate order intake confirmation email
+        try:
+            omnichannel_delivery_adapter.send_order_received_notification(order)
+        except Exception as notify_err:
+            logger.warning(f"Could not dispatch order received email: {notify_err}")
 
         return {
             "status": "success",

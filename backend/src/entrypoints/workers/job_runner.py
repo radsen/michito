@@ -111,7 +111,8 @@ def run_batch_job(order_id: str) -> bool:
     fresh_order = sql_adapter.get_order(order_id) or order
     fresh_payment_status = (fresh_order.get("payment", {}).get("status") or "").upper()
     fresh_order_status = (fresh_order.get("status") or "").lower()
-    is_order_paid = (fresh_order_status == "paid") or (fresh_payment_status in ("APPROVED", "PAID"))
+    is_order_paid = (fresh_order_status == "paid") and (fresh_payment_status in ("APPROVED", "PAID"))
+    is_courtesy = (fresh_order_status == "courtesy_delivered")
 
     if is_order_paid:
         # Paid order: Dispatch email with GCS deliverables attached
@@ -148,6 +149,18 @@ def run_batch_job(order_id: str) -> bool:
                 "progress_percent": 100,
             },
             status="paid",
+        )
+    elif is_courtesy:
+        logger.info(f"[JobRunner] Order `{order_id}` delivered as courtesy gift (under 3 verified leads). Status: courtesy_delivered.")
+        sql_adapter.update_telemetry(
+            order_id,
+            {
+                "phase": "completed",
+                "phase_key": "telemetry.completed",
+                "step_index": 5,
+                "progress_percent": 100,
+            },
+            status="courtesy_delivered",
         )
     else:
         # Asynchronous Flow: Batch harvesting, verification, and file generation are complete!

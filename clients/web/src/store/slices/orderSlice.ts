@@ -18,7 +18,7 @@ export interface OrderState {
   buyerEmail: string;
   buyerPhone: string;
   activeOrderId: string | null;
-  orderStatus: "idle" | "submitting" | "queued" | "intake_submitted" | "processing" | "awaiting_payment" | "ready_for_review" | "paid" | "failed" | "error";
+  orderStatus: "idle" | "submitting" | "queued" | "intake_submitted" | "processing" | "awaiting_payment" | "ready_for_review" | "paid" | "delivered" | "courtesy_delivered" | "failed" | "error";
   errorMessage: string | null;
   totalLeadsTarget: number;
   totalQualified?: number;

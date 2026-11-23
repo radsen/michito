@@ -702,11 +702,16 @@ class SqlOrderAdapter:
             order_obj.verified_yield = verified_count
 
             is_payment_approved = (order_obj.payment_status or "").lower() in ("approved", "paid") or order_obj.status == "paid"
-            is_courtesy_sample = (amount_in_cents == 0 and verified_count > 0)
+            is_courtesy_gift = (verified_count < 3 and verified_count > 0)
 
-            if is_payment_approved or is_courtesy_sample:
+            if is_payment_approved:
                 order_obj.status = "paid"
                 order_obj.payment_status = "APPROVED"
+                order_obj.delivery_delivered_at = now
+            elif is_courtesy_gift:
+                order_obj.status = "courtesy_delivered"
+                order_obj.payment_status = "COURTESY_FREE"
+                order_obj.payment_amount_in_cents = 0
                 order_obj.delivery_delivered_at = now
             else:
                 order_obj.status = "awaiting_payment"
@@ -722,7 +727,7 @@ class SqlOrderAdapter:
             cur_metrics = dict(order_obj.metrics or {})
             if res.get("metrics") and isinstance(res["metrics"], dict):
                 cur_metrics.update(res["metrics"])
-            if is_courtesy_sample:
+            if is_courtesy_gift:
                 cur_metrics["is_courtesy_sample"] = True
             order_obj.metrics = cur_metrics
 
