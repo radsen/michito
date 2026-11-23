@@ -693,6 +693,37 @@ class GenerateProspectsUseCase:
 
         # 3. Harvest and Qualify Candidates per Territory Allocation
         kw_include = target_cfg.get("keywords_include")
+        if not kw_include:
+            extracted_kws = []
+            from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+            # 1. Synthesize from offer_description and rfq_specifications
+            source_desc = " ".join(filter(None, [offer_description, rfq_specifications]))
+            if source_desc:
+                for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", source_desc.lower()):
+                    if w not in QUERY_STOP_WORDS and w not in extracted_kws:
+                        extracted_kws.append(w)
+            # 2. Synthesize from target_sectors
+            if target_sectors:
+                for sec in target_sectors:
+                    for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", sec.lower()):
+                        if w not in QUERY_STOP_WORDS and w not in extracted_kws:
+                            extracted_kws.append(w)
+            # 3. Synthesize from target_ciiu_codes in GLOBAL_ISIC_INDEX
+            if target_ciiu_codes:
+                try:
+                    from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    for c_code in target_ciiu_codes:
+                        entry = GLOBAL_ISIC_INDEX.get_by_code(c_code)
+                        if entry and entry.keywords:
+                            for kw in entry.keywords[:3]:
+                                if kw not in extracted_kws and len(kw) >= 3:
+                                    extracted_kws.append(kw)
+                except Exception:
+                    pass
+            if extracted_kws:
+                kw_include = extracted_kws[:6]
+                target_cfg["keywords_include"] = kw_include
+
         kw_exclude = target_cfg.get("keywords_exclude")
         scanned_cities: List[str] = []
         territory_fulfillment: Dict[str, Dict[str, Any]] = {}
