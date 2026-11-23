@@ -48,8 +48,8 @@ class TestCrossBorderProspecting(unittest.TestCase):
         p_t3 = calculate_lead_pricing(10, tier=3, currency="USD")
         self.assertEqual(p_t3, 3750)
 
-        # Micro-batch courtesy rule: < 5 leads returns 0 cents to prevent payment gateway fee cannibalization
-        p_courtesy = calculate_lead_pricing(3, tier=2, currency="USD")
+        # Micro-batch courtesy rule: < 3 leads returns 0 cents to prevent payment gateway fee cannibalization
+        p_courtesy = calculate_lead_pricing(2, tier=2, currency="USD")
         self.assertEqual(p_courtesy, 0)
 
         # COP minimum floor test: 10 Tier 1 leads = 1,500,000 cents -> enforced floor 2,500,000 cents ($25.000 COP)

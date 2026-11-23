@@ -290,7 +290,7 @@ class WebhookAlertAdapter:
                             "description": f"Order `{order_id}` • {client_email}",
                             "color": color_code,
                             "fields": [
-                                {"name": "Query", "value": str(query)[:250], "inline": False},
+                                {"name": "Query", "value": (query)[:250], "inline": False},
                                 {"name": "Location / Yield", "value": f"{location_display} ({yield_count} leads)", "inline": True},
                                 {"name": "Status", "value": status, "inline": True},
                                 {"name": "Gross Revenue", "value": f"${gross_revenue_cop:,.0f} COP", "inline": True},

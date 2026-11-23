@@ -323,9 +323,9 @@ class PricingCatalogService:
                 "is_courtesy_sample": False,
             }
 
-        # Micro-batch courtesy rule: If fewer than 5 verified leads meet our quality gates,
-        # release as complimentary courtesy sample ($0) to avoid gateway fee drag.
-        if allow_courtesy and total_qualified < 5:
+        # Micro-batch courtesy rule: If fewer than 3 verified leads meet our quality gates (1 or 2 leads),
+        # release as complimentary courtesy sample ($0) to avoid gateway fee drag and prevent user friction.
+        if allow_courtesy and total_qualified < 3:
             return {
                 "total_cents": 0,
                 "unit_base_cents": 0,

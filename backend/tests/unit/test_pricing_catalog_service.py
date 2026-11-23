@@ -23,8 +23,8 @@ class TestPricingCatalogService(unittest.TestCase):
         self.assertEqual(catalog["tier_prices"][3], 3.75)
 
     def test_calculate_quote_courtesy_micro_batch(self):
-        # < 5 leads returns 0 cents (courtesy sample policy)
-        quote = self.service.calculate_quote(total_qualified=3, tier=2, currency="COP")
+        # < 3 leads returns 0 cents (courtesy sample policy for 1 or 2 leads)
+        quote = self.service.calculate_quote(total_qualified=2, tier=2, currency="COP")
         self.assertEqual(quote["total_cents"], 0)
         self.assertTrue(quote["is_courtesy_sample"])
         self.assertEqual(quote["discount_percentage"], 100.0)
