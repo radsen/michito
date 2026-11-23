@@ -38,6 +38,17 @@ QUERY_STOP_WORDS = {
     "contactos", "contacto", "datos", "base", "bases", "lista", "listas",
     "listado", "registro", "registros", "informacion", "información",
     "directorio", "directorios", "perfil", "perfiles",
+    # Commercial model & generic business modifiers (PURGE to avoid polluting domain query)
+    "distribuidora", "distribuidor", "distribuidores", "distribuidoras", "distribucion", "distribución",
+    "comercializadora", "comercializador", "comercializadoras", "comercializadores", "comercializacion", "comercialización",
+    "mayorista", "mayoristas", "mayor", "al por mayor", "minorista", "minoristas", "al detal", "detal",
+    "insumo", "insumos", "suministro", "suministros", "abastecimiento",
+    "fabricante", "fabricantes", "fabricacion", "fabricación", "manufactura", "manufacturas",
+    "importador", "importadores", "importadora", "importadoras", "importacion", "importación",
+    "exportador", "exportadores", "exportadora", "exportadoras", "exportacion", "exportación",
+    "taller", "talleres", "industria", "industrias", "industrial", "industriales",
+    "sociedad", "sociedades", "compania", "compañia", "compañía", "sas", "s.a.s", "ltda",
+    "unas", "unos", "otras", "otros", "algunas", "algunos",
     # Field & channel meta-words
     "telefono", "telefonos", "teléfono", "teléfonos", "correo", "correos",
     "email", "emails", "cargo", "cargos", "directivo", "directivos", "celular",
@@ -78,6 +89,9 @@ GEO_CITY_REGISTRY = {
     "santander": {"country": "CO", "city": "Bucaramanga", "department": "Santander"},
     "pereira": {"country": "CO", "city": "Pereira", "department": "Risaralda"},
     "manizales": {"country": "CO", "city": "Manizales", "department": "Caldas"},
+    "todo colombia": {"country": "CO", "city": "Colombia", "department": "Nacional"},
+    "toda colombia": {"country": "CO", "city": "Colombia", "department": "Nacional"},
+    "colombia": {"country": "CO", "city": "Colombia", "department": "Nacional"},
 
     # Dominican Republic 🇩🇴
     "santo domingo": {"country": "DO", "city": "Santo Domingo", "department": "Distrito Nacional"},
@@ -233,24 +247,45 @@ class BriefParserService:
         if not detected_locations:
             detected_locations.append({"country": "CO", "city": "Medellín", "department": "Antioquia"})
 
-        # 3. Volume / Limit
-        numbers = [int(n) for n in re.findall(r"\b\d+\b", lower) if int(n) >= 5]
-        limit = 25  # Standard conversion-optimized batch
-        if numbers:
-            limit = numbers[0]
+        # 3. Volume / Limit & Location Allocation
+        # Match explicit lead allocations per city (e.g. "Cali unas 50 y Barranquilla 40 y en todo Colombia otras 10")
+        explicit_allocations: Dict[str, int] = {}
+        for loc in detected_locations:
+            loc_name = loc["city"].lower()
+            # Match patterns like: "cali (?:unas |unos |otras |otros )?(\d+)" or "(\d+)\s+(?:en\s+)?cali"
+            m = re.search(rf"\b{re.escape(loc_name)}\b[^\d\n\.,;]{{0,25}}?(\d+)", lower)
+            if not m:
+                m = re.search(rf"(\d+)[^\d\n\.,;]{{0,15}}?\b{re.escape(loc_name)}\b", lower)
+            if m:
+                count = int(m.group(1))
+                if 1 <= count <= 10000:
+                    explicit_allocations[loc["city"]] = count
 
-        # Allocate leads across locations
+        total_limit_match = re.search(r"\b(?:busco|necesito|quiero|solicito|dame|genera|generar|arma|total|de)\s+(\d{1,4})\b", lower)
+        numbers = [int(n) for n in re.findall(r"\b\d+\b", lower) if int(n) >= 5]
+
+        if total_limit_match:
+            limit = int(total_limit_match.group(1))
+        elif explicit_allocations and len(explicit_allocations) == len(detected_locations):
+            limit = sum(explicit_allocations.values())
+        elif numbers:
+            limit = numbers[0]
+        else:
+            limit = 25  # Standard conversion-optimized batch
+
         leads_per_loc = max(1, limit // len(detected_locations))
         remainder = limit % len(detected_locations)
         location_allocations = []
         for i, loc in enumerate(detected_locations):
-            allocation = leads_per_loc + (remainder if i == 0 else 0)
+            alloc = explicit_allocations.get(loc["city"]) or (leads_per_loc + (remainder if i == 0 else 0))
             location_allocations.append({
                 "country": loc["country"],
                 "region": loc.get("department", loc["city"]),
                 "city": loc["city"],
-                "allocated_leads": allocation,
+                "allocated_leads": alloc,
             })
+        if explicit_allocations and len(explicit_allocations) == len(detected_locations):
+            limit = sum(l["allocated_leads"] for l in location_allocations)
 
         # 4. Tier Detection & Cross-Border Cap
         tier = 2
@@ -359,17 +394,20 @@ class BriefParserService:
             "{\n"
             '  "directionality": "vendor_to_clients" (if selling) or "client_to_vendors" (if buying/procuring/RFQ),\n'
             '  "sectors": ["slug_sector_name"],\n'
-            '  "ciiu_codes": ["4-digit ISIC/CIIU codes"],\n'
+            '  "ciiu_codes": ["4-digit ISIC/CIIU codes matching the niche product/domain precisely (e.g. food wholesale: 4631, 4632; restaurant supplies: 5611)"],\n'
             '  "roles": ["Target executive titles"],\n'
             '  "locations": [{"country": "CO"|"DO"|"EC", "region": "Department/State", "city": "City name", "allocated_leads": 15}],\n'
             '  "limit": integer total volume (default 25),\n'
             '  "tier": 1 (directory) | 2 (decision maker email+phone) | 3 (financial EBITDA / litigation audit, ONLY if all locations are in CO),\n'
             '  "rfq_specifications": "tender requirements or null",\n'
-            '  "keywords_include": ["key terms"],\n'
+            '  "keywords_include": ["SPECIFIC product, service, or niche substantive terms only (e.g. alimentos, restaurantes, abarrotes). NEVER include generic business model terms like distribuidora, empresa, mayorista, proveedor, fabricante."],\n'
             '  "keywords_exclude": ["terms to exclude"],\n'
             '  "confidence_score": float between 0.0 and 1.0\n'
             "}\n"
-            "NOTE: Tier 3 is strictly restricted to orders where 100% of locations are in Colombia ('CO'). If locations include 'DO', 'EC', or are mixed, tier MUST be 2 or 1."
+            "CRITICAL RULES:\n"
+            "1. 'keywords_include' MUST ONLY contain specific industry/product nouns. DO NOT output 'distribuidora', 'empresa', 'proveedor', 'mayorista' or 'fabricante'.\n"
+            "2. If the user allocates specific counts per city (e.g. 'Cali unas 50 y Barranquilla 40 y en todo Colombia 10'), allocate exact numbers in 'allocated_leads' for each location.\n"
+            "3. Tier 3 is strictly restricted to orders where 100% of locations are in Colombia ('CO'). If locations include 'DO', 'EC', or are mixed, tier MUST be 2 or 1."
         )
 
         body = {
@@ -383,15 +421,19 @@ class BriefParserService:
 
         models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash"]
         last_error = None
+        usage_data = {}
+        chosen_model = None
 
         for model_name in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
             try:
-                with httpx.Client(timeout=2.5) as client:
+                with httpx.Client(timeout=5.0) as client:
                     resp = client.post(url, json=body)
                     resp.raise_for_status()
                     data = resp.json()
                 text_response = data["candidates"][0]["content"]["parts"][0]["text"]
+                usage_data = data.get("usageMetadata", {})
+                chosen_model = model_name
                 result = json.loads(text_response)
                 break
             except Exception as e:
@@ -404,6 +446,15 @@ class BriefParserService:
         if "directionality" not in result or result["directionality"] not in ("vendor_to_clients", "client_to_vendors"):
             result["directionality"] = "vendor_to_clients"
 
+        # Sanitize keywords_include: purge any accidental commercial stopwords
+        if "keywords_include" in result and isinstance(result["keywords_include"], list):
+            sanitized_kws = []
+            for kw in result["keywords_include"]:
+                clean_k = str(kw).strip().lower()
+                if clean_k and clean_k not in QUERY_STOP_WORDS and len(clean_k) >= 3:
+                    sanitized_kws.append(clean_k)
+            result["keywords_include"] = sanitized_kws
+
         # Sanitize cross-border Tier 3 restriction
         locs = result.get("locations", [])
         if any(l.get("country") != "CO" for l in locs) and result.get("tier") == 3:
@@ -414,8 +465,23 @@ class BriefParserService:
                 "cobertura en Ecuador o República Dominicana, el nivel estándar de prospección comercial es Tier 2 (Contactos Directos Verificados)."
             )
 
+        # Financial Observability: Record Token Usage & Incurred Cost
+        prompt_tokens = usage_data.get("promptTokenCount", 0)
+        candidates_tokens = usage_data.get("candidatesTokenCount", 0)
+        total_tokens = usage_data.get("totalTokenCount", prompt_tokens + candidates_tokens)
+        cost_cop = round(((prompt_tokens * 0.075 / 1_000_000) + (candidates_tokens * 0.30 / 1_000_000)) * 4100, 4)
+
+        result["token_usage"] = {
+            "model": chosen_model,
+            "prompt_tokens": prompt_tokens,
+            "candidates_tokens": candidates_tokens,
+            "total_tokens": total_tokens,
+            "cost_cop": cost_cop,
+        }
+
         result["discovered_tokens"] = {
             "gemini_parsed": True,
             "raw_text": prompt,
+            "token_usage": result["token_usage"],
         }
         return result

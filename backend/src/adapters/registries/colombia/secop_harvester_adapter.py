@@ -99,7 +99,11 @@ class SecopHarvesterAdapter:
         },
         "cali": {
             "dept": "Valle del Cauca",
-            "cluster_cities": ["Cali", "Yumbo", "Palmira"],
+            "cluster_cities": ["Santiago de Cali", "Cali", "Yumbo", "Palmira", "Jamundí"],
+        },
+        "santiago de cali": {
+            "dept": "Valle del Cauca",
+            "cluster_cities": ["Santiago de Cali", "Cali", "Yumbo", "Palmira", "Jamundí"],
         },
         "barranquilla": {
             "dept": "Atlántico",
@@ -220,9 +224,10 @@ class SecopHarvesterAdapter:
 
         params: Dict[str, str] = {
             "esta_activa": "Si",
-            "$limit": str(max(limit * 3, 100)),
+            "$limit": str(max(limit * 4, 150)),
         }
 
+        valid_kw = []
         if include_keywords:
             valid_kw = [k.strip() for k in include_keywords if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())]
             if valid_kw:
@@ -234,6 +239,10 @@ class SecopHarvesterAdapter:
             pass
         elif norm_loc in ("bogotá", "bogota", "bogota d.c.", "bogotá d.c.") or clean_loc in ("bogota", "bogota dc", "bogota d c", "distrito capital"):
             params["departamento"] = "Distrito Capital de Bogotá"
+        elif norm_loc in ("cali", "santiago de cali"):
+            # SODA records Cali under both 'Santiago de Cali' and 'Cali'.
+            # Querying the Department ensures 100% recall without municipal omission.
+            params["departamento"] = "Valle del Cauca"
         elif norm_loc in self.COLOMBIA_DEPARTAMENTOS:
             params["departamento"] = self.COLOMBIA_DEPARTAMENTOS[norm_loc]
         elif clean_loc in self.COLOMBIA_DEPARTAMENTOS:
@@ -243,6 +252,32 @@ class SecopHarvesterAdapter:
 
         if corporate_only and not is_educational:
             params["tipo_empresa"] = "Sociedad por acciones simplificada"
+
+        # Cross-Sector Negative Exclusion Terms to prevent contamination
+        is_food_query = bool(
+            (include_keywords and any(re.search(r"alimento|comida|restauran|viveres|abarrote|insumo.*restauran|catering|panader|lacteo|carnic", kw.lower()) for kw in include_keywords))
+            or (ciiu_codes and any(c.startswith(("463", "561", "10", "11")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"alimento|food|restauran", s.lower()) for s in sectors))
+        )
+
+        is_furniture = bool(
+            (include_keywords and any(
+                re.search(r"mueble|siller|tapicer|mantenimiento locativo|ebanister|escritorio|reparacion", kw.lower())
+                for kw in include_keywords
+            ))
+            or (ciiu_codes and any(c.startswith(("31", "9524", "8110")) for c in ciiu_codes))
+            or (sectors and any(re.search(r"mueble|furnitur|siller", s.lower()) for s in sectors))
+        )
+
+        FOOD_NEGATIVE_SECTORS = (
+            "papeleria", "papelería", "contabilidad", "auditoria", "auditoría", "tributaria",
+            "construccion", "construcción", "edificios", "bodegas", "obras civiles",
+            "farmaceutic", "farmacéutic", "medicinal", "medicamento", "drogueria", "droguería",
+            "cosmetico", "cosmético", "textil", "telas", "confeccion", "confección", "prendas de vestir", "ropa",
+            "ferreteria", "ferretería", "metal", "metalurgic", "metalúrgic", "tornillo",
+            "maquinaria agricola", "tractor", "repuestos de vehiculos", "autopartes",
+            "publicidad", "agencia de medios", "software", "inmobiliaria", "vigilancia", "seguridad privada"
+        )
 
         qualified_leads: List[Dict[str, Any]] = []
 
@@ -274,6 +309,16 @@ class SecopHarvesterAdapter:
             if exclude_keywords and any(ex.lower() in full_text for ex in exclude_keywords):
                 return None
 
+            # Universal Cross-Sector Negative Exclusion Gate
+            if is_food_query:
+                # If query is food/restaurant, immediately discard non-food sectors
+                has_negative = any(neg in full_text for neg in FOOD_NEGATIVE_SECTORS)
+                if has_negative:
+                    # Allow only if there is a distinct positive food keyword present
+                    has_positive_food = any(f_term in full_text for f_term in ("alimento", "restauran", "viveres", "abarrote", "panader", "lacteo", "carnic", "bebida", "comestib"))
+                    if not has_positive_food:
+                        return None
+
             if include_keywords and require_keywords:
                 matched_kw = any(inc.lower() in full_text for inc in include_keywords)
                 if not matched_kw:
@@ -281,6 +326,10 @@ class SecopHarvesterAdapter:
                     matched_kw = any(t in full_text for t in tokens)
                 if not matched_kw:
                     if is_educational and any(term in full_text for term in ("educa", "colegio", "liceo", "escuela", "gimnasio", "academ", "universidad", "carnet")):
+                        matched_kw = True
+                    elif is_food_query and any(f_term in full_text for f_term in ("alimento", "restauran", "viveres", "abarrote", "gastronom", "comida")):
+                        matched_kw = True
+                    elif is_furniture and any(furn_term in full_text for furn_term in ("mueble", "siller", "tapicer", "madera", "ebanister", "oficina", "reparacion", "mantenimiento")):
                         matched_kw = True
                     else:
                         return None
@@ -318,15 +367,22 @@ class SecopHarvesterAdapter:
             }
 
         # -------------------------------------------------------------
-        # SODA LADDER TIER 1: Primary Query
+        # SODA LADDER TIER 1: Primary Query & Multi-Token Domain Expansion
         # -------------------------------------------------------------
-        raw_data = self._execute_soda_request(params)
-        for item in raw_data:
-            lead = _process_item(item, require_keywords=bool(include_keywords))
-            if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
-                qualified_leads.append(lead)
-                if len(qualified_leads) >= limit:
-                    break
+        query_candidates = valid_kw[:3] if valid_kw else [None]
+        for kw in query_candidates:
+            if len(qualified_leads) >= limit:
+                break
+            tier1_params = dict(params)
+            if kw:
+                tier1_params["$q"] = kw
+            raw_data = self._execute_soda_request(tier1_params)
+            for item in raw_data:
+                lead = _process_item(item, require_keywords=bool(include_keywords))
+                if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                    qualified_leads.append(lead)
+                    if len(qualified_leads) >= limit:
+                        break
 
         # -------------------------------------------------------------
         # SODA LADDER TIER 2: Parent 2-Digit ISIC Division Broadening

@@ -6923,3 +6923,687 @@ main {
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* ==========================================================================
+   Order Confirmation & Courtesy Delivery UI (Pure CSS - Zero Tailwind Dependency)
+   ========================================================================== */
+
+/* 1. Order Confirmation Card */
+.order-confirmation-card {
+  padding: 32px 28px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.confirmation-badge-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.confirmation-badge-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.confirmation-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.confirmation-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  line-height: 1.25;
+}
+
+.confirmation-order-id-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  color: #7dd3fc;
+  margin-bottom: 18px;
+}
+
+.confirmation-summary-text {
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  max-width: 560px;
+  margin: 0 auto 20px auto;
+  line-height: 1.5;
+}
+
+.confirmation-steps-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 20px;
+  max-width: 560px;
+  margin: 0 auto 24px auto;
+  text-align: left;
+}
+
+.confirmation-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.confirmation-step-item:last-child {
+  margin-bottom: 0;
+}
+
+.confirmation-step-bullet {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.confirmation-step-text strong {
+  color: #e2e8f0;
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .confirmation-actions {
+    flex-direction: row;
+  }
+}
+
+.btn-confirmation-ok {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  background: #10b981;
+  color: #020617;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.btn-confirmation-ok:hover {
+  background: #34d399;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.btn-confirmation-track {
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #7dd3fc;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-confirmation-track:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+/* 2. Active Order Collapsed Summary */
+.active-order-collapsed-summary {
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 768px) {
+  .active-order-collapsed-summary {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.collapsed-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.collapsed-summary-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.collapsed-summary-meta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #7dd3fc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapsed-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #34d399;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.collapsed-summary-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+.collapsed-summary-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-summary-modify {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-summary-modify:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.btn-summary-reset {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #94a3b8;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-summary-reset:hover {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.btn-summary-dedicated {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-summary-dedicated:hover {
+  background: rgba(14, 165, 233, 0.28);
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+/* 3. Payment Authorization Card & Courtesy Delivery Banner */
+.payment-authorization-card {
+  margin-bottom: 24px;
+  padding: 22px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(69, 26, 3, 0.6) 0%, rgba(15, 23, 42, 0.95) 50%, rgba(69, 26, 3, 0.4) 100%);
+  border: 2px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.payment-authorization-card.courtesy-mode {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.55) 0%, rgba(15, 23, 42, 0.95) 50%, rgba(6, 78, 59, 0.35) 100%);
+  border: 2px solid rgba(16, 185, 129, 0.55);
+}
+
+.payment-cta-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .payment-cta-layout {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.payment-cta-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.payment-cta-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.payment-cta-heading-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payment-cta-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.payment-cta-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.payment-cta-desc {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  margin: 6px 0 0 0;
+  max-width: 650px;
+  line-height: 1.45;
+}
+
+.payment-cta-guarantee-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: #34d399;
+  font-weight: 500;
+}
+
+.main-payment-cta-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  background: #10b981;
+  color: #020617;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+}
+
+.main-payment-cta-btn:hover {
+  background: #34d399;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+
+@media (min-width: 768px) {
+  .main-payment-cta-btn {
+    width: auto;
+  }
+}
+
+/* Fair Price Adjustment Banner */
+.fair-price-adjustment-banner {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: #fde68a;
+}
+
+.fair-price-banner-title {
+  color: #fcd34d;
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.fair-price-banner-desc {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+/* 4. Teaser Unlocked Receipt Bar */
+.teaser-unlocked-receipt-bar {
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: rgba(6, 78, 59, 0.5);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .teaser-unlocked-receipt-bar {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.receipt-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.receipt-bar-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.receipt-bar-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.receipt-bar-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(6, 78, 59, 0.8);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.receipt-bar-sub {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin: 2px 0 0 0;
+}
+
+.receipt-bar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-receipt-download {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-receipt-download.primary {
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #10b981;
+}
+
+.btn-receipt-download.primary:hover {
+  background: #10b981;
+}
+
+.btn-receipt-download.secondary {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+.btn-receipt-download.secondary:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+/* 5. 2x1 Guarantee Claim Modal & Alerts */
+.claim-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.claim-modal-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(6, 78, 59, 0.6);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.claim-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.claim-modal-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 2px 0 0 0;
+}
+
+.claim-modal-desc {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.claim-alert-success {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(6, 78, 59, 0.6);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.claim-alert-error {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(136, 19, 55, 0.6);
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  color: #fda4af;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.claim-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.claim-suggested-row {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.claim-suggested-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.claim-suggested-btn {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  cursor: pointer;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.15s ease;
+}
+
+.claim-suggested-btn:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.claim-modal-footer {
+  padding-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

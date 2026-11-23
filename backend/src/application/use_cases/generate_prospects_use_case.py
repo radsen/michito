@@ -943,17 +943,51 @@ class GenerateProspectsUseCase:
                     raw_desc=item.get("sector", "")
                 )
 
+                # Cross-Sector Negative Contamination Gate
+                # Rejects candidates whose reported sector or name fundamentally belongs to an incompatible industry
+                is_food_domain = bool(
+                    (target_ciiu_codes and any(str(c).startswith(("463", "561", "10", "11")) for c in target_ciiu_codes))
+                    or (kw_include and any(re.search(r"alimento|comida|restauran|viveres|abarrote|insumo.*restauran|catering|panader|lacteo|carnic", str(k).lower()) for k in kw_include))
+                )
+
+                if is_food_domain:
+                    company_raw_text = f"{company_name} {item.get('sector', '')} {ciiu_obj.description}".lower()
+                    food_contradictions = (
+                        "papeleria", "papelería", "contabilidad", "auditoria", "auditoría", "tributaria",
+                        "construccion", "construcción", "edificios", "bodegas", "obras civiles",
+                        "farmaceutic", "farmacéutic", "medicinal", "medicamento", "drogueria", "droguería",
+                        "cosmetico", "cosmético", "textil", "telas", "confeccion", "confección", "prendas de vestir", "ropa",
+                        "ferreteria", "ferretería", "metal", "metalurgic", "metalúrgic", "tornillo",
+                        "maquinaria agricola", "tractor", "repuestos de vehiculos", "autopartes",
+                        "publicidad", "agencia de medios", "software", "inmobiliaria", "vigilancia", "seguridad privada"
+                    )
+                    has_contradiction = any(c_term in company_raw_text for c_term in food_contradictions)
+                    if has_contradiction:
+                        has_positive_food = any(f_term in company_raw_text for f_term in ("alimento", "restauran", "viveres", "abarrote", "gastronom", "comida", "lacteo", "carnic", "bebida"))
+                        if not has_positive_food:
+                            continue
+
                 # CIIU Specific Filtering if requested
                 if target_ciiu_codes and len(target_ciiu_codes) > 0:
                     ciiu_clean = [str(c).upper().strip() for c in target_ciiu_codes]
                     cand_ciiu = ciiu_obj.code.upper()
+                    # Enforce exact match, prefix match, or 3-digit group match (e.g. 463 for food wholesale).
+                    # Strictly prohibit 2-digit wildcards on wholesale division 46 (which causes wholesale to leak across unrelated industries).
                     matches_ciiu = (
                         cand_ciiu in ciiu_clean
                         or any(cand_ciiu.startswith(prefix) for prefix in ciiu_clean)
-                        or any(cand_ciiu[:2] == prefix[:2] for prefix in ciiu_clean)
+                        or any(len(prefix) >= 3 and cand_ciiu[:3] == prefix[:3] for prefix in ciiu_clean)
+                        or any(cand_ciiu[:2] == prefix[:2] and prefix[:2] != "46" for prefix in ciiu_clean)
                     )
                     if not matches_ciiu:
-                        if kw_include and not any(kw.lower() in company_name.lower() or kw.lower() in str(item.get("sector", "")).lower() for kw in kw_include):
+                        # Fallback ONLY if company matches substantive domain keywords (never generic commercial modifiers)
+                        from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+                        valid_substantive_kws = [k.lower().strip() for k in (kw_include or []) if k.lower().strip() not in QUERY_STOP_WORDS and len(k.strip()) >= 3]
+                        if not valid_substantive_kws and offer_description:
+                            valid_substantive_kws = [w.lower() for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", offer_description.lower()) if w.lower() not in QUERY_STOP_WORDS]
+                        if not valid_substantive_kws:
+                            continue
+                        if not any(kw in company_name.lower() or kw in str(item.get("sector", "")).lower() for kw in valid_substantive_kws):
                             continue
 
                 # Trigger 1: Public Contract Awards

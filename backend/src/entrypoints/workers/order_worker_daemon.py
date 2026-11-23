@@ -8,7 +8,8 @@ as well as direct repository polling (Firestore).
 import os
 import sys
 import time
-from typing import Dict, Any, Optional
+import json
+from typing import Dict, Any, Optional, List, Tuple
 
 from src.adapters.db.firestore_order_adapter import FirestoreOrderAdapter
 from src.application.ports.order_queue_port import OrderQueuePort
@@ -94,6 +95,93 @@ class OrderWorkerDaemon:
         else:
             from src.adapters.alerts.webhook_alert_adapter import WebhookAlertAdapter
             self.alert_dispatcher = WebhookAlertAdapter()
+
+        self.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
+
+    def _run_smart_llm_gate(
+        self,
+        leads: List[Dict[str, Any]],
+        query: str,
+        batch_size: int = 25,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Batched Smart LLM Gate: Evaluates candidate intent relevance in batches of 25.
+        Discards candidates scoring under 75. Runs with Gemini Flash for minimal cost (~0.002% rev).
+        """
+        is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
+        if not self.gemini_api_key or is_test_env or not leads or not query:
+            return leads, {"calls": 0, "cost_cop": 0.0, "discarded": 0}
+
+        try:
+            import httpx
+        except ImportError:
+            return leads, {"calls": 0, "cost_cop": 0.0, "discarded": 0}
+
+        system_instruction = (
+            "You are Michito AI Intent Gatekeeper. Evaluate whether each B2B company genuinely matches the user's intent query.\n"
+            "Query: " + query + "\n"
+            "For each candidate, score intent relevance from 0 to 100.\n"
+            "Pass if score >= 75; discard if score < 75 (e.g. paper/textile/construction companies when query asks for food/restaurants).\n"
+            "Output strictly valid JSON: {\"evaluations\": [{\"id\": int, \"score\": int, \"keep\": bool}]}"
+        )
+
+        qualified = []
+        total_prompt_tokens = 0
+        total_cand_tokens = 0
+        total_discarded = 0
+        calls_count = 0
+
+        for i in range(0, len(leads), batch_size):
+            chunk = leads[i : i + batch_size]
+            cand_payload = [
+                {
+                    "id": idx,
+                    "name": c.get("company_name", ""),
+                    "sector": c.get("sector", ""),
+                    "notes": c.get("notes", "") or c.get("company_type", ""),
+                }
+                for idx, c in enumerate(chunk)
+            ]
+
+            body = {
+                "contents": [{"parts": [{"text": json.dumps({"candidates": cand_payload})}]}],
+                "systemInstruction": {"parts": [{"text": system_instruction}]},
+                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
+            }
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.gemini_api_key}"
+            try:
+                calls_count += 1
+                with httpx.Client(timeout=4.0) as client:
+                    resp = client.post(url, json=body)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        usage = data.get("usageMetadata", {})
+                        total_prompt_tokens += usage.get("promptTokenCount", 0)
+                        total_cand_tokens += usage.get("candidatesTokenCount", 0)
+                        text_res = data["candidates"][0]["content"]["parts"][0]["text"]
+                        evals = json.loads(text_res).get("evaluations", [])
+                        eval_map = {e.get("id"): e for e in evals}
+                        for idx, c in enumerate(chunk):
+                            ev = eval_map.get(idx)
+                            if ev and (ev.get("keep") is False or ev.get("score", 100) < 75):
+                                total_discarded += 1
+                                continue
+                            qualified.append(c)
+                    else:
+                        qualified.extend(chunk)
+            except Exception:
+                qualified.extend(chunk)
+
+        cost_cop = round(((total_prompt_tokens * 0.075 / 1_000_000) + (total_cand_tokens * 0.30 / 1_000_000)) * 4100, 4)
+        stats = {
+            "calls": calls_count,
+            "prompt_tokens": total_prompt_tokens,
+            "candidates_tokens": total_cand_tokens,
+            "cost_cop": cost_cop,
+            "discarded": total_discarded,
+        }
+        return qualified, stats
 
     def process_order(self, order: Dict[str, Any]) -> bool:
         import sys
@@ -202,6 +290,14 @@ class OrderWorkerDaemon:
             job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0
 
+            # Batched Smart LLM Gate (Intent Verification)
+            raw_leads = job_result.get("leads", [])
+            query_text = req.get("offer_description") or campaign_id or " ".join(exec_kwargs.get("keywords_include", []))
+            filtered_leads, gate_stats = self._run_smart_llm_gate(raw_leads, query_text)
+            if gate_stats.get("discarded", 0) > 0:
+                job_result["leads"] = filtered_leads
+                job_result["total_qualified"] = len(filtered_leads)
+
             # Fair Pay-Per-Lead Tiered Pricing (Strategy Financial Model)
             total_qualified = job_result.get("total_qualified", len(job_result.get("leads", [])))
             if total_qualified == 0:
@@ -258,6 +354,49 @@ class OrderWorkerDaemon:
                 currency=currency,
                 partner_id=partner_ref,
             )
+
+            # Unit Economics & Financial Telemetry Accumulator
+            gross_revenue_cop = float(total_price_cents // 100) if total_price_cents > 0 else 0.0
+            brief_tokens_cop = float((req.get("token_usage") or {}).get("cost_cop", 0.0))
+            smart_gate_cost_cop = float(gate_stats.get("cost_cop", 0.0))
+
+            # Wompi gateway fee: $1,071 COP fixed + 2.9% + 19% IVA on the fee (0 COP if courtesy)
+            if gross_revenue_cop > 0:
+                base_wompi = 1071.0 + (0.029 * gross_revenue_cop)
+                wompi_gateway_fee_cop = round(base_wompi * 1.19, 2)
+            else:
+                wompi_gateway_fee_cop = 0.0
+
+            delivery_cost_cop = 5.0  # Email delivery cost
+
+            variable_costs = {
+                "gemini_brief_parsing_cop": round(brief_tokens_cop, 2),
+                "gemini_smart_gate_cop": round(smart_gate_cost_cop, 2),
+                "wompi_gateway_fee_cop": wompi_gateway_fee_cop,
+                "omnichannel_delivery_cop": delivery_cost_cop,
+            }
+            total_variable_cost_cop = sum(variable_costs.values())
+            net_margin_cop = gross_revenue_cop - total_variable_cost_cop
+            margin_pct = (net_margin_cop / gross_revenue_cop * 100) if gross_revenue_cop > 0 else (0.0 if total_variable_cost_cop == 0 else -100.0)
+
+            if gross_revenue_cop == 0:
+                audit_rating = "[DEFICIT - COURTESY GIFT]"
+            elif total_qualified < 25:
+                audit_rating = "[LOW MARGIN WARNING - Sub-25 Yield]"
+            elif margin_pct >= 85:
+                audit_rating = "[PROFITABLE]"
+            else:
+                audit_rating = "[DEFICIT]"
+
+            job_result["financial_telemetry"] = {
+                "gross_revenue_cop": gross_revenue_cop,
+                "variable_costs": variable_costs,
+                "total_variable_cost_cop": total_variable_cost_cop,
+                "net_contribution_margin_cop": net_margin_cop,
+                "margin_percentage": margin_pct,
+                "audit_rating": audit_rating,
+                "currency": currency,
+            }
 
             # Upload deliverables to Storage Adapter (Local or GCS)
             print(f"[WorkerDaemon] [PACKAGE] [4/4] Packaging structured CSV/XLSX manifest and executive PDF dossier...")
@@ -353,6 +492,23 @@ class OrderWorkerDaemon:
                         "qualified_leads": job_result.get("total_qualified", 0),
                         "total_quote": f"${total_price_cents // 100:,.0f} COP",
                     }
+                )
+
+            if hasattr(self.alert_dispatcher, "send_financial_alert"):
+                client_email = (order.get("client") or {}).get("email") or "N/A"
+                query_display = req.get("offer_description") or campaign_id or "B2B Intent Search"
+                loc_display = f"{city} ({country})"
+                self.alert_dispatcher.send_financial_alert(
+                    order_id=order_id,
+                    client_email=client_email,
+                    query=query_display,
+                    location_display=loc_display,
+                    status="COURTESY_DELIVERED" if total_price_cents == 0 else "AWAITING_PAYMENT",
+                    gross_revenue_cop=gross_revenue_cop,
+                    variable_costs=variable_costs,
+                    yield_count=total_qualified,
+                    audit_rating=audit_rating,
+                    currency=currency,
                 )
 
             print(f"[WorkerDaemon] [OK] Order `{order_id}` completed successfully in {elapsed:.2f}s!")

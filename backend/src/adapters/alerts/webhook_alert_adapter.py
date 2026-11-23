@@ -218,3 +218,118 @@ class WebhookAlertAdapter:
         except Exception as e:
             logger.warning(f"[OrdersFeed] Failed to dispatch feed event to {dest_url}: {e}")
             return False
+
+    def send_financial_alert(
+        self,
+        order_id: str,
+        client_email: str,
+        query: str,
+        location_display: str,
+        status: str,
+        gross_revenue_cop: float,
+        variable_costs: Dict[str, float],
+        yield_count: int,
+        audit_rating: str,
+        token_counts: Optional[Dict[str, int]] = None,
+        currency: str = "COP",
+    ) -> bool:
+        """
+        Dispatches unit economics and profitability audit events to #michito-alerts.
+        Calculates: Gross Revenue - Total Variable Cost = Net Contribution Margin.
+        """
+        dest_url = self.webhook_url
+        now = datetime.now(timezone.utc)
+        raw_env = (os.environ.get("ENVIRONMENT") or "development").upper()
+
+        total_variable_cost_cop = sum(variable_costs.values())
+        net_margin_cop = gross_revenue_cop - total_variable_cost_cop
+        margin_pct = (net_margin_cop / gross_revenue_cop * 100) if gross_revenue_cop > 0 else (0.0 if total_variable_cost_cop == 0 else -100.0)
+
+        # Country flag mapping
+        c_flag = "🇨🇴"
+        if "republica dominicana" in location_display.lower() or "santo domingo" in location_display.lower() or " DO" in location_display:
+            c_flag = "🇩🇴"
+        elif "ecuador" in location_display.lower() or "quito" in location_display.lower() or "guayaquil" in location_display.lower() or " EC" in location_display:
+            c_flag = "🇪🇨"
+
+        cost_breakdown_lines = []
+        for cost_key, cost_val in variable_costs.items():
+            label = cost_key.replace("_cop", "").replace("_", " ").title()
+            cost_breakdown_lines.append(f"• {label}: ${cost_val:,.2f} COP")
+
+        cost_breakdown_text = "\n".join(cost_breakdown_lines)
+
+        summary_text = (
+            f"[{raw_env}] [FINANCIAL AUDIT] Order `{order_id}` {c_flag}\n"
+            f"• Query: \"{query}\"\n"
+            f"• Location: {location_display}\n"
+            f"• Verified Yield: {yield_count} qualified leads\n"
+            f"• Order Status: {status}\n\n"
+            f"FINANCIAL BREAKDOWN ({currency}):\n"
+            f"• Gross Revenue: ${gross_revenue_cop:,.0f} COP\n"
+            f"{cost_breakdown_text}\n"
+            f"----------------------------------------\n"
+            f"• Total Variable Cost: ${total_variable_cost_cop:,.2f} COP\n"
+            f"• Net Margin: ${net_margin_cop:,.2f} COP ({margin_pct:.1f}%)\n"
+            f"• Audit Rating: {audit_rating}"
+        )
+
+        logger.info(f"[FinancialAlert] [{audit_rating}] Order: {order_id} | Revenue: ${gross_revenue_cop:,.0f} | Cost: ${total_variable_cost_cop:,.2f} | Margin: ${net_margin_cop:,.2f} ({margin_pct:.1f}%)")
+
+        if not dest_url or os.environ.get("ENVIRONMENT") == "test" or os.environ.get("TESTING") == "1":
+            return False
+
+        try:
+            if "discord.com" in dest_url:
+                color_code = 3066993 if "PROFITABLE" in audit_rating else (16753920 if "LOW MARGIN" in audit_rating else 15158332)
+                payload = {
+                    "username": "Michito Financial Watchdog",
+                    "embeds": [
+                        {
+                            "title": f"[{raw_env}] [FINANCIAL AUDIT] {audit_rating} {c_flag}",
+                            "description": f"Order `{order_id}` • {client_email}",
+                            "color": color_code,
+                            "fields": [
+                                {"name": "Query", "value": str(query)[:250], "inline": False},
+                                {"name": "Location / Yield", "value": f"{location_display} ({yield_count} leads)", "inline": True},
+                                {"name": "Status", "value": status, "inline": True},
+                                {"name": "Gross Revenue", "value": f"${gross_revenue_cop:,.0f} COP", "inline": True},
+                                {"name": "Total Variable Cost", "value": f"${total_variable_cost_cop:,.2f} COP", "inline": True},
+                                {"name": "Net Contribution Margin", "value": f"${net_margin_cop:,.2f} COP ({margin_pct:.1f}%)", "inline": True},
+                                {"name": "Cost Detail", "value": cost_breakdown_text[:1000] if cost_breakdown_text else "None", "inline": False},
+                            ],
+                            "footer": {"text": f"Michito Unit Economics • {raw_env}"},
+                            "timestamp": now.isoformat(),
+                        }
+                    ],
+                }
+            elif "slack.com" in dest_url:
+                payload = {"text": summary_text}
+            else:
+                payload = {
+                    "event": "michito.financial.audit",
+                    "timestamp": now.isoformat(),
+                    "environment": raw_env,
+                    "order_id": order_id,
+                    "client_email": client_email,
+                    "query": query,
+                    "location": location_display,
+                    "yield_count": yield_count,
+                    "gross_revenue_cop": gross_revenue_cop,
+                    "variable_costs": variable_costs,
+                    "total_variable_cost_cop": total_variable_cost_cop,
+                    "net_margin_cop": net_margin_cop,
+                    "margin_percentage": margin_pct,
+                    "audit_rating": audit_rating,
+                }
+
+            res = requests.post(
+                dest_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=3.5,
+            )
+            return res.status_code in (200, 201, 204)
+        except Exception as e:
+            logger.warning(f"[FinancialAlert] Failed to dispatch financial alert: {e}")
+            return False
