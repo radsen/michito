@@ -1163,7 +1163,7 @@ export const OrderGenerator: React.FC = () => {
                           <div className="discovery-unavailable-guarantee" style={{ marginTop: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
                             <ShieldCheck style={{ width: 16, height: 16, color: "#34d399", flexShrink: 0 }} />
                             <span style={{ fontSize: "0.8rem", color: "#e2e8f0" }}>
-                              <strong>Garantía Fair Price:</strong> $0 anticipo. Solo pagarás tras auditar el lote y confirmar cuántas empresas 100% verificadas encontramos.
+                              <strong>Garantía Fair Price:</strong> $0 anticipo. Solo pagarás tras auditar el lote y confirmar cuántas empresas verificadas encontramos.
                             </span>
                           </div>
 
@@ -1649,14 +1649,16 @@ export const OrderGenerator: React.FC = () => {
                   style={{ marginTop: "24px" }}
                 >
                   <span>
-                    {g.continueBtn} ({formatCurrencyAmount(total, currency)})
+                    {g.continueBtn} ({volume} {g.recapAccounts})
                   </span>
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </button>
 
                 <div className="fair-billing-pill" style={{ marginTop: "12px", justifyContent: "center" }}>
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{g.fairBillingNote}</span>
+                  <span>
+                    {g.fairBillingNote} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"} ($0 anticipo)
+                  </span>
                 </div>
               </div>
             ) : (
@@ -1718,7 +1720,7 @@ export const OrderGenerator: React.FC = () => {
                   <div className="recap-item">
                     <span className="recap-label">{g.recapInvestment}</span>
                     <span className="recap-value text-emerald-400">
-                      {formatCurrencyAmount(total, currency)} ({volume} {g.recapAccounts})
+                      {g.recapPostAuditEstimate || "Cotización calculada post-auditoría"} ({volume} {g.recapAccounts} • {g.unitRateFrom || "desde"} {formatCurrencyAmount(unitPrice, currency)} / {g.recapLeadSingle || "cuenta"})
                     </span>
                   </div>
                 </div>

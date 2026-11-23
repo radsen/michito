@@ -249,3 +249,39 @@ def test_omnichannel_delivery_ready_for_review_dispatches_smtp_without_deliverab
         content_disposition = part.get("Content-Disposition") or ""
         assert "attachment" not in content_disposition
 
+@patch("smtplib.SMTP")
+def test_omnichannel_delivery_never_attaches_gcs_files_on_unpaid_reviews(mock_smtp_cls, tmp_path, monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.test-resend.com")
+    monkeypatch.setenv("GCS_BUCKET_NAME", "michito-staging-deliverables")
+    monkeypatch.setenv("FRONTEND_URL", "https://michito-web-limgi3puaq-uc.a.run.app")
+
+    mock_server = MagicMock()
+    mock_smtp_cls.return_value = mock_server
+
+    adapter = OmnichannelDeliveryAdapter(outputs_dir=str(tmp_path))
+    order = {
+        "order_id": "ord_review_leak_prevention",
+        "client": {
+            "name": "Andres Solano",
+            "email": "andres@empresa.com",
+            "phone": "+573001234567",
+        },
+        "requested_limit": 1000,
+        "verified_yield": 96,
+        "payment": {
+            "amount_in_cents": 13680000,
+            "currency": "COP",
+        },
+    }
+
+    success = adapter.send_ready_for_review_notification(order)
+    assert success is True
+
+    msg = mock_server.send_message.call_args[0][0]
+    payloads = msg.get_payload()
+    for part in payloads:
+        content_disposition = part.get("Content-Disposition") or ""
+        assert "attachment" not in content_disposition
+        assert "prospectos" not in content_disposition
+        assert "dossier" not in content_disposition
+

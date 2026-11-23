@@ -528,6 +528,45 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
         </div>
       </div>
 
+      {/* Prominent Async Handoff Reassurance Card during Cold Search */}
+      {(isProcessing || isQueued) && (() => {
+        const email = (orderData as any)?.client?.email || (orderData as any)?.customer_email || "";
+        const phone = (orderData as any)?.client?.phone || (orderData as any)?.customer_phone || "";
+        return (
+          <div className="async-handoff-banner" data-testid="async-handoff-card">
+            <div className="async-handoff-icon-wrapper">
+              <Mail className="w-6 h-6 text-sky-400" />
+            </div>
+            <div className="async-handoff-body">
+              <div className="async-handoff-title-row">
+                <h4 className="async-handoff-title">
+                  {dict.tracker.handoffTitle || "¡Solicitud Recibida! Tu auditoría está en marcha"}
+                </h4>
+                <span className="async-handoff-badge">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block mr-1.5" />
+                  {dict.tracker.statusHarvesting}
+                </span>
+              </div>
+              <p className="async-handoff-desc">
+                {dict.tracker.handoffDesc || "Estamos consultando registros oficiales y auditando buzones corporativos en tiempo real. Debido al volumen de validación profunda, este proceso toma entre 3 y 5 minutos."}
+              </p>
+              <div className="async-handoff-notify-box">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  {dict.tracker.handoffNotification || "Te notificaremos por correo"}
+                  {email ? ` (${email})` : ""}
+                  {phone ? ` y WhatsApp (${phone})` : ""}
+                  {" en cuanto tu cotización final exacta y tu muestra estén listas."}
+                </span>
+              </div>
+              <p className="async-handoff-reassurance">
+                {dict.tracker.handoffReassurance || "Puedes cerrar esta ventana con total tranquilidad. Si prefieres seguir el progreso en vivo, mantén abierta esta pestaña."}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Real-Time Progress Bar & Timer */}
       <div className="tracker-progress-block">
         <div className="progress-bar-header">

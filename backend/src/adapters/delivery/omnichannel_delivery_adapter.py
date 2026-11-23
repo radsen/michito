@@ -99,7 +99,12 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             pdf_path = order["delivery"].get("pdf_path", "")
 
         # Resolve public absolute URLs for outbound links
-        base_url = os.environ.get("BASE_URL") or os.environ.get("API_BASE_URL") or "http://localhost:8000"
+        base_url = (
+            os.environ.get("FRONTEND_URL")
+            or os.environ.get("BASE_URL")
+            or os.environ.get("API_BASE_URL")
+            or "https://michito.co"
+        )
         full_csv_url = f"{base_url.rstrip('/')}{csv_url}" if csv_url.startswith("/") else csv_url
         full_md_url = f"{base_url.rstrip('/')}{md_url}" if md_url.startswith("/") else md_url
         full_xlsx_url = f"{base_url.rstrip('/')}{xlsx_url}" if xlsx_url.startswith("/") else xlsx_url
@@ -191,6 +196,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             csv_path=csv_path,
             xlsx_path=xlsx_path,
             pdf_path=pdf_path,
+            attach_files=True,
         )
 
         # 5. Outbound WhatsApp Delivery (if configured)
@@ -292,7 +298,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             review_url=review_url,
         )
 
-        # 4. Outbound Real SMTP Delivery (NO file attachments on unpaid reviews)
+        # 4. Outbound Real SMTP Delivery (Strictly NO file attachments on unpaid reviews)
         self._dispatch_smtp_email(
             order_id=order_id,
             buyer_email=buyer_email,
@@ -302,6 +308,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             csv_path=None,
             xlsx_path=None,
             pdf_path=None,
+            attach_files=False,
         )
 
         # 5. Outbound WhatsApp Delivery (if phone provided)
@@ -337,7 +344,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             <div class="guarantee-box" style="background-color: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 16px; margin: 20px 0;">
               <h4 style="margin: 0 0 6px; color: #38bdf8; font-size: 14px;">Garantía de Precio Justo Michito</h4>
               <p style="margin: 0; font-size: 13px; color: #bae6fd; line-height: 1.5;">
-                Solicitaste {requested_limit} cuentas, pero únicamente <strong>{verified_yield} empresas</strong> cumplieron con el 100% de nuestros filtros de existencia legal y buzón corporativo activo.
+                Solicitaste {requested_limit} cuentas, pero únicamente <strong>{verified_yield} empresas</strong> cumplieron con nuestros filtros de existencia legal y buzón corporativo activo.
                 Tu cotización se ajustó automáticamente para cobrarte <strong>únicamente por lo verificado</strong>.
               </p>
             </div>
@@ -421,7 +428,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         if verified_yield < requested_limit:
             fair_price_text = (
                 f"\nNOTA DE PRECIO JUSTO:\n"
-                f"Solicitaste {requested_limit} cuentas, pero únicamente {verified_yield} superaron el 100% de nuestros filtros técnicos.\n"
+                f"Solicitaste {requested_limit} cuentas, pero únicamente {verified_yield} superaron nuestros filtros de validación técnica.\n"
                 f"Tu cotización se ajustó automáticamente a {verified_yield} cuentas.\n"
             )
 
@@ -585,7 +592,7 @@ Chiketto B2B Operations
       </div>
       <div class="guarantee-box">
         <h4>Garantía de Calidad Michito (Zero-Bounce Guarantee)</h4>
-        <p>Cada buzón de correo fue verificado mediante socket SMTP directo contra el registro MX corporativo. Cuentas con garantía de reposición inmediata 100% gratuita si algún contacto presenta rebote duro.</p>
+        <p>Cada buzón de correo fue verificado mediante socket SMTP directo contra el registro MX corporativo. Cuentas con garantía de reposición inmediata garantizada sin costo si algún contacto presenta rebote duro.</p>
       </div>
     </div>
     <div class="footer">
@@ -643,7 +650,7 @@ Chiketto B2B Operations
             f"Hemos extraido y verificado *{total_qualified} cuentas calificadas* para tu campana en *{city}*.\n\n"
             f"*Descargar CSV (CRM):*\n{csv_url}\n\n"
             f"*Dossier y Guiones de Venta:*\n{md_url}\n\n"
-            f"*Garantia:* Todos los correos cuentan con validacion de socket MX. Reposicion 100% garantizada.\n\n"
+            f"*Garantia:* Todos los correos cuentan con validacion de socket MX. Reposicion garantizada sin costo.\n\n"
             f"_Equipo Michito Intent Engine_"
         )
 
@@ -711,6 +718,7 @@ Chiketto B2B Operations
         csv_path: Optional[str] = None,
         xlsx_path: Optional[str] = None,
         pdf_path: Optional[str] = None,
+        attach_files: bool = False,
     ) -> bool:
         smtp_host = os.environ.get("SMTP_HOST")
         dev_email = os.environ.get("DEV_DELIVERY_EMAIL") or os.environ.get("TEST_EMAIL")
@@ -741,51 +749,55 @@ Chiketto B2B Operations
             body_part.attach(MIMEText(html_content, "html", "utf-8"))
             msg.attach(body_part)
 
-            # Helper to fetch file bytes from local disk or GCS bucket
-            def _get_attachment_bytes(path_candidate: Optional[str], filename_in_gcs: str) -> Optional[bytes]:
-                if path_candidate and os.path.exists(path_candidate) and os.path.isfile(path_candidate):
-                    try:
-                        with open(path_candidate, "rb") as f:
-                            return f.read()
-                    except Exception:
-                        pass
-                bucket_name = os.environ.get("GCS_BUCKET_NAME")
-                if bucket_name:
-                    try:
-                        from google.cloud import storage
-                        client = storage.Client()
-                        bucket = client.bucket(bucket_name)
-                        blob = bucket.blob(f"orders/{order_id}/{filename_in_gcs}")
-                        if blob.exists():
-                            return blob.download_as_bytes()
-                    except Exception as gcs_err:
-                        logger.warning(f"Could not fetch {filename_in_gcs} from GCS: {gcs_err}")
-                return None
+            # Strictly attach files ONLY for paid deliveries
+            if attach_files:
+                # Helper to fetch file bytes from local disk or GCS bucket
+                def _get_attachment_bytes(path_candidate: Optional[str], filename_in_gcs: str) -> Optional[bytes]:
+                    if path_candidate and os.path.exists(path_candidate) and os.path.isfile(path_candidate):
+                        try:
+                            with open(path_candidate, "rb") as f:
+                                return f.read()
+                        except Exception:
+                            pass
+                    bucket_name = os.environ.get("GCS_BUCKET_NAME")
+                    if bucket_name:
+                        try:
+                            from google.cloud import storage
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob = bucket.blob(f"orders/{order_id}/{filename_in_gcs}")
+                            if blob.exists():
+                                return blob.download_as_bytes()
+                        except Exception as gcs_err:
+                            logger.warning(f"Could not fetch {filename_in_gcs} from GCS: {gcs_err}")
+                    return None
 
-            # Direct XLSX attachment (< 20MB)
-            xlsx_bytes = _get_attachment_bytes(xlsx_path, "prospects.xlsx")
-            if xlsx_bytes and len(xlsx_bytes) < 20 * 1024 * 1024:
-                part = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                part.set_payload(xlsx_bytes)
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.xlsx")
-                msg.attach(part)
+                # Direct XLSX attachment (< 20MB)
+                xlsx_bytes = _get_attachment_bytes(xlsx_path, "prospects.xlsx")
+                if xlsx_bytes and len(xlsx_bytes) < 20 * 1024 * 1024:
+                    part = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    part.set_payload(xlsx_bytes)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.xlsx")
+                    msg.attach(part)
 
-            # Direct PDF attachment (< 20MB)
-            pdf_bytes = _get_attachment_bytes(pdf_path, "executive_dossier.pdf")
-            if pdf_bytes and len(pdf_bytes) < 20 * 1024 * 1024:
-                part = MIMEBase("application", "pdf")
-                part.set_payload(pdf_bytes)
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename=dossier_ejecutivo_{order_id}.pdf")
-                msg.attach(part)
+                # Direct PDF attachment (< 20MB)
+                pdf_bytes = _get_attachment_bytes(pdf_path, "executive_dossier.pdf")
+                if pdf_bytes and len(pdf_bytes) < 20 * 1024 * 1024:
+                    part = MIMEBase("application", "pdf")
+                    part.set_payload(pdf_bytes)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename=dossier_ejecutivo_{order_id}.pdf")
+                    msg.attach(part)
 
-            # Direct CSV attachment (< 20MB)
-            csv_bytes = _get_attachment_bytes(csv_path, "prospects.csv")
-            if csv_bytes and len(csv_bytes) < 20 * 1024 * 1024:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(csv_bytes)
-                encoders.encode_base64(part)
+                # Direct CSV attachment (< 20MB)
+                csv_bytes = _get_attachment_bytes(csv_path, "prospects.csv")
+                if csv_bytes and len(csv_bytes) < 20 * 1024 * 1024:
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(csv_bytes)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.csv")
+                    msg.attach(part)
                 part.add_header("Content-Disposition", f"attachment; filename=prospectos_{order_id}.csv")
                 msg.attach(part)
 
