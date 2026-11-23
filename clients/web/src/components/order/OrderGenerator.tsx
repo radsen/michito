@@ -354,11 +354,43 @@ export const OrderGenerator: React.FC = () => {
   const [directionality, setDirectionality] = useState<"vendor_to_clients" | "client_to_vendors">("vendor_to_clients");
   const [rfqSpecifications, setRfqSpecifications] = useState<string>("");
 
-  // Buyer Info State
+  // Buyer Info State (Option C: Clean initial inputs with native browser autofill)
   const [buyerName, setLocalName] = useState(persistedBuyerName || "");
   const [buyerEmail, setLocalEmail] = useState(persistedBuyerEmail || "");
   const [buyerPhone, setLocalPhone] = useState(persistedBuyerPhone || "");
   const [formError, setFormError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<"name" | "email" | "phone" | null>(null);
+
+  const validateContactInfo = (isSharing: boolean = false): boolean => {
+    setInvalidField(null);
+    const cleanName = buyerName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setInvalidField("name");
+      setFormError(g.errorBuyerNameInvalid || g.errorBuyerRequired);
+      return false;
+    }
+
+    const cleanEmail = buyerEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      setInvalidField("email");
+      setFormError(g.errorBuyerEmailInvalid || (isSharing ? g.errorBuyerShareRequired : g.errorBuyerRequired));
+      return false;
+    }
+
+    const cleanPhone = buyerPhone.trim();
+    if (cleanPhone) {
+      const phoneDigits = cleanPhone.replace(/\D/g, "");
+      const phoneRegex = /^[+]?[0-9\s\-().]{7,20}$/;
+      if (!phoneRegex.test(cleanPhone) || phoneDigits.length < 7) {
+        setInvalidField("phone");
+        setFormError(g.errorBuyerPhoneInvalid || "Por favor ingresa un número de teléfono válido (mínimo 7 dígitos).");
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   // Exclusions Drawer & Tag State
   const [isExclusionsOpen, setIsExclusionsOpen] = useState(false);
@@ -646,12 +678,11 @@ export const OrderGenerator: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!buyerName.trim() || !buyerEmail.trim()) {
-      setFormError(g.errorBuyerRequired);
+    if (!validateContactInfo(false)) {
       return;
     }
 
-    dispatch(setBuyerInfo({ name: buyerName, email: buyerEmail, phone: buyerPhone }));
+    dispatch(setBuyerInfo({ name: buyerName.trim(), email: buyerEmail.trim().toLowerCase(), phone: buyerPhone.trim() }));
     dispatch(startOrderSubmission());
 
     try {
@@ -712,13 +743,12 @@ export const OrderGenerator: React.FC = () => {
     setFormError(null);
     setQuoteSharedToast(null);
 
-    if (!buyerName.trim() || !buyerEmail.trim()) {
-      setFormError(g.errorBuyerShareRequired);
+    if (!validateContactInfo(true)) {
       return;
     }
 
     setIsSharingQuote(true);
-    dispatch(setBuyerInfo({ name: buyerName, email: buyerEmail, phone: buyerPhone }));
+    dispatch(setBuyerInfo({ name: buyerName.trim(), email: buyerEmail.trim().toLowerCase(), phone: buyerPhone.trim() }));
     dispatch(startOrderSubmission());
 
     try {
@@ -1701,11 +1731,16 @@ export const OrderGenerator: React.FC = () => {
                     </label>
                     <input
                       type="text"
+                      name="name"
+                      autoComplete="name"
                       required
                       placeholder={g.buyerNamePlaceholder}
                       value={buyerName}
-                      onChange={(e) => setLocalName(e.target.value)}
-                      className="form-input"
+                      onChange={(e) => {
+                        setLocalName(e.target.value);
+                        if (invalidField === "name") setInvalidField(null);
+                      }}
+                      className={`form-input ${invalidField === "name" ? "input-error" : ""}`}
                     />
                     <span className="form-hint">{g.buyerNameHint}</span>
                   </div>
@@ -1716,11 +1751,16 @@ export const OrderGenerator: React.FC = () => {
                     </label>
                     <input
                       type="email"
+                      name="email"
+                      autoComplete="email"
                       required
                       placeholder={g.buyerEmailPlaceholder}
                       value={buyerEmail}
-                      onChange={(e) => setLocalEmail(e.target.value)}
-                      className="form-input"
+                      onChange={(e) => {
+                        setLocalEmail(e.target.value);
+                        if (invalidField === "email") setInvalidField(null);
+                      }}
+                      className={`form-input ${invalidField === "email" ? "input-error" : ""}`}
                     />
                     <span className="form-hint">{g.buyerEmailHint}</span>
                   </div>
@@ -1731,10 +1771,15 @@ export const OrderGenerator: React.FC = () => {
                     </label>
                     <input
                       type="tel"
+                      name="tel"
+                      autoComplete="tel"
                       placeholder={g.buyerPhonePlaceholder}
                       value={buyerPhone}
-                      onChange={(e) => setLocalPhone(e.target.value)}
-                      className="form-input"
+                      onChange={(e) => {
+                        setLocalPhone(e.target.value);
+                        if (invalidField === "phone") setInvalidField(null);
+                      }}
+                      className={`form-input ${invalidField === "phone" ? "input-error" : ""}`}
                     />
                     <span className="form-hint">{g.buyerPhoneHint}</span>
                   </div>

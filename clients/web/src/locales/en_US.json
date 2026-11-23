@@ -336,15 +336,18 @@
     "errorOfferRequired": "Please enter a brief description of your commercial offer or product.",
     "errorLocationRequired": "Please assign at least one territory or city with a prospect quota.",
     "errorBuyerRequired": "Please provide your name and corporate email.",
+    "errorBuyerNameInvalid": "Please enter your name or company name (minimum 2 characters).",
+    "errorBuyerEmailInvalid": "Please enter a valid corporate email address (e.g. director@company.com).",
+    "errorBuyerPhoneInvalid": "Please enter a valid WhatsApp or phone number (minimum 7 digits) or leave it blank.",
     "errorBuyerShareRequired": "Please provide your name and corporate email before sharing the quote.",
     "errorConnection": "Connection error while generating the order.",
     "errorShareConnection": "Error generating the quote.",
     "errorCreateOrder": "Could not create the order.",
     "errorCreateQuote": "Could not create the quote.",
     "shareQuoteTooltip": "Saves the configuration and copies a direct link for your team or CFO to review and authorize",
-    "buyerNamePlaceholder": "e.g. John Doe",
-    "buyerEmailPlaceholder": "director@company.com",
-    "buyerPhonePlaceholder": "+1 555 123 4567"
+    "buyerNamePlaceholder": "Your full name or company",
+    "buyerEmailPlaceholder": "work.email@company.com",
+    "buyerPhonePlaceholder": "+1 555 000 0000"
   },
   "tracker": {
     "processingTitle": "Verifying Your Prospects...",

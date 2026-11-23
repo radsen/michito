@@ -336,15 +336,18 @@
     "errorOfferRequired": "Por favor ingresa una breve descripción de tu oferta comercial o producto.",
     "errorLocationRequired": "Por favor asigna al menos un territorio o ciudad con cuota de prospectos.",
     "errorBuyerRequired": "Por favor completa tu nombre y correo corporativo.",
+    "errorBuyerNameInvalid": "Por favor ingresa tu nombre o el de tu empresa (mínimo 2 caracteres).",
+    "errorBuyerEmailInvalid": "Por favor ingresa un correo electrónico corporativo válido (ejemplo: director@empresa.com).",
+    "errorBuyerPhoneInvalid": "Por favor ingresa un número de WhatsApp o celular válido (mínimo 7 dígitos) o déjalo en blanco.",
     "errorBuyerShareRequired": "Por favor completa tu nombre y correo corporativo antes de compartir la cotización.",
     "errorConnection": "Error de conexión al generar la orden.",
     "errorShareConnection": "Error al generar la cotización.",
     "errorCreateOrder": "No se pudo crear la orden.",
     "errorCreateQuote": "No se pudo crear la cotización.",
     "shareQuoteTooltip": "Guarda la configuración y copia un enlace directo para que tu equipo o CFO pueda revisarla y autorizarla",
-    "buyerNamePlaceholder": "Ej: Juan Carlos Pérez",
-    "buyerEmailPlaceholder": "director@empresa.com",
-    "buyerPhonePlaceholder": "+57 300 123 4567"
+    "buyerNamePlaceholder": "Tu nombre o empresa",
+    "buyerEmailPlaceholder": "tu.correo@empresa.com",
+    "buyerPhonePlaceholder": "+57 300 000 0000"
   },
   "tracker": {
     "processingTitle": "Verificando tus Prospectos...",

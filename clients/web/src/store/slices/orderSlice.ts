@@ -57,9 +57,9 @@ function getInitialActiveOrderId(): string | null {
 const initialOrderId = getInitialActiveOrderId();
 
 const initialState: OrderState = {
-  buyerName: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_name") || "" : "",
-  buyerEmail: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_email") || "" : "",
-  buyerPhone: typeof window !== "undefined" ? localStorage.getItem("michito_buyer_phone") || "" : "",
+  buyerName: "",
+  buyerEmail: "",
+  buyerPhone: "",
   activeOrderId: initialOrderId,
   orderStatus: initialOrderId ? "queued" : "idle",
   errorMessage: null,
@@ -105,9 +105,9 @@ export const orderSlice = createSlice({
       state.buyerPhone = action.payload.phone;
       if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("michito_buyer_name", action.payload.name);
-          localStorage.setItem("michito_buyer_email", action.payload.email);
-          localStorage.setItem("michito_buyer_phone", action.payload.phone);
+          localStorage.removeItem("michito_buyer_name");
+          localStorage.removeItem("michito_buyer_email");
+          localStorage.removeItem("michito_buyer_phone");
         } catch (e) {
           // ignore
         }

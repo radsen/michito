@@ -512,6 +512,54 @@ class TestOrdersApi(unittest.TestCase):
         self.assertEqual(data["response_type"], "in_channel")
         self.assertIn(order_id, data["text"])
 
+    def test_create_order_limit_1000_succeeds(self):
+        payload = {
+            "client": {"name": "High Volume Buyer S.A.S.", "email": "volume@buyer.co", "phone": "+573001234567"},
+            "request": {"campaign_id": "universal_prospecting", "city": "Bogotá", "limit": 1000, "tier": 1}
+        }
+        res_post = self.client.post("/api/v1/orders", json=payload)
+        self.assertEqual(res_post.status_code, 201)
+        data = res_post.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["order_id"][:4], "ord_")
+
+    def test_create_order_contact_validation_failures(self):
+        # 1. Name too short
+        bad_name_payload = {
+            "client": {"name": "A", "email": "valid@email.com"},
+            "request": {"campaign_id": "universal_prospecting", "limit": 10}
+        }
+        res_bad_name = self.client.post("/api/v1/orders", json=bad_name_payload)
+        self.assertEqual(res_bad_name.status_code, 400)
+        self.assertIn("at least 2 characters", res_bad_name.json()["detail"])
+
+        # 2. Invalid email format
+        bad_email_payload = {
+            "client": {"name": "Valid Name", "email": "invalid-email-string"},
+            "request": {"campaign_id": "universal_prospecting", "limit": 10}
+        }
+        res_bad_email = self.client.post("/api/v1/orders", json=bad_email_payload)
+        self.assertEqual(res_bad_email.status_code, 400)
+        self.assertIn("corporate email address", res_bad_email.json()["detail"])
+
+        # 3. Invalid phone format (< 7 digits)
+        bad_phone_payload = {
+            "client": {"name": "Valid Name", "email": "valid@email.com", "phone": "123"},
+            "request": {"campaign_id": "universal_prospecting", "limit": 10}
+        }
+        res_bad_phone = self.client.post("/api/v1/orders", json=bad_phone_payload)
+        self.assertEqual(res_bad_phone.status_code, 400)
+        self.assertIn("at least 7 digits", res_bad_phone.json()["detail"])
+
+        # 4. Limit > 1000
+        bad_limit_payload = {
+            "client": {"name": "Valid Name", "email": "valid@email.com"},
+            "request": {"campaign_id": "universal_prospecting", "limit": 1001}
+        }
+        res_bad_limit = self.client.post("/api/v1/orders", json=bad_limit_payload)
+        self.assertEqual(res_bad_limit.status_code, 400)
+        self.assertIn("between 1 and 1000", res_bad_limit.json()["detail"])
+
 if __name__ == "__main__":
     unittest.main()
 

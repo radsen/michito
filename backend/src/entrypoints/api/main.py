@@ -673,8 +673,24 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
     ai_agent_rate_limiter.check_rate_limit(request, endpoint_name="create_order")
 
     limit = payload.request.limit or 10
-    if limit < 1 or limit > 500:
-        raise HTTPException(status_code=400, detail="Requested lead limit must be between 1 and 500.")
+    if limit < 1 or limit > 1000:
+        raise HTTPException(status_code=400, detail="Requested lead limit must be between 1 and 1000.")
+
+    # Contact Info Validations
+    clean_name = (payload.client.name or "").strip()
+    if len(clean_name) < 2:
+        raise HTTPException(status_code=400, detail="Client name must be at least 2 characters.")
+
+    clean_email = (payload.client.email or "").strip().lower()
+    email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    if not clean_email or not re.match(email_pattern, clean_email):
+        raise HTTPException(status_code=400, detail="A valid corporate email address is required.")
+
+    if payload.client.phone and payload.client.phone.strip():
+        clean_phone = payload.client.phone.strip()
+        phone_digits = re.sub(r"\D", "", clean_phone)
+        if len(phone_digits) < 7 or len(phone_digits) > 16:
+            raise HTTPException(status_code=400, detail="Client phone must contain a valid number with at least 7 digits.")
 
     try:
         user_curr = (payload.request.currency or "").upper()

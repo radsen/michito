@@ -381,13 +381,13 @@ class BriefParserService:
             },
         }
 
-        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash"]
         last_error = None
 
         for model_name in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
             try:
-                with httpx.Client(timeout=6.0) as client:
+                with httpx.Client(timeout=2.5) as client:
                     resp = client.post(url, json=body)
                     resp.raise_for_status()
                     data = resp.json()
