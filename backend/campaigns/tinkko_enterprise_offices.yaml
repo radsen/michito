@@ -10,10 +10,17 @@ target:
   segment: "midmarket"
   min_revenue_cop: "$8.000M COP"
   sectors:
-    - "tech_services"
-    - "wholesale_b2b"
-    - "real_estate"
-    - "facility_management"
+    - "corporate_real_estate"
+  ciiu_codes:
+    - "6810"
+    - "6820"
+    - "7020"
+  keywords_include:
+    - "oficinas privadas"
+    - "espacios de trabajo"
+    - "coworking"
+    - "sedes corporativas"
+    - "arrendamiento de oficinas"
   roles:
     - "Country Manager"
     - "Gerente General"

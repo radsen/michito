@@ -14,9 +14,22 @@ target:
   segment: "all"
   min_revenue_cop: "$2.500M COP"
   sectors:
-    - "retail_commerce"
-    - "consumer_goods"
-    - "logistics_transport"
+    - "food_agriculture"
+  ciiu_codes:
+    - "4631"
+    - "1011"
+    - "1012"
+    - "1020"
+    - "1030"
+    - "1081"
+    - "1089"
+  keywords_include:
+    - "alimentos"
+    - "viveres"
+    - "granos"
+    - "lacteos"
+    - "horeca"
+    - "agroindustria"
   roles:
     - "Jefe de Compras"
     - "Director de Abastecimiento"

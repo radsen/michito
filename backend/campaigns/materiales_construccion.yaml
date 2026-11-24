@@ -14,8 +14,21 @@ target:
   segment: "all"
   min_revenue_cop: "$4.000M COP"
   sectors:
-    - "construction_realestate"
-    - "industrial_manufacturing"
+    - "construction_infrastructure"
+  ciiu_codes:
+    - "4663"
+    - "4111"
+    - "4112"
+    - "4210"
+    - "4220"
+    - "4290"
+  keywords_include:
+    - "materiales"
+    - "cemento"
+    - "concreto"
+    - "aceros"
+    - "obras civiles"
+    - "ferreteria industrial"
   roles:
     - "Director de Obra"
     - "Gerente de Compras e Insumos"

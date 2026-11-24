@@ -12,11 +12,19 @@ target:
   segment: "midmarket"
   min_revenue_cop: "$10.000M COP"
   sectors:
-    - "logistics"
-    - "manufacturing"
-    - "food_processing"
-    - "real_estate"
-    - "wholesale_b2b"
+    - "facility_security_services"
+  ciiu_codes:
+    - "8110"
+    - "8121"
+    - "8129"
+    - "8010"
+    - "8020"
+  keywords_include:
+    - "mantenimiento locativo"
+    - "aseo"
+    - "limpieza"
+    - "seguridad privada"
+    - "facility management"
   roles:
     - "Facility Manager"
     - "Gerente de Operaciones"

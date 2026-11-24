@@ -289,8 +289,8 @@ class OrderWorkerDaemon:
                 exec_kwargs["offer_description"] = req.get("offer_description")
             if req.get("target_roles"):
                 exec_kwargs["target_roles"] = req.get("target_roles")
-            if req.get("sector"):
-                raw_sec = req.get("sector")
+            raw_sec = req.get("sector") or req.get("target_sectors") or req.get("sectors")
+            if raw_sec:
                 if isinstance(raw_sec, list):
                     exec_kwargs["target_sectors"] = raw_sec
                 elif isinstance(raw_sec, str):

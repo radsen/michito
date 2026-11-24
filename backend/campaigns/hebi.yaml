@@ -12,12 +12,19 @@ target:
   segment: "midmarket"
   min_revenue_cop: "$5.000M COP"
   sectors:
-    - "facility_management"
-    - "real_estate"
-    - "logistics"
-    - "healthcare_ips"
-    - "wholesale_b2b"
-    - "tech_services"
+    - "legal_financial_services"
+  ciiu_codes:
+    - "6499"
+    - "6419"
+    - "6910"
+    - "6920"
+    - "8291"
+  keywords_include:
+    - "cobranza"
+    - "cartera"
+    - "factoring"
+    - "recuperacion de cartera"
+    - "riesgo crediticio"
   roles:
     - "Director Financiero"
     - "CFO"

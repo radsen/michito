@@ -50,6 +50,7 @@ def clean_company_name(raw_name: str) -> str:
 
 
 def resolve_sector_taxonomy_rules(
+    sectors: Optional[List[str]] = None,
     sector: Optional[str] = None,
     target_ciiu_codes: Optional[List[str]] = None,
     kw_include: Optional[List[str]] = None,
@@ -58,6 +59,7 @@ def resolve_sector_taxonomy_rules(
     """
     Resolves active sector_id, allowed_isic_divisions, and forbidden_isic_divisions
     from PostgreSQL taxonomy_sectors (or seed fallback) based on order criteria.
+    Supports multi-sector targeting by pooling allowed divisions across declared sectors.
     """
     taxonomy_map: Dict[str, Dict[str, Any]] = {}
     try:
@@ -73,53 +75,99 @@ def resolve_sector_taxonomy_rules(
         except Exception:
             taxonomy_map = {}
 
-    active_sec_id = None
-    if sector and sector in taxonomy_map:
-        active_sec_id = sector
-    elif target_ciiu_codes:
+    all_sector_candidates = list(sectors or [])
+    if sector and sector not in all_sector_candidates:
+        all_sector_candidates.insert(0, sector)
+
+    # Sector synonyms mapping
+    sector_synonyms = {
+        "tech_services": "tech_software_telecom",
+        "consulting": "legal_financial_services",
+        "legal_financial": "legal_financial_services",
+        "bpo_creative_marketing": "tech_software_telecom",
+        "salud y dispositivos médicos": "healthcare_pharma",
+        "salud": "healthcare_pharma",
+        "medical_devices": "healthcare_pharma",
+        "logistics": "logistics_warehousing",
+        "construction": "construction_infrastructure",
+        "manufacturing": "manufacturing_industrial",
+        "agroindustry": "food_agriculture",
+        "food": "food_agriculture",
+        "energy": "energy_fuels_utilities",
+        "fuels": "energy_fuels_utilities",
+    }
+
+    pooled_allowed: Set[str] = set()
+    pooled_forbidden: Set[str] = set()
+    primary_sector_id: Optional[str] = None
+
+    for s in all_sector_candidates:
+        resolved_s = sector_synonyms.get(s.lower(), s)
+        if resolved_s in taxonomy_map:
+            if not primary_sector_id:
+                primary_sector_id = resolved_s
+            sec_info = taxonomy_map[resolved_s]
+            pooled_allowed.update(sec_info.get("allowed_isic_divisions") or [])
+            pooled_forbidden.update(sec_info.get("forbidden_isic_divisions") or [])
+
+    if not primary_sector_id and target_ciiu_codes:
         ciiu_clean = [c.upper().strip().lstrip("JCFHQLNDMPK") for c in target_ciiu_codes]
         if any(c.startswith(("62", "582", "631", "4651")) for c in ciiu_clean):
-            active_sec_id = "tech_software_telecom"
+            primary_sector_id = "tech_software_telecom"
         elif any(c.startswith(("463", "561", "10", "11")) for c in ciiu_clean):
-            active_sec_id = "food_agriculture"
+            primary_sector_id = "food_agriculture"
         elif any(c.startswith(("85", "1811")) for c in ciiu_clean):
-            active_sec_id = "education_schools"
+            primary_sector_id = "education_schools"
         elif any(c.startswith(("41", "42", "43", "71")) for c in ciiu_clean):
-            active_sec_id = "construction_infrastructure"
+            primary_sector_id = "construction_infrastructure"
         elif any(c.startswith(("49", "50", "51", "52", "53")) for c in ciiu_clean):
-            active_sec_id = "logistics_warehousing"
+            primary_sector_id = "logistics_warehousing"
         elif any(c.startswith(("80", "81", "38")) for c in ciiu_clean):
-            active_sec_id = "facility_security_services"
+            primary_sector_id = "facility_security_services"
         elif any(c.startswith(("68", "702")) for c in ciiu_clean):
-            active_sec_id = "corporate_real_estate"
-        elif any(c.startswith(("21", "86")) for c in ciiu_clean):
-            active_sec_id = "healthcare_pharma"
+            primary_sector_id = "corporate_real_estate"
+        elif any(c.startswith(("21", "86", "32")) for c in ciiu_clean):
+            primary_sector_id = "healthcare_pharma"
         elif any(c.startswith(("64", "69")) for c in ciiu_clean):
-            active_sec_id = "legal_financial_services"
+            primary_sector_id = "legal_financial_services"
 
-    if not active_sec_id:
+        if primary_sector_id and primary_sector_id in taxonomy_map:
+            sec_info = taxonomy_map[primary_sector_id]
+            pooled_allowed.update(sec_info.get("allowed_isic_divisions") or [])
+            pooled_forbidden.update(sec_info.get("forbidden_isic_divisions") or [])
+
+    if not primary_sector_id:
         kw_blob = " ".join(filter(None, [
             " ".join(k.lower() for k in (kw_include or [])),
             (offer_description or "").lower()
         ]))
         if any(term in kw_blob for term in ("software", "cloud", "saas", "ciberseguridad", "desarrollo de software", "desarrollo web")):
-            active_sec_id = "tech_software_telecom"
+            primary_sector_id = "tech_software_telecom"
         elif any(term in kw_blob for term in ("alimento", "restauran", "viveres", "abarrote", "gastronom", "comida", "lacteo", "carnic")):
-            active_sec_id = "food_agriculture"
+            primary_sector_id = "food_agriculture"
         elif any(term in kw_blob for term in ("colegio", "escuela", "educa", "ensenanza", "liceo", "gimnasio", "universidad", "carnet")):
-            active_sec_id = "education_schools"
+            primary_sector_id = "education_schools"
         elif any(term in kw_blob for term in ("construccion", "obra civil", "cemento", "concreto", "arquitectura")):
-            active_sec_id = "construction_infrastructure"
+            primary_sector_id = "construction_infrastructure"
         elif any(term in kw_blob for term in ("mueble", "siller", "tapicer", "ebanister")):
-            active_sec_id = "manufacturing_industrial"
+            primary_sector_id = "manufacturing_industrial"
 
-    if active_sec_id and active_sec_id in taxonomy_map:
-        sec_info = taxonomy_map[active_sec_id]
-        allowed = set(sec_info.get("allowed_isic_divisions") or [])
-        forbidden = set(sec_info.get("forbidden_isic_divisions") or [])
-        return active_sec_id, allowed, forbidden
+        if primary_sector_id and primary_sector_id in taxonomy_map:
+            sec_info = taxonomy_map[primary_sector_id]
+            pooled_allowed.update(sec_info.get("allowed_isic_divisions") or [])
+            pooled_forbidden.update(sec_info.get("forbidden_isic_divisions") or [])
 
-    return None, set(), set()
+    # Explicit client target CIIU codes must always be explicitly allowed
+    if target_ciiu_codes:
+        for c in target_ciiu_codes:
+            clean_c = str(c).upper().strip().lstrip("JCFHQLNDMPK")
+            if len(clean_c) >= 2:
+                pooled_allowed.add(clean_c[:2])
+
+    # Ensure no collision where an allowed division is forbidden
+    pooled_forbidden -= pooled_allowed
+
+    return primary_sector_id, pooled_allowed, pooled_forbidden
 
 
 def get_first_name(full_name: str) -> str:
@@ -765,7 +813,9 @@ class GenerateProspectsUseCase:
         total_candidates_scanned = 0
 
         # 3. Harvest and Qualify Candidates per Territory Allocation
-        kw_include = target_cfg.get("keywords_include")
+        effective_sectors: List[str] = target_sectors or (target_cfg.get("sectors") or [])
+        effective_ciius: List[str] = target_ciiu_codes or (target_cfg.get("ciiu_codes") or [])
+        kw_include = target_cfg.get("keywords_include") or keywords_include
         if not kw_include:
             extracted_kws = []
             from src.application.services.brief_parser_service import QUERY_STOP_WORDS
@@ -775,17 +825,17 @@ class GenerateProspectsUseCase:
                 for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", source_desc.lower()):
                     if w not in QUERY_STOP_WORDS and w not in extracted_kws:
                         extracted_kws.append(w)
-            # 2. Synthesize from target_sectors
-            if target_sectors:
-                for sec in target_sectors:
+            # 2. Synthesize from effective_sectors
+            if effective_sectors:
+                for sec in effective_sectors:
                     for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", sec.lower()):
                         if w not in QUERY_STOP_WORDS and w not in extracted_kws:
                             extracted_kws.append(w)
-            # 3. Synthesize from target_ciiu_codes in GLOBAL_ISIC_INDEX
-            if target_ciiu_codes:
+            # 3. Synthesize from effective_ciius in GLOBAL_ISIC_INDEX
+            if effective_ciius:
                 try:
                     from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
-                    for c_code in target_ciiu_codes:
+                    for c_code in effective_ciius:
                         entry = GLOBAL_ISIC_INDEX.get_by_code(c_code)
                         if entry and entry.keywords:
                             for kw in entry.keywords[:3]:
@@ -797,10 +847,11 @@ class GenerateProspectsUseCase:
                 kw_include = extracted_kws[:6]
                 target_cfg["keywords_include"] = kw_include
 
-        kw_exclude = target_cfg.get("keywords_exclude")
+        kw_exclude = target_cfg.get("keywords_exclude") or keywords_exclude
         active_sector_id, allowed_divisions, forbidden_divisions = resolve_sector_taxonomy_rules(
-            sector=target_sectors[0] if target_sectors else None,
-            target_ciiu_codes=target_ciiu_codes,
+            sectors=effective_sectors,
+            sector=effective_sectors[0] if effective_sectors else None,
+            target_ciiu_codes=effective_ciius,
             kw_include=kw_include,
             offer_description=offer_description,
         )
@@ -858,10 +909,10 @@ class GenerateProspectsUseCase:
                 harvester_kwargs["include_keywords"] = kw_include
             if kw_exclude:
                 harvester_kwargs["exclude_keywords"] = kw_exclude
-            if target_ciiu_codes:
-                harvester_kwargs["ciiu_codes"] = target_ciiu_codes
-            if target_sectors:
-                harvester_kwargs["sectors"] = target_sectors
+            if effective_ciius:
+                harvester_kwargs["ciiu_codes"] = effective_ciius
+            if effective_sectors:
+                harvester_kwargs["sectors"] = effective_sectors
 
             is_mock_harvester = hasattr(harvester, "assert_called") or hasattr(harvester, "assert_called_with")
             raw_candidates: List[Dict[str, Any]] = []
@@ -875,9 +926,9 @@ class GenerateProspectsUseCase:
                         city=target_city,
                         country=c_code,
                         limit=max(t_quota * raw_multiplier, 100),
-                        ciiu_codes=target_ciiu_codes,
+                        ciiu_codes=effective_ciius,
                         keywords=kw_include,
-                        sectors=target_sectors,
+                        sectors=effective_sectors,
                         max_age_days=365,
                     )
                     for cl in cached_db_leads:
@@ -1061,10 +1112,14 @@ class GenerateProspectsUseCase:
                 if forbidden_divisions and cand_division in forbidden_divisions:
                     continue
 
+                # Cross-Sector Positive Division Guard (Dynamically Enforced from PostgreSQL Taxonomy)
+                if allowed_divisions and cand_division not in allowed_divisions:
+                    continue
+
                 # Cross-Sector Negative Contamination Gate
                 # Rejects candidates whose reported sector or name fundamentally belongs to an incompatible industry
                 is_food_domain = bool(
-                    (target_ciiu_codes and any(str(c).startswith(("463", "561", "10", "11")) for c in target_ciiu_codes))
+                    (effective_ciius and any(str(c).startswith(("463", "561", "10", "11")) for c in effective_ciius))
                     or (kw_include and any(re.search(r"alimento|comida|restauran|viveres|abarrote|insumo.*restauran|catering|panader|lacteo|carnic", str(k).lower()) for k in kw_include))
                 )
 
@@ -1086,8 +1141,8 @@ class GenerateProspectsUseCase:
                             continue
 
                 # CIIU Specific Filtering if requested
-                if target_ciiu_codes and len(target_ciiu_codes) > 0:
-                    ciiu_clean = [str(c).upper().strip() for c in target_ciiu_codes]
+                if effective_ciius and len(effective_ciius) > 0:
+                    ciiu_clean = [str(c).upper().strip() for c in effective_ciius]
                     cand_ciiu = ciiu_obj.code.upper()
                     # Enforce exact match, prefix match, or 3-digit group match (e.g. 463 for food wholesale).
                     # Strictly prohibit 2-digit wildcards on wholesale division 46 or general consulting 70.

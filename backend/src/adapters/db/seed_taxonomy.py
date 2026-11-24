@@ -500,13 +500,13 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
         "sector_id": "healthcare_pharma",
         "sector_name": "Salud, Dispositivos Médicos & Farmacéutica",
         "country_code": "ALL",
-        "ciiu_codes": ["C2100", "G4646", "Q8610", "Q8621", "Q8699"],
+        "ciiu_codes": ["C2100", "C3250", "G4646", "Q8610", "Q8621", "Q8699"],
         "keywords_include": [
             "farmaceutica", "dispositivos medicos", "insumos medicos", "laboratorio clinico", "clinica",
             "hospital", "ips", "equipos biomedicos", "medicamentos", "odontologia especializada"
         ],
         "keywords_exclude_defaults": ["drogueria de barrio", "tienda naturista"],
-        "allowed_isic_divisions": ["21", "46", "86"],
+        "allowed_isic_divisions": ["21", "32", "46", "86"],
         "forbidden_isic_divisions": ["62", "41", "42", "43", "24", "38"],
         "usage_count": 120,
         "is_active": True,

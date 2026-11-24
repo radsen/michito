@@ -18,12 +18,19 @@ target:
   segment: "all"
   min_revenue_cop: "$15.000M COP"
   sectors:
-    - "energy_power_generation"
-    - "petrochemical"
-    - "plastics_polymers"
-    - "chemicals_additives"
-    - "oil_and_gas"
-    - "mining_metals"
+    - "energy_fuels_utilities"
+  ciiu_codes:
+    - "4661"
+    - "1920"
+    - "4923"
+    - "3511"
+  keywords_include:
+    - "combustibles"
+    - "diesel"
+    - "acpm"
+    - "lubricantes"
+    - "hidrocarburos"
+    - "petroquimica"
   roles:
     - "Director de Operaciones"
     - "COO"

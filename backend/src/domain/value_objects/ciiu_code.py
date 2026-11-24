@@ -117,6 +117,14 @@ OFFICIAL_CIIU_CATALOG: Dict[str, Dict[str, str]] = {
         "tinkko_fit": "Alto"
     },
 
+    # --- CONSTRUCCIÓN & OBRAS CIVILES ---
+    "4111": {
+        "code": "4111",
+        "description": "Construcción de edificios y obras de ingeniería civil",
+        "sector_macro": "Construcción & Obras Civiles",
+        "tinkko_fit": "Alto (Empresas constructoras y desarrolladoras de infraestructura)"
+    },
+
     # --- COMERCIO AL POR MAYOR & TECNOLOGÍA ---
     "4651": {
         "code": "4651",
@@ -128,6 +136,12 @@ OFFICIAL_CIIU_CATALOG: Dict[str, Dict[str, str]] = {
         "code": "4659",
         "description": "Comercio al por mayor de otra maquinaria y equipo",
         "sector_macro": "Comercio al por Mayor & Maquinaria",
+        "tinkko_fit": "Medio-Alto"
+    },
+    "4690": {
+        "code": "4690",
+        "description": "Comercio al por mayor no especializado (Distribuidores y comercializadores mayoristas)",
+        "sector_macro": "Comercio al por Mayor & Distribución",
         "tinkko_fit": "Medio-Alto"
     },
 
@@ -282,21 +296,28 @@ class CiiuCode:
         text = f"{company_name} {email} {raw_desc}".lower()
 
         patterns = [
+            (r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet", "8530"),
+            (r"alimento|abarrote|viveres|granos|lacteo|carnic|horeca|frutas|conservas|gastronom|comida", "4631"),
+            (r"combustible|gasolina|diesel|acpm|lubricante|hidrocarburo|petroleo|petroquimic", "4661"),
+            (r"cemento|concreto|acero|ferreteria industrial|materiales de construccion|ladrillo|prefabricados", "4663"),
+            (r"constructor|construccion|edificac|obras civiles", "4111"),
+            (r"bodega industrial|cedi|almacenamiento y deposito", "5210"),
+            (r"cobranza|gestion de cartera|factoring|recuperacion de cartera", "8291"),
+            (r"facility|limpieza|aseo|mantenimiento locativo|seguridad fisica|seguridad privada|vigilancia|conserj", "8110"),
+            (r"cowork|oficinas flexibles|espacios compartidos|espacios de trabajo", "6820"),
+            (r"inmobiliari|bienes raices|propiedad horizontal|arrendamiento", "6810"),
+            (r"logist|transport|carga|aduan|fletes|almacen", "4923"),
+            (r"medical|salud|ips|clinic|farmaceut|biomed|odontol|dispositiv", "3250"),
             (r"software|analyt|data|tech|digital|sistemas|program|cloud|\bia\b|\bai\b|ciber", "6201"),
-            (r"consult|asesor|advis|estrateg|gestion|management", "7020"),
+            (r"comput|hardware|redes|servidores|telecom", "4651"),
             (r"abogad|legal|jurid|derecho|leyes|litig", "6910"),
             (r"contab|auditor|financ|tributar|revisoria|impuesto", "6920"),
             (r"fintech|invers|fondos|credito|valores", "6499"),
             (r"arquitect|ingenier|civil|obras|interventor|diseno tecnico", "7110"),
-            (r"facility|limpieza|aseo|mantenimiento locativo|seguridad fisica|conserj", "8110"),
-            (r"cowork|oficinas flexibles|espacios compartidos|espacios de trabajo", "6820"),
-            (r"inmobiliari|bienes raices|propiedad horizontal|arrendamiento", "6810"),
             (r"publicid|marketing|btl|eventos|comunicacion|medios|agencia", "7310"),
-            (r"medical|salud|ips|clinic|farmaceut|biomed|odontol|dispositiv", "3250"),
-            (r"comput|hardware|redes|servidores|telecom", "4651"),
-            (r"logist|transport|carga|aduan|fletes|almacen", "4923"),
             (r"maquinaria|equipos|repuestos|industrial", "4659"),
-            (r"colegio|escuela|educa|ensenanza|liceo|gimnasio|academ|universidad|institucion educativa|bachillerato|preescolar|carnet", "8530"),
+            (r"distribuid|distribuc|comercializad|comercializac|mayorist", "4690"),
+            (r"\b(consultor|asesor|asesoria|consultoria|advisory|estrategi)\b", "7020"),
         ]
 
         for pat, code in patterns:

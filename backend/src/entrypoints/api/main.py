@@ -91,7 +91,9 @@ class RequestDto(BaseModel):
     tier: Optional[int] = 2
     currency: Optional[str] = None
     segment: Optional[str] = None
-    sector: Optional[str] = None
+    sector: Optional[Union[str, List[str]]] = None
+    target_sectors: Optional[List[str]] = None
+    sectors: Optional[List[str]] = None
     offer_description: Optional[str] = None
     target_roles: Optional[List[str]] = None
     target_ciiu_codes: Optional[List[str]] = None
@@ -766,6 +768,13 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
         total_price_cop = fx_conversion["amount_in_cop"]
         amount_in_cents_cop = total_price_cop * 100
 
+        raw_sector = payload.request.sector or payload.request.target_sectors or payload.request.sectors
+        resolved_sector: Optional[str] = None
+        if isinstance(raw_sector, list):
+            resolved_sector = raw_sector[0] if raw_sector else None
+        elif isinstance(raw_sector, str):
+            resolved_sector = raw_sector
+
         order = sql_adapter.create_order(
             client_name=payload.client.name,
             client_email=payload.client.email,
@@ -778,7 +787,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             country=payload.request.country or "CO",
             currency=currency,
             segment=payload.request.segment,
-            sector=payload.request.sector,
+            sector=resolved_sector,
             keywords_include=payload.request.keywords_include,
             keywords_exclude=merged_exclusions or None,
             tier=target_tier,

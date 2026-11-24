@@ -15,12 +15,18 @@ target:
   segment: "all"
   min_revenue_cop: "$10.000M COP"
   sectors:
-    - "logistics"
-    - "manufacturing"
-    - "food_processing"
-    - "construction_materials"
-    - "wholesale_b2b"
-    - "family_office"
+    - "logistics_warehousing"
+  ciiu_codes:
+    - "5210"
+    - "4923"
+    - "5224"
+    - "5229"
+  keywords_include:
+    - "bodegas"
+    - "almacenamiento"
+    - "cedi"
+    - "logistica de carga"
+    - "parque industrial"
   roles:
     - "Gerente de Operaciones"
     - "Director de Cadena de Suministro"

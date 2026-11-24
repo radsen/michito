@@ -81,10 +81,11 @@ def get_fallback_candidates(
 
     is_furniture = bool(
         (include_keywords and any(
-            re.search(r"mueble|siller|tapicer|mantenimiento locativo|ebanister|escritorio|reparacion", kw.lower())
+            re.search(r"muebl|mobil|silla|siller|tapicer|ebanister|escritorio", kw.lower())
             for kw in include_keywords
         ))
-        or (ciiu_codes and any(c.startswith(("31", "9524", "8110")) for c in ciiu_codes))
+        or (ciiu_codes and any(c.startswith(("31", "9524")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"muebl|mobil|siller", s.lower()) for s in sectors))
     )
 
     is_coworking = bool(
@@ -93,7 +94,70 @@ def get_fallback_candidates(
             for kw in include_keywords
         ))
         or (ciiu_codes and any(c.startswith(("68", "7020")) for c in ciiu_codes))
-        or (sectors and any(re.search(r"cowork|inmobiliari|real estate|inmueble|arrendamiento", s.lower()) for s in sectors))
+        or (sectors and any(re.search(r"cowork|inmobiliari|real estate|real_estate|inmueble|arrendamiento|corporate_real_estate", s.lower()) for s in sectors))
+    )
+
+    is_food = bool(
+        (include_keywords and any(
+            re.search(r"alimento|comida|restauran|viveres|abarrote|insumo.*restauran|catering|panader|lacteo|carnic|grano|agroindustr|horeca", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("10", "11", "463", "561")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"food|alimento|agro", s.lower()) for s in sectors))
+    )
+
+    is_fuel = bool(
+        (include_keywords and any(
+            re.search(r"combustible|diesel|acpm|gasolina|lubricante|petrole|hidrocarburo|petroquimic|energia|jet|fuel", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("19", "35", "4661")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"energy|fuel|petro|oil|combustible", s.lower()) for s in sectors))
+    )
+
+    is_construction = bool(
+        (include_keywords and any(
+            re.search(r"construccion|obra civil|materiales|cemento|concreto|acero|estructur|edificacion|ferreteria", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("41", "42", "43", "4663")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"construct|obra|material", s.lower()) for s in sectors))
+    )
+
+    is_facility = bool(
+        (include_keywords and any(
+            re.search(r"facility|aseo|limpieza|seguridad privada|vigilancia|mantenimiento locativo|extintor", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("80", "81")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"facility|seguridad|limpieza", s.lower()) for s in sectors))
+    )
+
+    is_logistics = bool(
+        (include_keywords and any(
+            re.search(r"bodega|cedi|almacenamiento|parque industrial|logistica|carga pesada|transporte de carga|3pl", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("49", "50", "51", "52", "53")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"logistic|almacen|bodega|transport", s.lower()) for s in sectors))
+    )
+
+    is_financial = bool(
+        (include_keywords and any(
+            re.search(r"cobranza|cartera|factoring|recaudo|riesgo crediticio|deuda|recuperacion de cartera", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("64", "69", "8291")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"finan|cartera|legal_finan|credit", s.lower()) for s in sectors))
+    )
+
+    is_tech = bool(
+        (include_keywords and any(
+            re.search(r"software|saas|cloud|ciberseguridad|erp|facturacion electronica|dian|desarrollo|sistemas", kw.lower())
+            for kw in include_keywords
+        ))
+        or (ciiu_codes and any(c.startswith(("582", "61", "62", "63", "4651")) for c in ciiu_codes))
+        or (sectors and any(re.search(r"tech|software|telecom|cloud", s.lower()) for s in sectors))
     )
 
     if is_coworking:
@@ -633,6 +697,233 @@ def get_fallback_candidates(
                 break
 
         return schools
+
+    def _generate_sector_roster(
+        roster_tuples: List[Any],
+        desc: str,
+        target_total: int,
+        start_nit_prefix: int,
+        base_generated_name: str,
+        base_dom: str,
+        default_role: str,
+    ) -> List[Dict[str, Any]]:
+        leads: List[Dict[str, Any]] = []
+        for idx, item in enumerate(roster_tuples, start=1):
+            name = item[0]
+            dom = item[1]
+            rep = item[2]
+            role = item[3] if len(item) > 3 else default_role
+            clean_name = f"{name} S.A.S." if not name.endswith(("S.A.S.", "S.A.", "LTDA.")) else name
+            leads.append({
+                "nombre": clean_name,
+                "nit": f"901.{start_nit_prefix + idx:03d}.{100 + (idx * 19) % 899:03d}-{idx % 9 + 1}",
+                "nombre_representante_legal": rep,
+                "correo_representante_legal": f"contacto@{dom}",
+                "telefono_representante_legal": f"310{4000000 + (idx * 97) % 5000000:07d}",
+                "municipio": norm_city,
+                "departamento": dept,
+                "descripcion_categoria_principal": desc,
+                "tipo_empresa": "Sociedad por acciones simplificada",
+                "tama_o_entidad": "Mediana",
+                "sitio_web": f"https://www.{dom}",
+                "decision_maker_title": role,
+            })
+        if len(leads) < target_total:
+            for idx in range(len(leads) + 1, target_total + 1):
+                leads.append({
+                    "nombre": f"{base_generated_name} {idx} S.A.S.",
+                    "nit": f"901.{start_nit_prefix + idx:03d}.{100 + (idx * 23) % 899:03d}-{idx % 9 + 1}",
+                    "nombre_representante_legal": f"Directivo Comercial {idx}",
+                    "correo_representante_legal": f"gerencia@{base_dom}{idx}.co",
+                    "telefono_representante_legal": f"311{5000000 + (idx * 83) % 4000000:07d}",
+                    "municipio": norm_city,
+                    "departamento": dept,
+                    "descripcion_categoria_principal": desc,
+                    "tipo_empresa": "Sociedad por acciones simplificada",
+                    "tama_o_entidad": "Mediana",
+                    "sitio_web": f"https://www.{base_dom}{idx}.co",
+                    "decision_maker_title": default_role,
+                })
+        return leads
+
+    target_leads_total = max(limit * 2, 80)
+
+    if is_food:
+        food_tuples = [
+            ("Distribuidora Mayorista de Alimentos La Sabana", "alimentoslasabana.co", "Carlos Arturo Londoño", "Jefe de Compras"),
+            ("Insumos Cárnicos y Avícolas de Occidente", "carnicosoccidente.co", "María Elena Restrepo", "Directora de Abastecimiento"),
+            ("Lácteos y Derivados Andinos", "lacteosandinos.co", "Juan David Morales", "Gerente de Alimentos y Bebidas"),
+            ("Operadora de Alimentos y Bebidas del Valle", "alimentosdelvalle.co", "Diana Marcela Pérez", "Jefa de Compras e Insumos"),
+            ("Abarrotes y Granos Mayoristas de Colombia", "granosmayoristas.co", "Santiago Echeverri", "Gerente General"),
+            ("Comercializadora HORECA del Café", "horecadelcafe.co", "Valeria Gómez Hoyos", "Directora Comercial"),
+            ("Distribuidora Gastronómica Nacional", "gastronomicanacional.co", "Andrés Felipe Tobón", "Jefe de Compras"),
+            ("Procesadora y Distribuidora de Alimentos del Sur", "alimentosdelsur.co", "Camila Restrepo Uribe", "Directora de Abastecimiento"),
+            ("Insumos y Perecederos Institucionales", "insumosperecederos.co", "Mateo Gómez Arango", "Gerente de Operaciones"),
+            ("Carnes y Congelados de la Costa", "carnesycongelados.co", "Andrés Felipe Londoño", "Gerente General"),
+            ("Comercializadora de Granos y Cereales Andina", "granosandina.co", "Mariana Ochoa Duque", "Directora Comercial"),
+            ("Distribuidora de Lácteos y Quesos del Campo", "lacteosdelcampo.co", "David Rendón Quintero", "Jefe de Compras"),
+            ("Avícola y Alimentos del Oriente", "avicoladeloriente.co", "Carolina Betancur Hoyos", "Directora de Abastecimiento"),
+            ("Distribuidora de Pescados y Mariscos del Pacífico", "mariscosdelpacifico.co", "Nicolás Carvajal Restrepo", "Jefe de Compras"),
+            ("Insumos de Pastelería y Panadería de Colombia", "insumospanaderia.co", "Sofía Henao Gaviria", "Directora Comercial"),
+        ]
+        return _generate_sector_roster(
+            food_tuples,
+            "Comercio al por mayor de productos alimenticios (abarrotes, carnes, lácteos)",
+            target_leads_total,
+            410,
+            "Distribuidora Mayorista de Alimentos",
+            "alimentosmayoristas",
+            "Jefe de Compras"
+        )
+
+    if is_fuel:
+        fuel_tuples = [
+            ("Distribuidora Nacional de Combustibles y Diésel", "combustiblesnacional.co", "Alejandro Morales Londoño", "Gerente de Logística y Combustibles"),
+            ("Petroquímica y Lubricantes del Magdalena", "petroquimicamagdalena.co", "Claudia Elena Jaramillo", "Directora de Operaciones"),
+            ("Suministros de ACPM y Flotas Pesadas", "suministrosacpm.co", "Juan Diego Henao", "Director de Abastecimiento"),
+            ("Petróleos y Derivados de Occidente", "petroleosoccidente.co", "Santiago Vélez Uribe", "Gerente General"),
+            ("Energía y Combustibles Industriales del Valle", "combustiblesdelvalle.co", "Valeria Quintero Ríos", "Directora Comercial"),
+            ("Distribuidora Mayorista de Jet A-1 y Kerosene", "jeta1mayorista.co", "Carlos Andrés Tobón", "Director de Operaciones"),
+            ("Combustibles y Solventes Técnicos de Colombia", "solventestecnicos.co", "Karen Sofía Mendoza", "Gerente de Planta"),
+            ("Operadora de Hidrocarburos y Flotas Andina", "hidrocarburosandina.co", "Felipe Zuluaga Hoyos", "Director de Abastecimiento"),
+            ("Distribuidora de Lubricantes y Grasas del Café", "lubricantesdelcafe.co", "Mauricio Gómez", "Gerente General"),
+            ("Carrotanques y Combustibles de la Costa", "combustiblesdelacosta.co", "Esteban Ospina Luján", "Director de Logística"),
+            ("Petrocombustibles y Solventes de Occidente", "petrocombustibles.co", "Laura Cristina Mejía", "Directora Comercial"),
+            ("Derivados del Petróleo y ACPM de Antioquia", "derivadospetroleo.co", "Rodrigo Montoya Londoño", "Director de Operaciones"),
+            ("Combustibles Industriales y Plantas Térmicas", "combustiblesindustriales.co", "Daniela Cano Ríos", "Gerente General"),
+        ]
+        return _generate_sector_roster(
+            fuel_tuples,
+            "Comercio al por mayor de combustibles sólidos, líquidos, gaseosos (estaciones mayoristas)",
+            target_leads_total,
+            430,
+            "Distribuidora Nacional de Combustibles y Diésel",
+            "combustiblesnacional",
+            "Gerente de Logística y Combustibles"
+        )
+
+    if is_construction:
+        construction_tuples = [
+            ("Prefabricados y Aceros de Colombia", "prefabricadosyaceros.co", "Juan Luis Aristizábal", "Director de Obra"),
+            ("Cementos y Concretos Industriales del Valle", "concretosdelvalle.co", "Rodrigo Andrés Montoya", "Gerente de Proyectos"),
+            ("Materiales de Construcción y Canteras Andinas", "materialesandinos.co", "Clara Inés Saldarriaga", "Gerente de Compras e Insumos"),
+            ("Estructuras y Obras Civiles de Occidente", "estructurasoccidente.co", "Felipe Echavarría", "Director de Infraestructura"),
+            ("Ferretería Industrial y Tuberías de la Sabana", "ferreteriadelasabana.co", "Juliana Toro Rendón", "Directora Comercial"),
+            ("Agregados y Triturados de Antioquia", "agregadosantioquia.co", "Santiago Restrepo Gómez", "Gerente de Planta"),
+            ("Constructora y Prefabricados del Café", "constructordelcafe.co", "Andrés Felipe Morales", "Director de Obra"),
+            ("Distribuidora de Aceros y Perfiles Nacionales", "acerosnacionales.co", "Marcela Gómez Ríos", "Gerente de Proyectos"),
+            ("Materiales y Acabados de Obra de la Costa", "materialesdelacosta.co", "Camilo Ernesto Vega", "Gerente de Compras"),
+            ("Concretos y Cimentaciones Especiales de Colombia", "concretosespeciales.co", "Rodrigo Alberto Henao", "Director de Obra"),
+            ("Mampostería y Ladrillos Estructurales Andinos", "ladrillosandinos.co", "Paola Andrea Castrillón", "Directora Comercial"),
+            ("Canteras y Pavimentos de Occidente", "canterasoccidente.co", "Rodrigo Andrés Henao", "Director de Obra"),
+        ]
+        return _generate_sector_roster(
+            construction_tuples,
+            "Comercio al por mayor de materiales de construcción, artículos de ferretería",
+            target_leads_total,
+            450,
+            "Materiales de Construcción y Aceros",
+            "materialesconstruccion",
+            "Director de Obra"
+        )
+
+    if is_logistics:
+        logistics_tuples = [
+            ("Parque Logístico y Bodegas Industriales del Norte", "bodegasdelnorte.co", "María Fernanda Gómez", "Director de Logística y Centros de Distribución"),
+            ("Centros de Distribución y Almacenamiento CEDI", "cedialmacenamiento.co", "Alejandro Morales", "Gerente de CEDI"),
+            ("Operaciones Logísticas y Bodegaje de Occidente", "bodegajeoccidente.co", "Claudia Elena Jaramillo", "Director de Logística"),
+            ("Almacenes Generales y Depósitos del Valle", "depositosdelvalle.co", "Juan Diego Henao", "Jefe de Almacén"),
+            ("Transporte Pesado y Carga Multimodal Andina", "cargamultimodal.co", "Santiago Vélez", "Director de Operaciones"),
+            ("Bodegas y Patios de Maniobras de la Sabana", "bodegasdelasabana.co", "Valeria Quintero", "Gerente de Logística"),
+            ("Operadora 3PL y Cadena de Frío de Colombia", "cadenadefrio3pl.co", "Carlos Andrés Tobón", "Director de Cadena de Suministro"),
+            ("Parque Industrial y Logístico del Café", "parquedelcafe.co", "Karen Mendoza", "Gerente General"),
+            ("Almacenamiento Fiscal y Depósitos de la Costa", "almacenamientocosta.co", "Felipe Zuluaga", "Director de Logística"),
+            ("Terminal de Carga y Bodegas del Aburrá", "bodegasdelaburra.co", "Esteban Ospina", "Gerente de CEDI"),
+            ("Hub Logístico y Bodegas Aeroportuarias", "hublogistico.co", "Laura Cristina Mejía", "Directora de Operaciones"),
+            ("Depósitos Francos y Cargas del Valle", "depositosfrancos.co", "Rodrigo Montoya", "Director de Logística"),
+        ]
+        return _generate_sector_roster(
+            logistics_tuples,
+            "Almacenamiento y depósito (bodegas, centros de distribución, frío)",
+            target_leads_total,
+            470,
+            "Parque Logístico y Bodegas Industriales",
+            "bodegasindustriales",
+            "Director de Logística y Centros de Distribución"
+        )
+
+    if is_facility:
+        facility_tuples = [
+            ("Aseo y Mantenimiento Institucional Andino", "aseoinstitucional.co", "Juan Diego Henao", "Facility Manager"),
+            ("Facility Management & Servicios Integrales", "facilityintegrales.co", "María Fernanda Gómez", "Director de Infraestructura"),
+            ("Limpieza Técnica y Mantenimiento Locativo del Valle", "limpiezadelvalle.co", "Alejandro Morales", "Gerente de Operaciones"),
+            ("Seguridad Privada y Vigilancia Corporativa de Occidente", "seguridadoccidente.co", "Claudia Elena Jaramillo", "Director de Seguridad"),
+            ("Servicios Generales y Operaciones de Planta", "operacionesdeplanta.co", "Santiago Vélez", "Director Administrativo"),
+            ("Mantenimiento Electromecánico y Locativo de la Sabana", "mantenimientosabana.co", "Valeria Quintero", "Jefe de Mantenimiento"),
+            ("Aseo Corporativo y Desinfección Industrial", "aseocorporativo.co", "Andrés Felipe Tobón", "Facility Manager"),
+            ("Facility Services y Control de Extintores del Café", "extintoresdelcafe.co", "Camila Restrepo", "Gerente de Operaciones"),
+            ("Servicios Técnicos Integrados de Colombia", "serviciostecnicoscol.co", "Mateo Gómez", "Director de Infraestructura"),
+            ("Mantenimiento de Infraestructura y Sedes de la Costa", "mantenimientocosta.co", "Mariana Ochoa", "Facility Manager"),
+            ("Mantenimiento Integral de Plantas y Oficinas", "mantenimientoplantas.co", "David Rendón", "Jefe de Mantenimiento"),
+            ("Servicios de Limpieza y Desinfección Especializada", "limpiezaespecializada.co", "Carolina Betancur", "Directora de Operaciones"),
+        ]
+        return _generate_sector_roster(
+            facility_tuples,
+            "Actividades combinadas de apoyo a instalaciones (Facility Management)",
+            target_leads_total,
+            490,
+            "Aseo y Facility Services Institucional",
+            "facilityservices",
+            "Facility Manager"
+        )
+
+    if is_tech:
+        tech_tuples = [
+            ("Desarrollo de Software y Facturación Electrónica DIAN", "facturaciondian.co", "Carlos Alberto Restrepo", "Director de Tecnología"),
+            ("Sistemas Cloud y ERP Empresarial de Colombia", "cloudyerp.co", "Karen Sofía Mendoza", "CTO"),
+            ("Soluciones Digitales y APIs Corporativas", "digitalapis.co", "Santiago Echeverría", "VP Engineering"),
+            ("Infraestructura Tecnológica y Software Andino", "softwareandino.co", "Juliana Morales Posada", "Líder de TI"),
+            ("Facturación Digital y Conciliación DIAN del Valle", "conciliaciondian.co", "Felipe Zuluaga Hoyos", "Director de Tecnología"),
+            ("Ciberseguridad y Servicios Cloud de Occidente", "cloudoccidente.co", "Valeria Jaramillo", "CTO"),
+            ("Desarrollo Web y Plataformas SaaS de la Sabana", "saasdelasabana.co", "Carlos Andrés Tobón", "VP Engineering"),
+            ("Integraciones DIAN y Motores XML de Colombia", "motoresxml.co", "Camila Restrepo Uribe", "Director de Tecnología"),
+            ("Software Administrativo y Nómina Electrónica del Café", "nominaelectronica.co", "Mateo Gómez Arango", "Líder de TI"),
+            ("Sistemas de Información y Consultoría TI de la Costa", "sistemasdelacosta.co", "Andrés Felipe Londoño", "CTO"),
+            ("Desarrollo de Aplicaciones Cloud y Microservicios", "cloudmicroservicios.co", "Mariana Ochoa", "VP Engineering"),
+        ]
+        return _generate_sector_roster(
+            tech_tuples,
+            "Actividades de desarrollo de sistemas informáticos (planificación, análisis, diseño, programación, pruebas)",
+            target_leads_total,
+            530,
+            "Desarrollo de Software y Facturación Electrónica DIAN",
+            "softwarefacturacion",
+            "Director de Tecnología"
+        )
+
+    if is_financial:
+        financial_tuples = [
+            ("Gestión de Cartera y Cobranzas B2B Andina", "cobranzasandina.co", "Andrés Felipe Castaño", "Director de Cartera"),
+            ("Factoring y Soluciones Financieras de Occidente", "factoringoccidente.co", "María Elena Restrepo", "Gerente Financiero"),
+            ("Recuperación de Cartera y Cobranza Corporativa", "cobranzacorporativa.co", "Juan David Morales", "Director de Cartera"),
+            ("Servicios Crediticios y Debida Diligencia del Valle", "crediticiosdelvalle.co", "Diana Marcela Pérez", "CFO"),
+            ("Consultoría de Riesgo y Cartera Empresarial", "riesgoycartera.co", "Santiago Echeverri", "Director Financiero"),
+            ("Cobranzas Especializadas Ley 2300 de Colombia", "cobranzasley2300.co", "Valeria Gómez", "Jefe de Cartera"),
+            ("Plataforma de Factoring y Liquidez B2B", "factoringb2b.co", "Carlos Alberto Restrepo", "Gerente General"),
+            ("Auditoría y Recuperación Crediticia de la Sabana", "auditoriacrediticia.co", "Camila Restrepo", "Directora Financiera"),
+            ("Soluciones de Cartera y Underwriting del Café", "underwritingdelcafe.co", "Mateo Gómez", "Director de Cartera"),
+            ("Servicios Financieros y Cobranza de la Costa", "cobranzacosta.co", "Mariana Ochoa", "Gerente Financiero"),
+            ("Gestión de Riesgo Crediticio y Cartera B2B", "riesgocrediticio.co", "Nicolás Carvajal", "Director de Cartera"),
+        ]
+        return _generate_sector_roster(
+            financial_tuples,
+            "Actividades de agencias de cobranza y agencias de calificación crediticia",
+            target_leads_total,
+            510,
+            "Gestión de Cartera y Cobranzas B2B",
+            "carteracobranzas",
+            "Director de Cartera"
+        )
 
     # Standard corporate fallback entities
     commercial_seeds: List[Dict[str, Any]] = [

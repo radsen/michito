@@ -532,28 +532,36 @@ class SqlOrderAdapter:
             if city and city.lower() not in ("all", "nacional", "todo"):
                 conditions.append(LeadModel.city.ilike(f"%{city}%"))
 
-            filter_clauses = []
             if ciiu_codes:
                 clean_codes = [c.strip() for c in ciiu_codes if c and c.strip()]
                 if clean_codes:
-                    filter_clauses.extend([
+                    conditions.append(or_(*[
                         LeadModel.ciiu_code.startswith(code[:2]) for code in clean_codes
-                    ])
+                    ]))
 
+            content_clauses = []
             if keywords:
                 clean_kws = [k.strip() for k in keywords if k and len(k.strip()) >= 3]
                 if clean_kws:
                     for kw in clean_kws:
-                        filter_clauses.append(LeadModel.company_name.ilike(f"%{kw}%"))
-                        filter_clauses.append(LeadModel.activity_description.ilike(f"%{kw}%"))
-                        filter_clauses.append(LeadModel.sector_macro.ilike(f"%{kw}%"))
+                        if len(kw) <= 4:
+                            # Short word boundary protection (e.g. 'aseo' should not match 'gaseosos')
+                            for col in (LeadModel.company_name, LeadModel.activity_description, LeadModel.sector_macro):
+                                content_clauses.append(col.ilike(f"% {kw} %"))
+                                content_clauses.append(col.ilike(f"{kw} %"))
+                                content_clauses.append(col.ilike(f"% {kw}"))
+                                content_clauses.append(col.ilike(kw))
+                        else:
+                            content_clauses.append(LeadModel.company_name.ilike(f"%{kw}%"))
+                            content_clauses.append(LeadModel.activity_description.ilike(f"%{kw}%"))
+                            content_clauses.append(LeadModel.sector_macro.ilike(f"%{kw}%"))
             elif sectors:
                 clean_secs = [s.strip() for s in sectors if s and len(s.strip()) >= 3]
                 if clean_secs:
-                    filter_clauses.extend([LeadModel.sector_macro.ilike(f"%{s}%") for s in clean_secs])
+                    content_clauses.extend([LeadModel.sector_macro.ilike(f"%{s}%") for s in clean_secs])
 
-            if filter_clauses:
-                conditions.append(or_(*filter_clauses))
+            if content_clauses:
+                conditions.append(or_(*content_clauses))
 
             stmt = select(LeadModel).where(and_(*conditions))
 
