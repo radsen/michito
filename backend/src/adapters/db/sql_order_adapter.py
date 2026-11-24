@@ -1350,6 +1350,48 @@ class SqlOrderAdapter:
                         break
             return matched
 
+    def get_sector_by_id(self, sector_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a single sector taxonomy by its primary slug identifier."""
+        with self._get_session() as session:
+            sec = session.get(TaxonomySectorModel, sector_id)
+            return sec.to_dict() if sec else None
+
+    def get_all_sector_taxonomies(self) -> Dict[str, Dict[str, Any]]:
+        """Returns all active sector taxonomies indexed by sector_id."""
+        with self._get_session() as session:
+            stmt = select(TaxonomySectorModel).where(TaxonomySectorModel.is_active == True)
+            sectors = session.scalars(stmt).all()
+            return {s.sector_id: s.to_dict() for s in sectors}
+
+    def record_sector_classification_feedback(self, sector_id: str, ciiu_code: str, is_match: bool) -> None:
+        """
+        Active Learning Loop: dynamically updates allowed or forbidden divisions and CIIU codes
+        based on verification feedback from the AI gatekeeper or domain verifications.
+        """
+        if not sector_id or not ciiu_code:
+            return
+        clean_ciiu = ciiu_code.strip()
+        division = clean_ciiu[:2] if len(clean_ciiu) >= 2 else clean_ciiu
+        with self._get_session() as session:
+            sec = session.get(TaxonomySectorModel, sector_id)
+            if not sec:
+                return
+            if is_match:
+                allowed = list(sec.allowed_isic_divisions or [])
+                if division not in allowed:
+                    allowed.append(division)
+                    sec.allowed_isic_divisions = allowed
+                ciiu_list = list(sec.ciiu_codes or [])
+                if clean_ciiu not in ciiu_list:
+                    ciiu_list.append(clean_ciiu)
+                    sec.ciiu_codes = ciiu_list
+            else:
+                forbidden = list(sec.forbidden_isic_divisions or [])
+                if division not in forbidden:
+                    forbidden.append(division)
+                    sec.forbidden_isic_divisions = forbidden
+            session.commit()
+
     def record_search_intent_query(
         self,
         raw_prompt: str,

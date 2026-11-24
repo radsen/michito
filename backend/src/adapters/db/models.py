@@ -365,6 +365,8 @@ class TaxonomySectorModel(Base):
     ciiu_codes: Any = Column(JSON, nullable=True)                           # Official 4-digit CIIU codes e.g. ["C1011", "C1012"]
     keywords_include: Any = Column(JSON, nullable=True)                     # Positive high-intent keyword matches
     keywords_exclude_defaults: Any = Column(JSON, nullable=True)            # Default negative filters to avoid junk leads
+    allowed_isic_divisions: Any = Column(JSON, nullable=True)               # e.g. ["62", "63", "58", "46"]
+    forbidden_isic_divisions: Any = Column(JSON, nullable=True)             # e.g. ["24", "38", "41", "42", "71", "79", "85", "86"]
     is_active: Any = Column(Boolean, default=True, index=True)
     usage_count: Any = Column(Integer, default=0, index=True)
     created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -377,6 +379,8 @@ class TaxonomySectorModel(Base):
             "ciiu_codes": self.ciiu_codes or [],
             "keywords_include": self.keywords_include or [],
             "keywords_exclude_defaults": self.keywords_exclude_defaults or [],
+            "allowed_isic_divisions": self.allowed_isic_divisions or [],
+            "forbidden_isic_divisions": self.forbidden_isic_divisions or [],
             "is_active": bool(self.is_active),
             "usage_count": self.usage_count or 0,
         }

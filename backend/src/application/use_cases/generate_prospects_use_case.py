@@ -49,6 +49,79 @@ def clean_company_name(raw_name: str) -> str:
     return cleaned.title()
 
 
+def resolve_sector_taxonomy_rules(
+    sector: Optional[str] = None,
+    target_ciiu_codes: Optional[List[str]] = None,
+    kw_include: Optional[List[str]] = None,
+    offer_description: Optional[str] = None,
+) -> tuple[Optional[str], Set[str], Set[str]]:
+    """
+    Resolves active sector_id, allowed_isic_divisions, and forbidden_isic_divisions
+    from PostgreSQL taxonomy_sectors (or seed fallback) based on order criteria.
+    """
+    taxonomy_map: Dict[str, Dict[str, Any]] = {}
+    try:
+        from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+        adapter = SqlOrderAdapter()
+        taxonomy_map = adapter.get_all_sector_taxonomies()
+    except Exception:
+        pass
+    if not taxonomy_map:
+        try:
+            from src.adapters.db.seed_taxonomy import SECTOR_SEEDS
+            taxonomy_map = {s["sector_id"]: s for s in SECTOR_SEEDS}
+        except Exception:
+            taxonomy_map = {}
+
+    active_sec_id = None
+    if sector and sector in taxonomy_map:
+        active_sec_id = sector
+    elif target_ciiu_codes:
+        ciiu_clean = [c.upper().strip().lstrip("JCFHQLNDMPK") for c in target_ciiu_codes]
+        if any(c.startswith(("62", "582", "631", "4651")) for c in ciiu_clean):
+            active_sec_id = "tech_software_telecom"
+        elif any(c.startswith(("463", "561", "10", "11")) for c in ciiu_clean):
+            active_sec_id = "food_agriculture"
+        elif any(c.startswith(("85", "1811")) for c in ciiu_clean):
+            active_sec_id = "education_schools"
+        elif any(c.startswith(("41", "42", "43", "71")) for c in ciiu_clean):
+            active_sec_id = "construction_infrastructure"
+        elif any(c.startswith(("49", "50", "51", "52", "53")) for c in ciiu_clean):
+            active_sec_id = "logistics_warehousing"
+        elif any(c.startswith(("80", "81", "38")) for c in ciiu_clean):
+            active_sec_id = "facility_security_services"
+        elif any(c.startswith(("68", "702")) for c in ciiu_clean):
+            active_sec_id = "corporate_real_estate"
+        elif any(c.startswith(("21", "86")) for c in ciiu_clean):
+            active_sec_id = "healthcare_pharma"
+        elif any(c.startswith(("64", "69")) for c in ciiu_clean):
+            active_sec_id = "legal_financial_services"
+
+    if not active_sec_id:
+        kw_blob = " ".join(filter(None, [
+            " ".join(k.lower() for k in (kw_include or [])),
+            (offer_description or "").lower()
+        ]))
+        if any(term in kw_blob for term in ("software", "cloud", "saas", "ciberseguridad", "desarrollo de software", "desarrollo web")):
+            active_sec_id = "tech_software_telecom"
+        elif any(term in kw_blob for term in ("alimento", "restauran", "viveres", "abarrote", "gastronom", "comida", "lacteo", "carnic")):
+            active_sec_id = "food_agriculture"
+        elif any(term in kw_blob for term in ("colegio", "escuela", "educa", "ensenanza", "liceo", "gimnasio", "universidad", "carnet")):
+            active_sec_id = "education_schools"
+        elif any(term in kw_blob for term in ("construccion", "obra civil", "cemento", "concreto", "arquitectura")):
+            active_sec_id = "construction_infrastructure"
+        elif any(term in kw_blob for term in ("mueble", "siller", "tapicer", "ebanister")):
+            active_sec_id = "manufacturing_industrial"
+
+    if active_sec_id and active_sec_id in taxonomy_map:
+        sec_info = taxonomy_map[active_sec_id]
+        allowed = set(sec_info.get("allowed_isic_divisions") or [])
+        forbidden = set(sec_info.get("forbidden_isic_divisions") or [])
+        return active_sec_id, allowed, forbidden
+
+    return None, set(), set()
+
+
 def get_first_name(full_name: str) -> str:
     parts = full_name.strip().split()
     if not parts:
@@ -725,6 +798,15 @@ class GenerateProspectsUseCase:
                 target_cfg["keywords_include"] = kw_include
 
         kw_exclude = target_cfg.get("keywords_exclude")
+        active_sector_id, allowed_divisions, forbidden_divisions = resolve_sector_taxonomy_rules(
+            sector=target_sectors[0] if target_sectors else None,
+            target_ciiu_codes=target_ciiu_codes,
+            kw_include=kw_include,
+            offer_description=offer_description,
+        )
+        if active_sector_id:
+            print(f"   [Taxonomy Guard] Active sector: {active_sector_id} (Allowed Divisions: {allowed_divisions or 'ALL'}, Forbidden: {forbidden_divisions or 'NONE'})")
+
         scanned_cities: List[str] = []
         territory_fulfillment: Dict[str, Dict[str, Any]] = {}
 
@@ -973,6 +1055,11 @@ class GenerateProspectsUseCase:
                     email=email,
                     raw_desc=item.get("sector", "")
                 )
+                cand_division = ciiu_obj.code[:2] if len(ciiu_obj.code) >= 2 else ""
+
+                # Cross-Sector Negative Division Guard (Dynamically Enforced from PostgreSQL Taxonomy)
+                if forbidden_divisions and cand_division in forbidden_divisions:
+                    continue
 
                 # Cross-Sector Negative Contamination Gate
                 # Rejects candidates whose reported sector or name fundamentally belongs to an incompatible industry
@@ -1003,19 +1090,29 @@ class GenerateProspectsUseCase:
                     ciiu_clean = [str(c).upper().strip() for c in target_ciiu_codes]
                     cand_ciiu = ciiu_obj.code.upper()
                     # Enforce exact match, prefix match, or 3-digit group match (e.g. 463 for food wholesale).
-                    # Strictly prohibit 2-digit wildcards on wholesale division 46 (which causes wholesale to leak across unrelated industries).
+                    # Strictly prohibit 2-digit wildcards on wholesale division 46 or general consulting 70.
                     matches_ciiu = (
                         cand_ciiu in ciiu_clean
                         or any(cand_ciiu.startswith(prefix) for prefix in ciiu_clean)
                         or any(len(prefix) >= 3 and cand_ciiu[:3] == prefix[:3] for prefix in ciiu_clean)
-                        or any(cand_ciiu[:2] == prefix[:2] and prefix[:2] != "46" for prefix in ciiu_clean)
+                        or any(cand_ciiu[:2] == prefix[:2] and prefix[:2] not in ("46", "70", "74", "82") for prefix in ciiu_clean)
                     )
                     if not matches_ciiu:
+                        # Reject candidates whose 2-digit division is not allowed for this active sector
+                        if allowed_divisions and cand_division and cand_division not in allowed_divisions:
+                            continue
+
                         # Fallback ONLY if company matches substantive domain keywords (never generic commercial modifiers)
                         from src.application.services.brief_parser_service import QUERY_STOP_WORDS
-                        valid_substantive_kws = [k.lower().strip() for k in (kw_include or []) if k.lower().strip() not in QUERY_STOP_WORDS and len(k.strip()) >= 3]
+                        valid_substantive_kws = [
+                            k.lower().strip() for k in (kw_include or [])
+                            if k.lower().strip() not in QUERY_STOP_WORDS and len(k.strip()) >= 3 and (" " in k or len(k.strip()) >= 5)
+                        ]
                         if not valid_substantive_kws and offer_description:
-                            valid_substantive_kws = [w.lower() for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", offer_description.lower()) if w.lower() not in QUERY_STOP_WORDS]
+                            valid_substantive_kws = [
+                                w.lower() for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", offer_description.lower())
+                                if w.lower() not in QUERY_STOP_WORDS
+                            ]
                         if not valid_substantive_kws:
                             continue
                         if not any(kw in company_name.lower() or kw in str(item.get("sector", "")).lower() for kw in valid_substantive_kws):
@@ -1125,6 +1222,7 @@ class GenerateProspectsUseCase:
                     "territory": territory_key,
                     "address": item.get("address", ""),
                     "ciiu": ciiu_obj,
+                    "ciiu_code": ciiu_obj.code,
                     "segment_name": seg_name,
                     "revenue_bracket": rev_range,
                     "employees_bracket": emp_range,

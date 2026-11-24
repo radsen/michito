@@ -58,9 +58,11 @@ QUERY_STOP_WORDS = {
     "colombia", "ecuador", "dominicana", "medellin", "medellín", "bogota",
     "bogotá", "cali", "barranquilla", "quito", "guayaquil", "santo", "domingo",
     "ciudad", "ciudades", "pais", "país", "nacional", "todo", "toda", "todos", "todas",
-    # Generic filler words
+    # Generic filler words and polysemic unigrams (purge solitary occurrences to avoid polluting domain query)
     "espacio", "espacios", "servicio", "servicios", "sector", "sectores", "alta", "buena",
-    "basico", "básico", "basica", "básica", "tier", "nivel"
+    "basico", "básico", "basica", "básica", "tier", "nivel",
+    "desarrollo", "soluciones", "gestion", "gestión", "consultoria", "consultoría",
+    "actividades", "integral", "integrales", "asesoria", "asesoría"
 }
 
 
@@ -338,10 +340,28 @@ class BriefParserService:
                 roles = ["Gerente General", "Director de Operaciones", "Director de Compras", "Jefe de Compras"]
 
         # 7. Keywords Include / Exclude
+        # Extract high-intent compound domain phrases first
+        compound_patterns = [
+            (r"\bdesarrollo\s+(?:de\s+)?software\b", "desarrollo de software"),
+            (r"\bdesarrollo\s+(?:de\s+)?sistemas\b", "desarrollo de software"),
+            (r"\bdesarrollo\s+web\b", "desarrollo web"),
+            (r"\bservicios?\s+cloud\b", "cloud"),
+            (r"\binfraestructura\s+ti\b", "infraestructura ti"),
+            (r"\bobras?\s+civiles?\b", "obras civiles"),
+            (r"\bgestion\s+(?:de\s+)?cartera\b", "gestion de cartera"),
+            (r"\bseguridad\s+privada\b", "seguridad privada"),
+            (r"\bmantenimiento\s+locativo\b", "mantenimiento"),
+        ]
+        compound_kws = []
+        for pat, canonical in compound_patterns:
+            if re.search(pat, lower):
+                if canonical not in compound_kws:
+                    compound_kws.append(canonical)
+
         # Remove prompt meta-words and Spanish stopwords
         raw_words = [w for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", lower) if w not in QUERY_STOP_WORDS]
         # Normalize plurals (e.g. coworkings -> coworking)
-        words = []
+        words = list(compound_kws)
         for w in raw_words:
             norm_w = w[:-1] if w.endswith("s") and len(w) > 5 and not w.endswith("ss") else w
             if norm_w not in QUERY_STOP_WORDS and norm_w not in words:
@@ -401,12 +421,12 @@ class BriefParserService:
             '  "limit": integer total volume (default 25),\n'
             '  "tier": 1 (directory) | 2 (decision maker email+phone) | 3 (financial EBITDA / litigation audit, ONLY if all locations are in CO),\n'
             '  "rfq_specifications": "tender requirements or null",\n'
-            '  "keywords_include": ["SPECIFIC product, service, or niche substantive terms only (e.g. alimentos, restaurantes, abarrotes). NEVER include generic business model terms like distribuidora, empresa, mayorista, proveedor, fabricante."],\n'
+            '  "keywords_include": ["SPECIFIC product, service, or niche substantive terms or compound phrases only (e.g. alimentos, restaurantes, desarrollo de software, servicios cloud). NEVER include solitary generic words like desarrollo, distribuidora, empresa, mayorista, proveedor, fabricante, soluciones, servicios."],\n'
             '  "keywords_exclude": ["terms to exclude"],\n'
             '  "confidence_score": float between 0.0 and 1.0\n'
             "}\n"
             "CRITICAL RULES:\n"
-            "1. 'keywords_include' MUST ONLY contain specific industry/product nouns. DO NOT output 'distribuidora', 'empresa', 'proveedor', 'mayorista' or 'fabricante'.\n"
+            "1. 'keywords_include' MUST ONLY contain specific industry/product nouns or compound phrases (e.g. 'desarrollo de software', 'servicios cloud', 'alimentos', 'carnicos'). NEVER output solitary generic words like 'desarrollo', 'distribuidora', 'empresa', 'proveedor', 'mayorista', 'fabricante', 'soluciones', or 'servicios'.\n"
             "2. If the user allocates specific counts per city (e.g. 'Cali unas 50 y Barranquilla 40 y en todo Colombia 10'), allocate exact numbers in 'allocated_leads' for each location.\n"
             "3. Tier 3 is strictly restricted to orders where 100% of locations are in Colombia ('CO'). If locations include 'DO', 'EC', or are mixed, tier MUST be 2 or 1."
         )
@@ -447,12 +467,14 @@ class BriefParserService:
         if "directionality" not in result or result["directionality"] not in ("vendor_to_clients", "client_to_vendors"):
             result["directionality"] = "vendor_to_clients"
 
-        # Sanitize keywords_include: purge any accidental commercial stopwords
+        # Sanitize keywords_include: purge any accidental commercial stopwords and lone polysemic unigrams
         if "keywords_include" in result and isinstance(result["keywords_include"], list):
             sanitized_kws = []
             for kw in result["keywords_include"]:
                 clean_k = str(kw).strip().lower()
-                if clean_k and clean_k not in QUERY_STOP_WORDS and len(clean_k) >= 3:
+                if " " not in clean_k and clean_k in QUERY_STOP_WORDS:
+                    continue
+                if clean_k and len(clean_k) >= 3 and clean_k not in sanitized_kws:
                     sanitized_kws.append(clean_k)
             result["keywords_include"] = sanitized_kws
 

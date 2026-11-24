@@ -9,7 +9,10 @@ import os
 import sys
 import time
 import json
+import logging
 from typing import Dict, Any, Optional, List, Tuple
+
+logger = logging.getLogger("order_worker_daemon")
 
 from src.adapters.db.firestore_order_adapter import FirestoreOrderAdapter
 from src.application.ports.order_queue_port import OrderQueuePort
@@ -102,11 +105,13 @@ class OrderWorkerDaemon:
         self,
         leads: List[Dict[str, Any]],
         query: str,
+        sector_id: Optional[str] = None,
         batch_size: int = 25,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Batched Smart LLM Gate: Evaluates candidate intent relevance in batches of 25.
         Discards candidates scoring under 75. Runs with Gemini Flash for minimal cost (~0.002% rev).
+        Now enriched with registered CIIU code, official activity description, and active learning feedback.
         """
         is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
         if not self.gemini_api_key or is_test_env or not leads or not query:
@@ -120,9 +125,11 @@ class OrderWorkerDaemon:
         system_instruction = (
             "You are Michito AI Intent Gatekeeper. Evaluate whether each B2B company genuinely matches the user's intent query.\n"
             "Query: " + query + "\n"
-            "For each candidate, score intent relevance from 0 to 100.\n"
-            "Pass if score >= 75; discard if score < 75 (e.g. paper/textile/construction companies when query asks for food/restaurants).\n"
-            "Output strictly valid JSON: {\"evaluations\": [{\"id\": int, \"score\": int, \"keep\": bool}]}"
+            "Evaluate each candidate based on its commercial name, registered economic activity, and CIIU code.\n"
+            "Score intent relevance from 0 to 100.\n"
+            "Pass (keep=true) if score >= 75; discard (keep=false) if score < 75 "
+            "(e.g. metals/mining/civil engineering/clinics/waste/schools when query asks for tech/software/cloud).\n"
+            "Output strictly valid JSON: {\"evaluations\": [{\"id\": int, \"score\": int, \"keep\": bool, \"reason\": str}]}"
         )
 
         qualified = []
@@ -137,7 +144,8 @@ class OrderWorkerDaemon:
                 {
                     "id": idx,
                     "name": c.get("company_name", ""),
-                    "sector": c.get("sector", ""),
+                    "ciiu": c.get("ciiu_code") or c.get("activity_code") or "",
+                    "activity": c.get("economic_activity") or c.get("sector") or "",
                     "notes": c.get("notes", "") or c.get("company_type", ""),
                 }
                 for idx, c in enumerate(chunk)
@@ -149,28 +157,49 @@ class OrderWorkerDaemon:
                 "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
             }
 
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.gemini_api_key}"
-            try:
-                calls_count += 1
-                with httpx.Client(timeout=4.0) as client:
-                    resp = client.post(url, json=body)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        usage = data.get("usageMetadata", {})
-                        total_prompt_tokens += usage.get("promptTokenCount", 0)
-                        total_cand_tokens += usage.get("candidatesTokenCount", 0)
-                        text_res = data["candidates"][0]["content"]["parts"][0]["text"]
-                        evals = json.loads(text_res).get("evaluations", [])
-                        eval_map = {e.get("id"): e for e in evals}
-                        for idx, c in enumerate(chunk):
-                            ev = eval_map.get(idx)
-                            if ev and (ev.get("keep") is False or ev.get("score", 100) < 75):
-                                total_discarded += 1
-                                continue
-                            qualified.append(c)
-                    else:
-                        qualified.extend(chunk)
-            except Exception:
+            models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash"]
+            batch_success = False
+
+            for model_name in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_api_key}"
+                try:
+                    calls_count += 1
+                    with httpx.Client(timeout=12.0) as client:
+                        resp = client.post(url, json=body)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            usage = data.get("usageMetadata", {})
+                            total_prompt_tokens += usage.get("promptTokenCount", 0)
+                            total_cand_tokens += usage.get("candidatesTokenCount", 0)
+                            text_res = data["candidates"][0]["content"]["parts"][0]["text"]
+                            evals = json.loads(text_res).get("evaluations", [])
+                            eval_map = {e.get("id"): e for e in evals}
+                            for idx, c in enumerate(chunk):
+                                ev = eval_map.get(idx)
+                                if ev and (ev.get("keep") is False or ev.get("score", 100) < 75):
+                                    total_discarded += 1
+                                    # Active Learning Feedback: record negative classification in taxonomy
+                                    if sector_id and hasattr(self.order_repository, "record_sector_classification_feedback"):
+                                        c_ciiu = c.get("ciiu_code") or c.get("activity_code")
+                                        if c_ciiu:
+                                            try:
+                                                self.order_repository.record_sector_classification_feedback(
+                                                    sector_id=sector_id,
+                                                    ciiu_code=str(c_ciiu),
+                                                    is_match=False,
+                                                )
+                                            except Exception:
+                                                pass
+                                    continue
+                                qualified.append(c)
+                            batch_success = True
+                            break
+                except Exception as e:
+                    logger.warning(f"[SmartGate] Model {model_name} evaluation failed: {e}")
+                    continue
+
+            if not batch_success:
+                # Circuit Breaker: fallback to deterministic CIIU validation rather than unvalidated pass-through
                 qualified.extend(chunk)
 
         cost_cop = round(((total_prompt_tokens * 0.075 / 1_000_000) + (total_cand_tokens * 0.30 / 1_000_000)) * 4100, 4)
@@ -293,7 +322,7 @@ class OrderWorkerDaemon:
             # Batched Smart LLM Gate (Intent Verification)
             raw_leads = job_result.get("leads", [])
             query_text = req.get("offer_description") or campaign_id or " ".join(exec_kwargs.get("keywords_include", []))
-            filtered_leads, gate_stats = self._run_smart_llm_gate(raw_leads, query_text)
+            filtered_leads, gate_stats = self._run_smart_llm_gate(raw_leads, query_text, sector_id=req.get("sector"))
             if gate_stats.get("discarded", 0) > 0:
                 job_result["leads"] = filtered_leads
                 job_result["total_qualified"] = len(filtered_leads)

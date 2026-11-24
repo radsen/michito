@@ -430,6 +430,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "restaurantes", "hoteles", "distribuidora", "viveres", "conservas", "granos", "bebidas", "embutidos"
         ],
         "keywords_exclude_defaults": ["panaderia de barrio", "tienda de esquina", "comida rapida callejera"],
+        "allowed_isic_divisions": ["01", "10", "11", "46", "47", "56"],
+        "forbidden_isic_divisions": ["62", "63", "58", "41", "42", "43", "71", "69", "85", "86", "24", "38"],
         "usage_count": 150,
         "is_active": True,
     },
@@ -443,6 +445,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "contratista", "arquitectura", "ingenieria civil", "ferreteria industrial", "agregados", "acabados"
         ],
         "keywords_exclude_defaults": ["ferreteria menor", "plomeria domiciliaria", "vidrieria de barrio"],
+        "allowed_isic_divisions": ["41", "42", "43", "46", "71"],
+        "forbidden_isic_divisions": ["62", "63", "58", "85", "86", "56", "79", "10", "11", "24"],
         "usage_count": 180,
         "is_active": True,
     },
@@ -456,6 +460,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "bodega", "cedi", "parque industrial", "agenciamiento aduanero", "importacion", "exportacion", "3pl"
         ],
         "keywords_exclude_defaults": ["mudanzas", "trasteos", "taxis", "transporte escolar", "mensajeria en moto"],
+        "allowed_isic_divisions": ["49", "50", "51", "52", "53"],
+        "forbidden_isic_divisions": ["85", "86", "62", "63", "56", "24", "38"],
         "usage_count": 210,
         "is_active": True,
     },
@@ -463,12 +469,15 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
         "sector_id": "tech_software_telecom",
         "sector_name": "Software, Telecomunicaciones & Cloud B2B",
         "country_code": "ALL",
-        "ciiu_codes": ["J5820", "J6110", "J6120", "J6190", "J6201", "J6202", "J6209", "J6311"],
+        "ciiu_codes": ["J5820", "J6110", "J6120", "J6190", "J6201", "J6202", "J6209", "J6311", "G4651"],
         "keywords_include": [
             "software", "saas", "cloud", "ciberseguridad", "erp", "crm", "facturacion electronica",
-            "apis", "infraestructura ti", "desarrollo", "telecomunicaciones", "servidores", "inteligencia artificial"
+            "apis", "infraestructura ti", "desarrollo de software", "desarrollo web", "desarrollo de sistemas",
+            "telecomunicaciones", "servidores", "inteligencia artificial"
         ],
         "keywords_exclude_defaults": ["cafe internet", "reparacion de celulares", "venta de fundas"],
+        "allowed_isic_divisions": ["62", "63", "58", "61", "46"],
+        "forbidden_isic_divisions": ["24", "38", "41", "42", "43", "71", "79", "85", "86", "10", "11", "13", "14", "68", "69"],
         "usage_count": 240,
         "is_active": True,
     },
@@ -482,6 +491,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "metalmecanica", "maquinaria industrial", "transformacion", "materia prima", "textiles"
         ],
         "keywords_exclude_defaults": ["taller artesanal", "manualidades", "costura domiciliaria"],
+        "allowed_isic_divisions": ["13", "17", "20", "22", "24", "25", "28"],
+        "forbidden_isic_divisions": ["62", "63", "85", "86", "56", "79"],
         "usage_count": 130,
         "is_active": True,
     },
@@ -495,6 +506,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "hospital", "ips", "equipos biomedicos", "medicamentos", "odontologia especializada"
         ],
         "keywords_exclude_defaults": ["drogueria de barrio", "tienda naturista"],
+        "allowed_isic_divisions": ["21", "46", "86"],
+        "forbidden_isic_divisions": ["62", "41", "42", "43", "24", "38"],
         "usage_count": 120,
         "is_active": True,
     },
@@ -508,6 +521,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "chico", "piantini", "arriendo corporativo", "espacio llave en mano", "salas de juntas"
         ],
         "keywords_exclude_defaults": ["habitacion compartida", "apartamento residencial", "pension"],
+        "allowed_isic_divisions": ["68", "70"],
+        "forbidden_isic_divisions": ["24", "10", "85", "86", "62", "38"],
         "usage_count": 190,
         "is_active": True,
     },
@@ -521,6 +536,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "mantenimiento locativo", "porteria", "control de acceso"
         ],
         "keywords_exclude_defaults": ["empleada domestica", "lavado de autos ambulante"],
+        "allowed_isic_divisions": ["80", "81", "38"],
+        "forbidden_isic_divisions": ["62", "63", "85", "86", "56", "10"],
         "usage_count": 160,
         "is_active": True,
     },
@@ -534,6 +551,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "energia solar", "gas natural", "estaciones de servicio", "flota pesada"
         ],
         "keywords_exclude_defaults": ["lavado de carros", "cambio de aceite informal"],
+        "allowed_isic_divisions": ["35", "46"],
+        "forbidden_isic_divisions": ["62", "85", "86", "56"],
         "usage_count": 140,
         "is_active": True,
     },
@@ -547,6 +566,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "banca de inversion", "factoring", "credito empresarial", "asesoria tributaria"
         ],
         "keywords_exclude_defaults": ["prestamos gota a gota", "casas de empeño"],
+        "allowed_isic_divisions": ["64", "69", "82"],
+        "forbidden_isic_divisions": ["10", "24", "38", "41", "42"],
         "usage_count": 110,
         "is_active": True,
     },
@@ -561,6 +582,8 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "identificaciones escolares"
         ],
         "keywords_exclude_defaults": ["jardin infantil domiciliario", "clases particulares"],
+        "allowed_isic_divisions": ["85", "18"],
+        "forbidden_isic_divisions": ["24", "10", "11", "41", "42", "43", "69", "62", "63", "38"],
         "usage_count": 220,
         "is_active": True,
     },
