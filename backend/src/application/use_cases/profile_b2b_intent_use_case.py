@@ -161,13 +161,15 @@ class ProfileB2BIntentUseCase:
         recommended_tier = parsed_super_query.get("tier") or 2
         if any(w in normalized for w in ("auditoria", "auditoría", "niif", "balance", "solvencia", "legal", "diligencia")):
             recommended_tier = 3
+        elif any(w in normalized for w in ("directorio", "masivo", "tier 1", "base basica", "base básica", "basico", "básico", "pbx")):
+            recommended_tier = 1
 
         # 5. Volume (Honor explicit volume from parsed query or regex)
         volume = parsed_super_query.get("limit") or 25
-        vol_match = re.search(r"\b(10|25|50|100|150|200|300|500)\s*(?:colegios|empresas|cuentas|leads|prospectos|contactos)?\b", normalized)
+        vol_match = re.search(r"\b(10|25|50|100|150|200|300|500|1000|1\.000)\s*(?:colegios|empresas|cuentas|leads|prospectos|contactos)?\b", normalized)
         if vol_match:
             try:
-                volume = int(vol_match.group(1))
+                volume = int(vol_match.group(1).replace(".", ""))
             except Exception:
                 pass
 
@@ -196,17 +198,21 @@ class ProfileB2BIntentUseCase:
 
         # 6. Retrieve Representative Teaser Sample from Authentic Lead Inventory
         matching_leads: List[Dict[str, Any]] = []
+        cached_count: int = 0
         if self.sql_adapter:
             try:
-                matching_leads = self.sql_adapter.get_cached_fresh_leads(
+                cached_leads = self.sql_adapter.get_cached_fresh_leads(
                     city=target_city,
                     country=country_code,
-                    limit=1,
+                    limit=25,
                     ciiu_codes=ciiu_codes,
                     keywords=keywords_include,
                     sectors=sectors,
                     max_age_days=365,
                 )
+                cached_count = len(cached_leads)
+                if cached_leads:
+                    matching_leads.append(cached_leads[0])
             except Exception as e:
                 logger.warning(f"Error querying SQL inventory for preview: {e}")
 
@@ -250,12 +256,14 @@ class ProfileB2BIntentUseCase:
 
                         if matches_intent:
                             matching_leads.append(dict(item))
+                            cached_count = max(cached_count, 1)
                             break
             except Exception as e:
                 logger.debug(f"Baseline lead probe failed: {e}")
 
         sample_preview: Optional[Dict[str, Any]] = None
         estimated_matches: int = 0
+        is_on_demand_harvest: bool = False
 
         if matching_leads:
             sample_preview = build_zero_knowledge_teaser(
@@ -263,13 +271,20 @@ class ProfileB2BIntentUseCase:
                 country=country_code,
                 city=target_city,
             )
+            is_on_demand_harvest = volume > 100
             estimated_matches = volume
-            summary_msg = (
-                f"Configuramos tu lote en {volume} decisores clave verificados en {target_city} "
-                f"con alta afinidad para tu propuesta."
-            )
+            if is_on_demand_harvest:
+                summary_msg = (
+                    f"Tu lote de {volume} empresas en {target_city} requiere auditoría y recolección activa en registros oficiales en segundo plano ($0 anticipo)."
+                )
+            else:
+                summary_msg = (
+                    f"Configuramos tu lote en {volume} decisores clave verificados en {target_city} "
+                    f"con alta afinidad para tu propuesta."
+                )
         else:
             sample_preview = None
+            is_on_demand_harvest = True
             estimated_matches = 0
             summary_msg = (
                 "No fue posible encontrar la información solicitada en este momento. "
@@ -286,6 +301,8 @@ class ProfileB2BIntentUseCase:
             "recommended_tier": recommended_tier,
             "recommended_limit": volume,
             "estimated_matches": estimated_matches,
+            "cached_matches": cached_count,
+            "is_on_demand_harvest": is_on_demand_harvest,
             "matched_keywords": keywords_include,
             "sample_preview": sample_preview,
             "directionality": directionality,

@@ -423,7 +423,10 @@ export const OrderGenerator: React.FC = () => {
   const isOnDemandHarvest = Boolean(
     searchMode === "ai" &&
     discoveryResult &&
-    (!discoveryResult.sample_preview || discoveryResult.estimated_matches === 0)
+    (discoveryResult.is_on_demand_harvest ||
+      !discoveryResult.sample_preview ||
+      discoveryResult.estimated_matches === 0 ||
+      volume > 25)
   );
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
 
@@ -847,67 +850,7 @@ export const OrderGenerator: React.FC = () => {
         <div className="generator-layout">
           {/* Form Card */}
           <div className="generator-card">
-            {showOrderConfirmation && activeOrderId ? (
-              <div className="order-confirmation-card" data-testid="order-confirmation-view">
-                <div className="confirmation-badge-wrapper">
-                  <div className="confirmation-badge-icon">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                </div>
-                <span className="confirmation-kicker">MICHITO INTENT ENGINE™</span>
-                <h3 className="confirmation-title">¡Tu solicitud está en marcha!</h3>
-                <div className="confirmation-order-id-pill">
-                  <span className="collapsed-pulse-dot" />
-                  <span>ID de Orden: #{activeOrderId}</span>
-                </div>
-                <p className="confirmation-summary-text">
-                  Estamos auditando y verificando tus prospectos contra registros oficiales en segundo plano. Te acabamos de enviar un correo de confirmación a <strong>{buyerEmail}</strong>.
-                </p>
-                <div className="confirmation-steps-box">
-                  <div className="confirmation-step-item">
-                    <span className="confirmation-step-bullet">1</span>
-                    <div className="confirmation-step-text">
-                      <strong>Procesamiento Asíncrono:</strong> Validamos existencia legal, web activa y buzón corporativo activo (garantía anti-rebote).
-                    </div>
-                  </div>
-                  <div className="confirmation-step-item">
-                    <span className="confirmation-step-bullet">2</span>
-                    <div className="confirmation-step-text">
-                      <strong>Garantía de Cobro Justo:</strong> Te avisaremos por correo a <strong>{buyerEmail}</strong> en cuanto el lote esté listo. Solo pagarás por las cuentas que superen el 100% de los filtros.
-                    </div>
-                  </div>
-                  <div className="confirmation-step-item">
-                    <span className="confirmation-step-bullet">3</span>
-                    <div className="confirmation-step-text">
-                      <strong>Cortesía si el lote es menor a 3 empresas:</strong> Si encontramos únicamente 1 o 2 contactos verificados, te los entregamos 100% gratis sin cotización ni cobro alguno.
-                    </div>
-                  </div>
-                </div>
-                <div className="confirmation-actions">
-                  <button
-                    type="button"
-                    onClick={handleResetToStart}
-                    className="btn-confirmation-ok"
-                    data-testid="confirmation-ok-btn"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Entendido, Volver al Inicio</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOrderConfirmation(false);
-                      setTimeout(() => {
-                        document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
-                      }, 200);
-                    }}
-                    className="btn-confirmation-track"
-                  >
-                    <span>Ver Radar en Vivo →</span>
-                  </button>
-                </div>
-              </div>
-            ) : activeOrderId && isFormCollapsed ? (
+            {activeOrderId && isFormCollapsed ? (
               <div
                 className="active-order-collapsed-summary"
                 data-testid="active-order-collapsed-summary"
@@ -1235,10 +1178,42 @@ export const OrderGenerator: React.FC = () => {
                                     {g.suggestedBatch}
                                   </span>
                                   <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
-                                    {discoveryResult.recommended_limit || volume} decisores
+                                    {discoveryResult.recommended_limit || volume}{" "}
+                                    {discoveryResult.recommended_tier === 3
+                                      ? (g.tierAuditName || "Auditoría Completa")
+                                      : discoveryResult.recommended_tier === 1
+                                      ? (g.tierBaseName || "Directorio Básico")
+                                      : (g.directContactsUnit || "Contactos Directos")}
                                   </strong>
                                 </div>
                               </div>
+
+                              {discoveryResult.sample_preview && (
+                                <div className="discovery-sample-preview" style={{ marginTop: "12px" }}>
+                                  <div className="discovery-sample-title">
+                                    {g.samplePreviewTitle}
+                                  </div>
+                                  <div className="discovery-sample-company">
+                                    {discoveryResult.sample_preview.company_name}
+                                  </div>
+                                  <div className="discovery-sample-person">
+                                    {discoveryResult.sample_preview.masked_decision_maker} (
+                                    {discoveryResult.sample_preview.title})
+                                  </div>
+                                  <div className="discovery-sample-badges">
+                                    <span className="discovery-sample-badge">
+                                      {discoveryResult.sample_preview.statutory_badge || (
+                                        discoveryResult.country === "DO" ? "✓ RNC Vigente en DGII" :
+                                          discoveryResult.country === "EC" ? "✓ RUC Vigente en SRI" :
+                                            discoveryResult.country === "CL" ? "✓ RUT Vigente" :
+                                              g.sampleBadgeNit
+                                      )}
+                                    </span>
+                                    <span className="discovery-sample-badge">{g.sampleBadgeMx}</span>
+                                    <span className="discovery-sample-badge">{g.sampleBadgeHttp}</span>
+                                  </div>
+                                </div>
+                              )}
 
                               <div className="discovery-unavailable-guarantee" style={{ marginTop: "12px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
                                 <ShieldCheck style={{ width: 16, height: 16, color: "#34d399", flexShrink: 0 }} />
@@ -1286,7 +1261,13 @@ export const OrderGenerator: React.FC = () => {
                                     {g.suggestedBatch}
                                   </span>
                                   <strong style={{ fontSize: "0.9rem", color: "#34d399" }}>
-                                    {discoveryResult.recommended_limit} {discoveryResult.recommended_tier === 3 ? (g.tierAuditName || "Auditoría Completa") : g.directContactsUnit} (
+                                    {discoveryResult.recommended_limit}{" "}
+                                    {discoveryResult.recommended_tier === 3
+                                      ? (g.tierAuditName || "Auditoría Completa")
+                                      : discoveryResult.recommended_tier === 1
+                                      ? (g.tierBaseName || "Directorio Básico")
+                                      : (g.directContactsUnit || "Contactos Directos")}{" "}
+                                    (
                                     {formatCurrencyAmount(
                                       discoveryResult.pricing?.total_amount || discoveryResult.pricing?.total_cop || 0,
                                       (discoveryResult.pricing?.currency as SupportedCurrency) || currency

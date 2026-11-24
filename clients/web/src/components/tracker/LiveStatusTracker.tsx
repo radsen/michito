@@ -107,21 +107,35 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     }
   };
 
-  // Poll every 2.5 seconds while active order is in flight
-  const shouldPoll =
-    Boolean(activeOrderId) &&
-    orderStatus !== "paid" &&
-    orderStatus !== "delivered" &&
-    orderStatus !== "courtesy_delivered" &&
-    orderStatus !== "error" &&
-    orderStatus !== "failed";
+  // Poll every 3 seconds while active order is in flight (persistent until terminal state)
+  const isTerminalReduxState =
+    orderStatus === "paid" ||
+    orderStatus === "delivered" ||
+    orderStatus === "courtesy_delivered" ||
+    orderStatus === "awaiting_payment" ||
+    orderStatus === "ready_for_review";
+
+  const shouldPoll = Boolean(activeOrderId) && !isTerminalReduxState;
+
   const { data: orderData, refetch, isFetching, isError, error } = useGetOrderQuery(
     activeOrderId || "",
     {
       skip: !activeOrderId,
-      pollingInterval: shouldPoll ? 2500 : 0,
+      pollingInterval: shouldPoll ? 3000 : 0,
     }
   );
+
+  const isTerminalSuccess =
+    isTerminalReduxState ||
+    (orderData as any)?.status === "awaiting_payment" ||
+    (orderData as any)?.status === "ready_for_review" ||
+    (orderData as any)?.status === "paid" ||
+    (orderData as any)?.status === "delivered";
+
+  const isExplicitBackendFailure =
+    ((orderData as any)?.status === "failed" ||
+      (orderData as any)?.status === "failed_zero_leads") &&
+    !isTerminalSuccess;
 
   const isCourtesyDelivered =
     orderStatus === "courtesy_delivered" ||
@@ -129,29 +143,42 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
     (orderData as any)?.status === "courtesy_delivered" ||
     (orderData as any)?.payment_status === "COURTESY_FREE";
 
-  const isQueued = orderStatus === "queued" || orderStatus === "intake_submitted";
-  const isProcessing = orderStatus === "processing";
+  const isQueued =
+    (orderStatus === "queued" || orderStatus === "intake_submitted" || (orderData as any)?.status === "queued") &&
+    !isTerminalSuccess;
+  const isProcessing =
+    (orderStatus === "processing" || (orderData as any)?.status === "processing") &&
+    !isTerminalSuccess;
   const isAwaitingPayment =
-    (orderStatus === "awaiting_payment" || orderStatus === "ready_for_review") &&
+    (orderStatus === "awaiting_payment" ||
+      orderStatus === "ready_for_review" ||
+      (orderData as any)?.status === "awaiting_payment" ||
+      (orderData as any)?.status === "ready_for_review") &&
     !isCourtesyDelivered;
   const isPaid = orderStatus === "paid" || orderStatus === "delivered" || isCourtesyDelivered;
-  const isFailed = orderStatus === "failed" || orderStatus === "error";
+  const isFailed = isExplicitBackendFailure && !isTerminalSuccess;
 
-  // Handle API error (e.g. 404 Not Found in this environment)
+  // Handle API error (Only mark failed if backend explicitly returns 404, never on transient network drop)
   useEffect(() => {
     if (isError) {
-      const errDetail =
-        (error as any)?.data?.detail ||
-        (error as any)?.message ||
-        "Orden no encontrada en este entorno.";
-      dispatch(orderFailed(errDetail));
+      const statusCode = (error as any)?.status;
+      if (statusCode === 404) {
+        const errDetail =
+          (error as any)?.data?.detail ||
+          (error as any)?.message ||
+          "Orden no encontrada en este entorno.";
+        dispatch(orderFailed(errDetail));
+      } else {
+        console.warn("Transient network issue during order polling. Will retry...", error);
+      }
     }
   }, [isError, error, dispatch]);
 
   // Server-Sent Events (SSE) Stream Listener with auto-reconnection for live telemetry
   useEffect(() => {
-    if (!activeOrderId || (!isQueued && !isProcessing)) return;
     const token = (orderData as any)?.stream_token || "";
+    // CRITICAL: Do NOT attempt SSE if token is empty, otherwise Cloud Run responds with 403 Forbidden!
+    if (!activeOrderId || (!isQueued && !isProcessing) || !token) return;
     const sseUrl = `/api/v1/orders/${activeOrderId}/stream?token=${encodeURIComponent(token)}`;
 
     let eventSource: EventSource | null = null;

@@ -59,7 +59,8 @@ QUERY_STOP_WORDS = {
     "bogotá", "cali", "barranquilla", "quito", "guayaquil", "santo", "domingo",
     "ciudad", "ciudades", "pais", "país", "nacional", "todo", "toda", "todos", "todas",
     # Generic filler words
-    "espacio", "espacios", "servicio", "servicios", "sector", "sectores", "alta", "buena"
+    "espacio", "espacios", "servicio", "servicios", "sector", "sectores", "alta", "buena",
+    "basico", "básico", "basica", "básica", "tier", "nivel"
 }
 
 
@@ -291,7 +292,7 @@ class BriefParserService:
         tier = 2
         if any(term in lower for term in ["ebitda", "balance", "financiero", "solvencia", "litigio", "demanda", "deuda", "superintendencia", "debida diligencia"]):
             tier = 3
-        elif any(term in lower for term in ["directorio", "masivo", "tier 1", "base basica", "pbx"]):
+        elif any(term in lower for term in ["directorio", "masivo", "tier 1", "base basica", "base básica", "basico", "básico", "pbx"]):
             tier = 1
 
         # Restrict Tier 3 exclusively to 100% Colombian campaigns
