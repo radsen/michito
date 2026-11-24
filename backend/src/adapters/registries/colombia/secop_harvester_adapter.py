@@ -304,6 +304,7 @@ class SecopHarvesterAdapter:
             "publicidad", "agencia de medios", "software", "inmobiliaria", "vigilancia", "seguridad privada"
         )
 
+        kw_to_check = include_keywords if include_keywords else valid_kw
         qualified_leads: List[Dict[str, Any]] = []
 
         def _process_item(item: Dict[str, Any], require_keywords: bool = True) -> Optional[Dict[str, Any]]:
@@ -344,10 +345,11 @@ class SecopHarvesterAdapter:
                     if not has_positive_food:
                         return None
 
-            if include_keywords and require_keywords:
-                matched_kw = any(inc.lower() in full_text for inc in include_keywords)
+            kw_to_check = include_keywords if include_keywords else valid_kw
+            if kw_to_check and require_keywords:
+                matched_kw = any(inc.lower() in full_text for inc in kw_to_check)
                 if not matched_kw:
-                    tokens = [w for inc in include_keywords for w in re.split(r"\W+", inc.lower()) if len(w) >= 4]
+                    tokens = [w for inc in kw_to_check for w in re.split(r"\W+", inc.lower()) if len(w) >= 4]
                     matched_kw = any(t in full_text for t in tokens)
                 if not matched_kw:
                     if is_educational and any(term in full_text for term in ("educa", "colegio", "liceo", "escuela", "gimnasio", "academ", "universidad", "carnet")):
@@ -403,7 +405,7 @@ class SecopHarvesterAdapter:
                 tier1_params["$q"] = kw
             raw_data = self._execute_soda_request(tier1_params)
             for item in raw_data:
-                lead = _process_item(item, require_keywords=bool(include_keywords))
+                lead = _process_item(item, require_keywords=bool(kw_to_check))
                 if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                     qualified_leads.append(lead)
                     if len(qualified_leads) >= limit:
@@ -457,7 +459,7 @@ class SecopHarvesterAdapter:
                     c_params["municipio"] = c_city
                     c_data = self._execute_soda_request(c_params)
                     for item in c_data:
-                        lead = _process_item(item, require_keywords=bool(valid_kw))
+                        lead = _process_item(item, require_keywords=bool(kw_to_check))
                         if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                             qualified_leads.append(lead)
                             if len(qualified_leads) >= limit:
@@ -470,7 +472,7 @@ class SecopHarvesterAdapter:
                     cluster_params["departamento"] = cluster_info["dept"]
                     cluster_data = self._execute_soda_request(cluster_params)
                     for item in cluster_data:
-                        lead = _process_item(item, require_keywords=bool(valid_kw))
+                        lead = _process_item(item, require_keywords=bool(kw_to_check))
                         if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                             qualified_leads.append(lead)
                             if len(qualified_leads) >= limit:
