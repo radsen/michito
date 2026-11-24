@@ -241,7 +241,8 @@ class SercopEcuadorAdapter:
             for fb in fallbacks:
                 if len(candidates) >= limit:
                     break
-                candidates.append(fb)
+                if not any(c.get("ruc") == fb.get("ruc") for c in candidates):
+                    candidates.append(fb)
 
         return candidates
 

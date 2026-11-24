@@ -230,8 +230,33 @@ class SecopHarvesterAdapter:
         valid_kw = []
         if include_keywords:
             valid_kw = [k.strip() for k in include_keywords if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())]
-            if valid_kw:
-                params["$q"] = valid_kw[0]
+
+        if not valid_kw and ciiu_codes:
+            for c in ciiu_codes:
+                clean_c = c.strip().lstrip("JCFHQLNDMPK")
+                if clean_c.startswith(("9524", "31")):
+                    valid_kw.extend(["muebles", "sillas", "tapiceria"])
+                elif clean_c.startswith(("52", "4923")):
+                    valid_kw.extend(["bodegas", "almacenamiento", "transporte"])
+                elif clean_c.startswith("85"):
+                    valid_kw.extend(["colegio", "educacion", "institucion educativa"])
+                elif clean_c.startswith(("62", "582", "63")):
+                    valid_kw.extend(["software", "sistemas", "tecnologia"])
+                elif clean_c.startswith(("4661", "19")):
+                    valid_kw.extend(["combustibles", "diesel", "lubricantes"])
+                elif clean_c.startswith(("4663", "41", "42", "43")):
+                    valid_kw.extend(["materiales", "construccion", "cemento"])
+                elif clean_c.startswith(("80", "81")):
+                    valid_kw.extend(["mantenimiento", "limpieza", "aseo"])
+                elif clean_c.startswith(("8291", "64", "69")):
+                    valid_kw.extend(["cobranza", "cartera", "financiero"])
+                elif clean_c.startswith(("3250", "86", "21")):
+                    valid_kw.extend(["medicos", "salud", "clinica"])
+                elif clean_c.startswith(("463", "10", "11")):
+                    valid_kw.extend(["alimentos", "viveres", "distribuidora"])
+
+        if valid_kw:
+            params["$q"] = valid_kw[0]
 
         norm_loc = city.strip().lower()
         clean_loc = re.sub(r"[^\w\s]", "", norm_loc).strip()
@@ -432,7 +457,7 @@ class SecopHarvesterAdapter:
                     c_params["municipio"] = c_city
                     c_data = self._execute_soda_request(c_params)
                     for item in c_data:
-                        lead = _process_item(item, require_keywords=False)
+                        lead = _process_item(item, require_keywords=bool(valid_kw))
                         if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                             qualified_leads.append(lead)
                             if len(qualified_leads) >= limit:
@@ -445,7 +470,7 @@ class SecopHarvesterAdapter:
                     cluster_params["departamento"] = cluster_info["dept"]
                     cluster_data = self._execute_soda_request(cluster_params)
                     for item in cluster_data:
-                        lead = _process_item(item, require_keywords=False)
+                        lead = _process_item(item, require_keywords=bool(valid_kw))
                         if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                             qualified_leads.append(lead)
                             if len(qualified_leads) >= limit:
@@ -464,7 +489,7 @@ class SecopHarvesterAdapter:
             needed_count = limit - len(qualified_leads) if not is_test_env else limit
             fallback_items = self._get_fallback_candidates(
                 city=city,
-                include_keywords=include_keywords,
+                include_keywords=valid_kw,
                 ciiu_codes=ciiu_codes,
                 sectors=sectors,
                 limit=max(needed_count, 100)

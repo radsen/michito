@@ -241,7 +241,8 @@ class DgcpDrAdapter:
             for fb in fallbacks:
                 if len(candidates) >= limit:
                     break
-                candidates.append(fb)
+                if not any(c.get("rnc") == fb.get("rnc") for c in candidates):
+                    candidates.append(fb)
 
         return candidates
 
