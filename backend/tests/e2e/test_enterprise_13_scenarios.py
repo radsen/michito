@@ -68,7 +68,7 @@ class TestEnterprise13Scenarios(unittest.TestCase):
             app_container.alert_dispatcher.webhook_url = ""
             app_container.alert_dispatcher.feed_webhook_url = ""
 
-    def _execute_order_lifecycle(self, scenario_key: str, payload: dict, expected_tier: int = 2):
+    def _execute_order_lifecycle(self, scenario_key: str, payload: dict, expected_tier: int = 2) -> tuple[str, dict]:
         # 1. Intake: Create Order
         res_post = self.client.post("/api/v1/orders", json=payload)
         self.assertEqual(res_post.status_code, 201, f"Failed creating order for {scenario_key}: {res_post.text}")
@@ -79,7 +79,7 @@ class TestEnterprise13Scenarios(unittest.TestCase):
 
         # 2. Worker Processing
         order_doc = self.sql_adapter.get_order(order_id)
-        self.assertIsNotNone(order_doc)
+        assert order_doc is not None, f"Order doc not found for {order_id}"
         process_ok = self.worker.process_order(order_doc)
         self.assertTrue(process_ok, f"Worker processing failed for {scenario_key}")
 
@@ -107,6 +107,7 @@ class TestEnterprise13Scenarios(unittest.TestCase):
 
         # 6. Deliverable Verification on Disk
         completed_order = self.sql_adapter.get_order(order_id)
+        assert completed_order is not None, f"Order {order_id} not found in database"
         delivery = completed_order.get("delivery", {})
         csv_path = delivery.get("csv_path") or completed_order.get("csv_path")
         xlsx_path = delivery.get("xlsx_path") or completed_order.get("xlsx_path")
@@ -372,6 +373,7 @@ class TestEnterprise13Scenarios(unittest.TestCase):
         self.assertGreaterEqual(len(leads), 1)
         target_lead = leads[0]
         bounced_email = target_lead.get("verified_email") or target_lead.get("email")
+        assert bounced_email is not None, "Bounced email must not be None"
 
         # Claim 2x1 replacement
         claim_payload = {
@@ -407,9 +409,9 @@ class TestEnterprise13Scenarios(unittest.TestCase):
             }
         }
         order_id, order = self._execute_order_lifecycle("15_procurement_auto_rfq_buyer_mode", payload, expected_tier=2)
-        directionality = order.get("directionality") or order.get("request", {}).get("directionality")
+        directionality = order.get("directionality") or (order.get("request") or {}).get("directionality")
         self.assertEqual(directionality, "client_to_vendors")
-        specs = order.get("rfq_specifications") or order.get("request", {}).get("rfq_specifications", "")
+        specs = order.get("rfq_specifications") or (order.get("request") or {}).get("rfq_specifications", "")
         self.assertIn("150 puestos", specs)
 
     def test_16_chiketto_school_carnetizacion_co(self):
@@ -498,8 +500,9 @@ class TestEnterprise13Scenarios(unittest.TestCase):
             }
         }
         order_id, order = self._execute_order_lifecycle("19_healthcare_medical_devices_ec", payload, expected_tier=2)
-        self.assertEqual(order["request"]["country"], "EC")
-        currency = order.get("currency") or order.get("request", {}).get("currency") or order.get("payment", {}).get("currency")
+        order_req = order.get("request") or {}
+        self.assertEqual(order_req.get("country"), "EC")
+        currency = order.get("currency") or order_req.get("currency") or (order.get("payment") or {}).get("currency")
         self.assertEqual(currency, "USD")
 
 

@@ -160,7 +160,7 @@ def resolve_sector_taxonomy_rules(
     # Explicit client target CIIU codes must always be explicitly allowed
     if target_ciiu_codes:
         for c in target_ciiu_codes:
-            clean_c = str(c).upper().strip().lstrip("JCFHQLNDMPK")
+            clean_c = c.upper().strip().lstrip("JCFHQLNDMPK")
             if len(clean_c) >= 2:
                 pooled_allowed.add(clean_c[:2])
 
@@ -1119,7 +1119,7 @@ class GenerateProspectsUseCase:
                 # Cross-Sector Negative Contamination Gate
                 # Rejects candidates whose reported sector or name fundamentally belongs to an incompatible industry
                 is_food_domain = bool(
-                    (effective_ciius and any(str(c).startswith(("463", "561", "10", "11")) for c in effective_ciius))
+                    (effective_ciius and any(c.startswith(("463", "561", "10", "11")) for c in effective_ciius))
                     or (kw_include and any(re.search(r"alimento|comida|restauran|viveres|abarrote|insumo.*restauran|catering|panader|lacteo|carnic", str(k).lower()) for k in kw_include))
                 )
 
@@ -1142,7 +1142,7 @@ class GenerateProspectsUseCase:
 
                 # CIIU Specific Filtering if requested
                 if effective_ciius and len(effective_ciius) > 0:
-                    ciiu_clean = [str(c).upper().strip() for c in effective_ciius]
+                    ciiu_clean = [c.upper().strip() for c in effective_ciius]
                     cand_ciiu = ciiu_obj.code.upper()
                     # Enforce exact match, prefix match, or 3-digit group match (e.g. 463 for food wholesale).
                     # Strictly prohibit 2-digit wildcards on wholesale division 46 or general consulting 70.
