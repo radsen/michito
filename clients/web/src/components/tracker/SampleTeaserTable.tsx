@@ -136,14 +136,18 @@ export const SampleTeaserTable: React.FC<SampleTeaserTableProps> = ({
                 <td>
                   <div>{lead.decision_maker_name || dict.tracker.contactInstitutional}</div>
                   <div className="text-xs text-sky-400">
-                    {lead.decision_maker_role || (lead as any).decision_maker_title || dict.tracker.roleLegalRep}
+                    {lead.decision_maker_role || (lead as any).decision_maker_title || (lead.decision_maker_name ? dict.tracker.roleLegalRep : dict.tracker.contactInstitutional)}
                   </div>
                 </td>
                 <td>
-                  <span className="email-masked-badge">
-                    <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>{lead.email || "c***@empresa.com"}</span>
-                  </span>
+                  {lead.email ? (
+                    <span className="email-masked-badge">
+                      <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{lead.email}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">Directorio Base (Tier 1)</span>
+                  )}
                 </td>
                 <td>
                   <span className="phone-masked-badge">

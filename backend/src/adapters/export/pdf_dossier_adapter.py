@@ -186,6 +186,9 @@ class PdfDossierAdapter:
         now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
         order_tag = f" | Orden: {order_id}" if order_id else ""
 
+        tier_title = "Tier 1 (Directorio Base)" if tier == 1 else ("Tier 3 (Auditoría Completa NIIF)" if tier == 3 else "Tier 2 (Contactos Directos)")
+        deliv_subtitle = "100% Registro Oficial" if tier == 1 else "100% Verificada en Socket MX"
+
         banner_data = [
             [
                 Paragraph(f"<b>MICHITO INTENT ENGINE™</b> — DOSSIER EJECUTIVO", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=8, textColor=colors.HexColor("#0284C7"))),
@@ -196,7 +199,7 @@ class PdfDossierAdapter:
                 "",
             ],
             [
-                Paragraph(f"<b>Mercado Objetivo:</b> {country_display} • <b>Tier:</b> Tier {tier} • <b>Cuentas Calificadas:</b> {len(leads)} • <b>Entregabilidad MX:</b> 100% Verificada", subtitle_style),
+                Paragraph(f"<b>Mercado Objetivo:</b> {country_display} • <b>Nivel:</b> {tier_title} • <b>Cuentas Calificadas:</b> {len(leads)} • <b>Entregabilidad:</b> {deliv_subtitle}", subtitle_style),
                 "",
             ]
         ]
@@ -228,20 +231,36 @@ class PdfDossierAdapter:
                 contracts_val_str = val
                 break
 
-        kpi_data = [
-            [
-                Paragraph("<b>Total Leads</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
-                Paragraph("<b>Entregabilidad</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
-                Paragraph("<b>Señales Activas</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
-                Paragraph("<b>Garantía</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
-            ],
-            [
-                Paragraph(f"<b>{len(leads)}</b> Cuentas", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0F172A"))),
-                Paragraph("<b>100%</b> Socket MX", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#059669"))),
-                Paragraph(f"<b>{contracts_count}</b> Contratos / Exp.", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0284C7"))),
-                Paragraph("<b>2-for-1</b> Fair Replace", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#475569"))),
+        if tier == 1:
+            kpi_data = [
+                [
+                    Paragraph("<b>Total Cuentas</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Registro Mercantil</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Huella Web</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Garantía</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                ],
+                [
+                    Paragraph(f"<b>{len(leads)}</b> Empresas", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0F172A"))),
+                    Paragraph("<b>100%</b> Activo Oficial", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#059669"))),
+                    Paragraph("<b>100%</b> Dominio Auditado", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0284C7"))),
+                    Paragraph("<b>2-for-1</b> Fair Replace", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#475569"))),
+                ]
             ]
-        ]
+        else:
+            kpi_data = [
+                [
+                    Paragraph("<b>Total Leads</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Entregabilidad</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Señales Activas</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                    Paragraph("<b>Garantía</b>", ParagraphStyle("KpiL", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#64748B"))),
+                ],
+                [
+                    Paragraph(f"<b>{len(leads)}</b> Cuentas", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0F172A"))),
+                    Paragraph("<b>100%</b> Socket MX", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#059669"))),
+                    Paragraph(f"<b>{contracts_count}</b> Contratos / Exp.", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#0284C7"))),
+                    Paragraph("<b>2-for-1</b> Fair Replace", ParagraphStyle("KpiV", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#475569"))),
+                ]
+            ]
         kpi_table = Table(kpi_data, colWidths=[135, 135, 135, 135])
         kpi_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
@@ -255,79 +274,115 @@ class PdfDossierAdapter:
         elements.append(Spacer(1, 14))
 
         # 3. Master Summary Table
-        elements.append(Paragraph("Resumen Maestro de Cuentas Calificadas", h2_style))
-        summary_headers = [
-            Paragraph("<b>#</b>", table_cell_bold),
-            Paragraph("<b>Empresa / Razón Social</b>", table_cell_bold),
-            Paragraph("<b>Ciudad</b>", table_cell_bold),
-            Paragraph("<b>Contacto Clave</b>", table_cell_bold),
-            Paragraph("<b>Email Corporativo</b>", table_cell_bold),
-            Paragraph("<b>Teléfono / Canal</b>", table_cell_bold),
-            Paragraph("<b>Señal Detectada</b>", table_cell_bold),
-        ]
-        summary_rows = [summary_headers]
+        table_title = "Resumen Maestro de Directorio Institucional (Tier 1)" if tier == 1 else "Resumen Maestro de Cuentas Calificadas"
+        elements.append(Paragraph(table_title, h2_style))
 
-        for idx, lead in enumerate(leads, start=1):
-            c_name = lead.get("Company Name") or lead.get("clean_name") or lead.get("company_name", "")
-            tax_type = lead.get("Tax ID Type") or lead.get("tax_id_type", "NIT")
-            tax_id = lead.get("Tax ID") or lead.get("nit") or lead.get("tax_id", "")
-            c_tax = f"{tax_type}: {tax_id}" if tax_id else ""
-            rep = (
-                lead.get("Official Registered Contact")
-                or lead.get("Decision Maker Name")
-                or lead.get("decision_maker_name", "")
-            )
-            title = (
-                lead.get("Official Statutory Title")
-                or lead.get("Official Title")
-                or lead.get("decision_maker_title", "")
-            )
-            contracts = lead.get("contracts_data") or {}
-            contracts_won = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
-            contracts_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
-            expansion = lead.get("Trigger 3: Regional Expansion Flag") or lead.get("expansion_flag")
-
-            if expansion and expansion != "Operación Local":
-                signal = expansion
-            elif contracts_won and contracts_won not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
-                entity_short = f" ({contracts_entity[:15]})" if contracts_entity else ""
-                signal = f"Contratos: {contracts_won}{entity_short}"
-            elif contracts.get("intent_level"):
-                signal = contracts.get("intent_level")
-            else:
-                signal = "Operación Activa"
-
-            phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
-            phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
-            wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
-            if wa_url and phone_val:
-                phone_cell = f"<b>{phone_val}</b><br/><font color='#059669'>Móvil / WA Directo</font>"
-            elif phone_val and ("PBX" in phone_type or "Fija" in phone_type):
-                phone_cell = f"<b>{phone_val}</b><br/><font color='#64748B'>Línea PBX</font>"
-            elif phone_val:
-                phone_cell = f"<b>{phone_val}</b>"
-            else:
-                phone_cell = "<font color='#94A3B8'>Línea institucional</font>"
-
-            rep_clean = rep if rep else "Representante Registrado"
-            title_clean = f"<br/><font color='#64748B'>{title[:25]}</font>" if title else ""
-            city_clean = lead.get("City") or lead.get("city") or "Sede Principal"
-            email_val = lead.get("Verified Work Email") or lead.get("email") or lead.get("verified_email")
-            email_clean = email_val if email_val else "<font color='#94A3B8'>No provisto</font>"
-            tax_clean = f"<br/><font color='#64748B'>{c_tax}</font>" if c_tax else ""
-
-            row = [
-                Paragraph(str(idx), table_cell_style),
-                Paragraph(f"<b>{c_name}</b>{tax_clean}", table_cell_style),
-                Paragraph(city_clean, table_cell_style),
-                Paragraph(f"<b>{rep_clean}</b>{title_clean}", table_cell_style),
-                Paragraph(email_clean, table_cell_style),
-                Paragraph(phone_cell, table_cell_style),
-                Paragraph(f"<font color='#0284C7'>{signal}</font>", table_cell_style),
+        if tier == 1:
+            summary_headers = [
+                Paragraph("<b>#</b>", table_cell_bold),
+                Paragraph("<b>Empresa / Razón Social</b>", table_cell_bold),
+                Paragraph("<b>Identificación</b>", table_cell_bold),
+                Paragraph("<b>Actividad Económica</b>", table_cell_bold),
+                Paragraph("<b>Ciudad</b>", table_cell_bold),
+                Paragraph("<b>Teléfono Centralita</b>", table_cell_bold),
+                Paragraph("<b>Sitio Web</b>", table_cell_bold),
             ]
-            summary_rows.append(row)
+            summary_rows = [summary_headers]
+            for idx, lead in enumerate(leads, start=1):
+                c_name = lead.get("Company Name") or lead.get("clean_name") or lead.get("company_name", "")
+                tax_type = lead.get("Tax ID Type") or lead.get("tax_id_type", "NIT")
+                tax_id = lead.get("Tax ID") or lead.get("nit") or lead.get("tax_id", "")
+                c_tax = f"{tax_type}: {tax_id}" if tax_id else ""
+                activity = lead.get("Economic Activity") or lead.get("Sector Macro") or lead.get("activity_description", "")
+                city_clean = lead.get("City") or lead.get("city") or "Sede Principal"
+                phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+                website = lead.get("Website") or lead.get("website_url") or ""
+                web_clean = website[:25] if website else "<font color='#94A3B8'>En auditoría</font>"
 
-        summary_table = Table(summary_rows, colWidths=[20, 110, 55, 95, 105, 75, 80])
+                row = [
+                    Paragraph(str(idx), table_cell_style),
+                    Paragraph(f"<b>{c_name}</b>", table_cell_style),
+                    Paragraph(c_tax, table_cell_style),
+                    Paragraph(activity[:35] if activity else "Comercial B2B", table_cell_style),
+                    Paragraph(city_clean, table_cell_style),
+                    Paragraph(f"<b>{phone_val}</b>" if phone_val else "<font color='#94A3B8'>Línea PBX</font>", table_cell_style),
+                    Paragraph(web_clean, table_cell_style),
+                ]
+                summary_rows.append(row)
+            summary_table = Table(summary_rows, colWidths=[20, 125, 75, 115, 60, 75, 70])
+        else:
+            summary_headers = [
+                Paragraph("<b>#</b>", table_cell_bold),
+                Paragraph("<b>Empresa / Razón Social</b>", table_cell_bold),
+                Paragraph("<b>Ciudad</b>", table_cell_bold),
+                Paragraph("<b>Contacto Clave</b>", table_cell_bold),
+                Paragraph("<b>Email Corporativo</b>", table_cell_bold),
+                Paragraph("<b>Teléfono / Canal</b>", table_cell_bold),
+                Paragraph("<b>Señal Detectada</b>", table_cell_bold),
+            ]
+            summary_rows = [summary_headers]
+
+            for idx, lead in enumerate(leads, start=1):
+                c_name = lead.get("Company Name") or lead.get("clean_name") or lead.get("company_name", "")
+                tax_type = lead.get("Tax ID Type") or lead.get("tax_id_type", "NIT")
+                tax_id = lead.get("Tax ID") or lead.get("nit") or lead.get("tax_id", "")
+                c_tax = f"{tax_type}: {tax_id}" if tax_id else ""
+                rep = (
+                    lead.get("Official Registered Contact")
+                    or lead.get("Decision Maker Name")
+                    or lead.get("decision_maker_name", "")
+                )
+                title = (
+                    lead.get("Official Statutory Title")
+                    or lead.get("Official Title")
+                    or lead.get("decision_maker_title", "")
+                )
+                contracts = lead.get("contracts_data") or {}
+                contracts_won = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
+                contracts_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
+                expansion = lead.get("Trigger 3: Regional Expansion Flag") or lead.get("expansion_flag")
+
+                if expansion and expansion != "Operación Local":
+                    signal = expansion
+                elif contracts_won and contracts_won not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
+                    entity_short = f" ({contracts_entity[:15]})" if contracts_entity else ""
+                    signal = f"Contratos: {contracts_won}{entity_short}"
+                elif contracts.get("intent_level"):
+                    signal = contracts.get("intent_level")
+                else:
+                    signal = "Operación Activa"
+
+                phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
+                phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
+                wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
+                if wa_url and phone_val:
+                    phone_cell = f"<b>{phone_val}</b><br/><font color='#059669'>Móvil / WA Directo</font>"
+                elif phone_val and ("PBX" in phone_type or "Fija" in phone_type):
+                    phone_cell = f"<b>{phone_val}</b><br/><font color='#64748B'>Línea PBX</font>"
+                elif phone_val:
+                    phone_cell = f"<b>{phone_val}</b>"
+                else:
+                    phone_cell = "<font color='#94A3B8'>Línea institucional</font>"
+
+                rep_clean = rep if rep else "Representante Registrado"
+                title_clean = f"<br/><font color='#64748B'>{title[:25]}</font>" if title else ""
+                city_clean = lead.get("City") or lead.get("city") or "Sede Principal"
+                email_val = lead.get("Verified Work Email") or lead.get("email") or lead.get("verified_email")
+                email_clean = email_val if email_val else "<font color='#94A3B8'>No provisto</font>"
+                tax_clean = f"<br/><font color='#64748B'>{c_tax}</font>" if c_tax else ""
+
+                row = [
+                    Paragraph(str(idx), table_cell_style),
+                    Paragraph(f"<b>{c_name}</b>{tax_clean}", table_cell_style),
+                    Paragraph(city_clean, table_cell_style),
+                    Paragraph(f"<b>{rep_clean}</b>{title_clean}", table_cell_style),
+                    Paragraph(email_clean, table_cell_style),
+                    Paragraph(phone_cell, table_cell_style),
+                    Paragraph(f"<font color='#0284C7'>{signal}</font>", table_cell_style),
+                ]
+                summary_rows.append(row)
+
+            summary_table = Table(summary_rows, colWidths=[20, 110, 55, 95, 105, 75, 80])
         summary_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E293B")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -447,80 +502,90 @@ class PdfDossierAdapter:
             id_text = " • ".join(id_parts)
             profile_elements.append(Paragraph(id_text, body_style))
 
-            # Contact Strip
-            phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
-            phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
-            wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
-            wa_badge = " (Móvil / WhatsApp)" if wa_url else (f" ({phone_type})" if phone_type else "")
-            target_persona = lead.get("Targeted Campaign Persona") or lead.get("targeted_campaign_persona", "")
-            persona_badge = f" • <b>Objetivo Campaña:</b> {target_persona}" if target_persona else ""
-            rep_clean = rep_name or "Representante Registrado"
-            rep_title_clean = f" ({rep_title})" if rep_title else ""
-            email_clean = f"<font color='#0284C7'>{email}</font>" if email else "<font color='#94A3B8'>No provisto</font>"
-            phone_clean = f"<b>{phone_val}</b>{wa_badge}" if phone_val else "<font color='#94A3B8'>Línea institucional</font>"
-            contact_text = f"<b>Firmante Registrado:</b> <b>{rep_clean}</b>{rep_title_clean}{persona_badge} • <b>Email:</b> {email_clean} • <b>Teléfono:</b> {phone_clean}"
-            profile_elements.append(Paragraph(contact_text, body_style))
-
-            # Triggers Strip
-            trig_contracts = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
-            trig_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
-            trig_intent = lead.get("Trigger 1: Intent Score") or contracts.get("intent_level") or "Activo"
-            if trig_contracts and trig_contracts not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
-                trig_text = f"<b>Trigger 1 (Contratos Ganados):</b> <font color='#059669'><b>{trig_contracts}</b></font> — {trig_entity} (<i>{trig_intent}</i>)"
-                profile_elements.append(Paragraph(trig_text, body_style))
-            elif lead.get("Trigger 3: Regional Expansion Flag") and lead.get("Trigger 3: Regional Expansion Flag") != "Operación Local":
-                trig_text = f"<b>Trigger Comercial:</b> <font color='#0284C7'><b>{lead.get('Trigger 3: Regional Expansion Flag')}</b></font>"
-                profile_elements.append(Paragraph(trig_text, body_style))
-
-            # Underwriting Strip (Tier 3)
-            if tier == 3:
-                uw = lead.get("underwriting") or {}
-                uw_grade = lead.get("Underwriting Grade") or uw.get("underwriting_grade")
-                solv_tier = lead.get("Solvency: Tier") or lead.get("Solvency Tier") or uw.get("solvency_tier")
-                lit_risk = lead.get("Legal Risk: Litigation Status") or lead.get("Litigation Risk") or uw.get("litigation_risk_status")
-                if uw_grade or solv_tier:
-                    uw_text = f"<b>Suscripción NIIF:</b> Calificación: <b>{uw_grade or 'A'}</b> | Solvencia: <b>Tier {solv_tier or 'Solvente'}</b> | Semáforo Legal: <b>{lit_risk or 'Bajo Riesgo'}</b>"
-                    profile_elements.append(Paragraph(uw_text, body_style))
-
-            profile_elements.append(Spacer(1, 4))
-
-            # Cadence Callout Box (Only render non-empty touches)
-            cadence_rows = []
-            if t1 and len(t1.strip()) > 5:
-                cadence_rows.append([Paragraph("<b>Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)])
-                cadence_rows.append([Paragraph(t1.replace('\n', ' '), cadence_body_style)])
-            if t2_body and len(t2_body.strip()) > 5:
-                sub_txt = f" — Asunto: <i>{t2_sub}</i>" if t2_sub else ""
-                cadence_rows.append([Paragraph(f"<b>Touch 2: Cold Email (Día 1){sub_txt}</b>", cadence_header_style)])
-                cadence_rows.append([Paragraph(t2_body.replace('\n', '<br/>'), cadence_body_style)])
-            if t3_body and len(t3_body.strip()) > 5:
-                sub_txt = f" — Asunto: <i>{t3_sub}</i>" if t3_sub else ""
-                cadence_rows.append([Paragraph(f"<b>Touch 3: Seguimiento Operativo (Día 4){sub_txt}</b>", cadence_header_style)])
-                cadence_rows.append([Paragraph(t3_body.replace('\n', '<br/>'), cadence_body_style)])
-            if t4_body and len(t4_body.strip()) > 5:
-                sub_txt = f" — Asunto: <i>{t4_sub}</i>" if t4_sub else ""
-                cadence_rows.append([Paragraph(f"<b>Touch 4: Prueba Social / VIP (Día 8){sub_txt}</b>", cadence_header_style)])
-                cadence_rows.append([Paragraph(t4_body.replace('\n', '<br/>'), cadence_body_style)])
-            if t5_body and len(t5_body.strip()) > 5:
-                sub_txt = f" — Asunto: <i>{t5_sub}</i>" if t5_sub else ""
-                cadence_rows.append([Paragraph(f"<b>Touch 5: Cierre / Catálogo (Día 14){sub_txt}</b>", cadence_header_style)])
-                cadence_rows.append([Paragraph(t5_body.replace('\n', '<br/>'), cadence_body_style)])
-
-            if cadence_rows:
-                cadence_table = Table(cadence_rows, colWidths=[540])
-                table_styles = [
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ]
-                for r_idx in range(len(cadence_rows) - 1):
-                    table_styles.append(("LINEBELOW", (0, r_idx), (-1, r_idx), 0.5, colors.HexColor("#E2E8F0")))
-                cadence_table.setStyle(TableStyle(table_styles))
-                profile_elements.append(cadence_table)
+            if tier == 1:
+                # Institutional Strip (Directorio Base)
+                phone_val = lead.get("Corporate Phone") or lead.get("phone", "")
+                addr = lead.get("Address") or lead.get("address", "")
+                addr_txt = f" • <b>Dirección:</b> {addr}" if addr else ""
+                phone_clean = f"<b>{phone_val}</b>" if phone_val else "<font color='#94A3B8'>Línea PBX</font>"
+                inst_text = f"<b>Teléfono Centralita:</b> {phone_clean}{addr_txt}"
+                profile_elements.append(Paragraph(inst_text, body_style))
                 profile_elements.append(Spacer(1, 10))
+            else:
+                # Contact Strip (Tier 2 & 3)
+                phone_val = lead.get("Corporate Phone") or lead.get("Direct Mobile Phone") or lead.get("phone", "")
+                phone_type = lead.get("Phone Line Type") or lead.get("phone_line_type", "")
+                wa_url = lead.get("WhatsApp Direct Link") or lead.get("whatsapp_url", "")
+                wa_badge = " (Móvil / WhatsApp)" if wa_url else (f" ({phone_type})" if phone_type else "")
+                target_persona = lead.get("Targeted Campaign Persona") or lead.get("targeted_campaign_persona", "")
+                persona_badge = f" • <b>Objetivo Campaña:</b> {target_persona}" if target_persona else ""
+                rep_clean = rep_name or "Representante Registrado"
+                rep_title_clean = f" ({rep_title})" if rep_title else ""
+                email_clean = f"<font color='#0284C7'>{email}</font>" if email else "<font color='#94A3B8'>No provisto</font>"
+                phone_clean = f"<b>{phone_val}</b>{wa_badge}" if phone_val else "<font color='#94A3B8'>Línea institucional</font>"
+                contact_text = f"<b>Firmante Registrado:</b> <b>{rep_clean}</b>{rep_title_clean}{persona_badge} • <b>Email:</b> {email_clean} • <b>Teléfono:</b> {phone_clean}"
+                profile_elements.append(Paragraph(contact_text, body_style))
+
+                # Triggers Strip
+                trig_contracts = lead.get("Trigger 1: Total Contracts Won") or contracts.get("total_value_display")
+                trig_entity = lead.get("Trigger 1: Top Contracting Entity") or contracts.get("top_contract_entity")
+                trig_intent = lead.get("Trigger 1: Intent Score") or contracts.get("intent_level") or "Activo"
+                if trig_contracts and trig_contracts not in ("$0 COP", "$0 USD", "$0 DOP", "0", ""):
+                    trig_text = f"<b>Trigger 1 (Contratos Ganados):</b> <font color='#059669'><b>{trig_contracts}</b></font> — {trig_entity} (<i>{trig_intent}</i>)"
+                    profile_elements.append(Paragraph(trig_text, body_style))
+                elif lead.get("Trigger 3: Regional Expansion Flag") and lead.get("Trigger 3: Regional Expansion Flag") != "Operación Local":
+                    trig_text = f"<b>Trigger Comercial:</b> <font color='#0284C7'><b>{lead.get('Trigger 3: Regional Expansion Flag')}</b></font>"
+                    profile_elements.append(Paragraph(trig_text, body_style))
+
+                # Underwriting Strip (Tier 3)
+                if tier == 3:
+                    uw = lead.get("underwriting") or {}
+                    uw_grade = lead.get("Underwriting Grade") or uw.get("underwriting_grade")
+                    solv_tier = lead.get("Solvency: Tier") or lead.get("Solvency Tier") or uw.get("solvency_tier")
+                    lit_risk = lead.get("Legal Risk: Litigation Status") or lead.get("Litigation Risk") or uw.get("litigation_risk_status")
+                    if uw_grade or solv_tier:
+                        uw_text = f"<b>Suscripción NIIF:</b> Calificación: <b>{uw_grade or 'A'}</b> | Solvencia: <b>Tier {solv_tier or 'Solvente'}</b> | Semáforo Legal: <b>{lit_risk or 'Bajo Riesgo'}</b>"
+                        profile_elements.append(Paragraph(uw_text, body_style))
+
+                profile_elements.append(Spacer(1, 4))
+
+                # Cadence Callout Box (Only render non-empty touches)
+                cadence_rows = []
+                if t1 and len(t1.strip()) > 5:
+                    cadence_rows.append([Paragraph("<b>Touch 1: LinkedIn Note (<300 car.)</b>", cadence_header_style)])
+                    cadence_rows.append([Paragraph(t1.replace('\n', ' '), cadence_body_style)])
+                if t2_body and len(t2_body.strip()) > 5:
+                    sub_txt = f" — Asunto: <i>{t2_sub}</i>" if t2_sub else ""
+                    cadence_rows.append([Paragraph(f"<b>Touch 2: Cold Email (Día 1){sub_txt}</b>", cadence_header_style)])
+                    cadence_rows.append([Paragraph(t2_body.replace('\n', '<br/>'), cadence_body_style)])
+                if t3_body and len(t3_body.strip()) > 5:
+                    sub_txt = f" — Asunto: <i>{t3_sub}</i>" if t3_sub else ""
+                    cadence_rows.append([Paragraph(f"<b>Touch 3: Seguimiento Operativo (Día 4){sub_txt}</b>", cadence_header_style)])
+                    cadence_rows.append([Paragraph(t3_body.replace('\n', '<br/>'), cadence_body_style)])
+                if t4_body and len(t4_body.strip()) > 5:
+                    sub_txt = f" — Asunto: <i>{t4_sub}</i>" if t4_sub else ""
+                    cadence_rows.append([Paragraph(f"<b>Touch 4: Prueba Social / VIP (Día 8){sub_txt}</b>", cadence_header_style)])
+                    cadence_rows.append([Paragraph(t4_body.replace('\n', '<br/>'), cadence_body_style)])
+                if t5_body and len(t5_body.strip()) > 5:
+                    sub_txt = f" — Asunto: <i>{t5_sub}</i>" if t5_sub else ""
+                    cadence_rows.append([Paragraph(f"<b>Touch 5: Cierre / Catálogo (Día 14){sub_txt}</b>", cadence_header_style)])
+                    cadence_rows.append([Paragraph(t5_body.replace('\n', '<br/>'), cadence_body_style)])
+
+                if cadence_rows:
+                    cadence_table = Table(cadence_rows, colWidths=[540])
+                    table_styles = [
+                        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+                        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ]
+                    for r_idx in range(len(cadence_rows) - 1):
+                        table_styles.append(("LINEBELOW", (0, r_idx), (-1, r_idx), 0.5, colors.HexColor("#E2E8F0")))
+                    cadence_table.setStyle(TableStyle(table_styles))
+                    profile_elements.append(cadence_table)
+                    profile_elements.append(Spacer(1, 10))
 
             # Keep individual account blocks together on the page when possible
             elements.append(KeepTogether(profile_elements))

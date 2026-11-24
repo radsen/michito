@@ -1315,44 +1315,49 @@ class GenerateProspectsUseCase:
                 "Address": lead["address"],
                 "Website": lead["website_url"],
                 "Website Audit Status": lead["website_audit_status"],
-                "Official Registered Contact": lead["decision_maker_name"],
-                "Official Statutory Title": lead["decision_maker_title"],
-                "Contact Category": lead.get("decision_maker_category", "Representante Legal Estatutario (RUES / SECOP)"),
-                "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
-                "Decision Maker Name": lead["decision_maker_name"],  # Backward-compatible alias
-                "Official Title": lead["decision_maker_title"],  # Backward-compatible alias
-                "Verified Work Email": lead["email"],
                 "Corporate Phone": lead["phone"],
-                "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
-                "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
-                "Direct Mobile Phone": lead["phone"],  # Backward-compatible alias
-                "Mail Server (MX)": lead["mx_host"],
-                "Trigger 1: Total Contracts Won": contracts["total_value_display"],
-                "Trigger 1: Currency": lead_curr,
-                "Trigger 1: Top Contracting Entity": contracts["top_contract_entity"],
-                "Trigger 1: Top Contract Object": contracts["top_contract_object"],
-                "Trigger 1: Intent Score": contracts["intent_level"],
-                "Trigger 2: Hiring X-Ray Search URL": lead["hiring_xray_url"],
-                "Trigger 3: Regional Expansion Flag": lead["expansion_flag"],
-                "LinkedIn X-Ray URL": lead["linkedin_xray_url"],
-                "Recommended Angle": recommended_angle,
-                "Touch 1: LinkedIn Connection Note": t1,
-                "Touch 2: Cold Email Subject": t2_sub,
-                "Touch 2: Cold Email Body": t2_body,
-                "Touch 3: Operational Follow-up Subject": t3_sub,
-                "Touch 3: Operational Follow-up Body": t3_body,
-                "Touch 4: Social Proof / VIP Subject": t4_sub,
-                "Touch 4: Social Proof / VIP Body": t4_body,
-                "Touch 5: Breakup / Catalog Subject": t5_sub,
-                "Touch 5: Breakup / Catalog Body": t5_body,
             }
+
+            if tier >= 2:
+                row.update({
+                    "Official Registered Contact": lead["decision_maker_name"],
+                    "Official Statutory Title": lead["decision_maker_title"],
+                    "Contact Category": lead.get("decision_maker_category", "Representante Legal Estatutario (RUES / SECOP)"),
+                    "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
+                    "Decision Maker Name": lead["decision_maker_name"],  # Backward-compatible alias
+                    "Official Title": lead["decision_maker_title"],  # Backward-compatible alias
+                    "Verified Work Email": lead["email"],
+                    "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
+                    "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
+                    "Direct Mobile Phone": lead["phone"],  # Backward-compatible alias
+                    "Mail Server (MX)": lead["mx_host"],
+                    "Trigger 1: Total Contracts Won": contracts["total_value_display"],
+                    "Trigger 1: Currency": lead_curr,
+                    "Trigger 1: Top Contracting Entity": contracts["top_contract_entity"],
+                    "Trigger 1: Top Contract Object": contracts["top_contract_object"],
+                    "Trigger 1: Intent Score": contracts["intent_level"],
+                    "Trigger 2: Hiring X-Ray Search URL": lead["hiring_xray_url"],
+                    "Trigger 3: Regional Expansion Flag": lead["expansion_flag"],
+                    "LinkedIn X-Ray URL": lead["linkedin_xray_url"],
+                    "Recommended Angle": recommended_angle,
+                    "Touch 1: LinkedIn Connection Note": t1,
+                    "Touch 2: Cold Email Subject": t2_sub,
+                    "Touch 2: Cold Email Body": t2_body,
+                    "Touch 3: Operational Follow-up Subject": t3_sub,
+                    "Touch 3: Operational Follow-up Body": t3_body,
+                    "Touch 4: Social Proof / VIP Subject": t4_sub,
+                    "Touch 4: Social Proof / VIP Body": t4_body,
+                    "Touch 5: Breakup / Catalog Subject": t5_sub,
+                    "Touch 5: Breakup / Catalog Body": t5_body,
+                })
 
             # Backward-compatible country-specific regulatory tax header
             row[tax_id_header] = lead["nit"]
             row[code_header] = ciiu.code
             row[activity_header] = ciiu.description
             row[size_header] = lead["segment_name"]
-            row[contracts_header] = contracts["total_value_display"]
+            if tier >= 2:
+                row[contracts_header] = contracts["total_value_display"]
             if lead_c == "CO" and "NIT" not in row:
                 row["NIT"] = lead["nit"]
             elif lead_c == "DO" and "RNC" not in row:
@@ -1385,6 +1390,7 @@ class GenerateProspectsUseCase:
             else:
                 trigger_summary = "Operación Corporativa Activa (Crecimiento Privado)"
 
+            # Strict Tier-Based Gating for Deliverables (prospects.xlsx & prospects.csv)
             crm_row = {
                 "Index": idx,
                 "Company Name": lead["company_name"],
@@ -1392,77 +1398,90 @@ class GenerateProspectsUseCase:
                 "City": lead["city"],
                 "Department": lead.get("department", ""),
                 "Country": lead.get("country_name", "Colombia"),
+                "Address": lead.get("address", ""),
                 "Sector Macro": ciiu.sector_macro,
                 "Economic Activity": ciiu.description,
                 "Activity Code": ciiu.code,
                 "Company Size": lead["segment_name"],
-                "Official Registered Contact": lead["decision_maker_name"],
-                "Official Statutory Title": lead["decision_maker_title"],
-                "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
-                "Decision Maker Name": lead["decision_maker_name"],  # Backward compatibility
-                "Official Title": lead["decision_maker_title"],  # Backward compatibility
-                "Verified Work Email": lead["email"],
                 "Corporate Phone": lead["phone"],
-                "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
-                "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
-                "Direct Mobile Phone": lead["phone"],  # Backward compatibility
                 "Website": lead["website_url"],
-                "Commercial Trigger": trigger_summary,
-                "Recommended Angle": recommended_angle,
+                "Verification Status": "Existencia Legal & Huella Web Verificada",
             }
+
+            if tier >= 2:
+                crm_row.update({
+                    "Official Registered Contact": lead["decision_maker_name"],
+                    "Official Statutory Title": lead["decision_maker_title"],
+                    "Targeted Campaign Persona": lead.get("targeted_campaign_persona", "Dirección General"),
+                    "Decision Maker Name": lead["decision_maker_name"],  # Backward compatibility
+                    "Official Title": lead["decision_maker_title"],  # Backward compatibility
+                    "Verified Work Email": lead["email"],
+                    "Phone Line Type": lead.get("phone_line_type", "Línea Corporativa"),
+                    "WhatsApp Direct Link": lead.get("whatsapp_url", ""),
+                    "Direct Mobile Phone": lead["phone"],  # Backward compatibility
+                    "Commercial Trigger": trigger_summary,
+                    "Recommended Angle": recommended_angle,
+                })
+
             if tier == 3 and lead.get("underwriting"):
                 uw = lead["underwriting"]
-                crm_row["Underwriting Grade"] = uw.get("underwriting_grade", "A")
-                crm_row["Solvency Tier"] = uw.get("solvency_tier", "Solvente")
-                crm_row["Litigation Risk"] = uw.get("litigation_risk_status", "Clean")
+                crm_row.update({
+                    "Underwriting Grade": uw.get("underwriting_grade", "A"),
+                    "Solvency Tier": uw.get("solvency_tier", "Solvente"),
+                    "Litigation Risk": uw.get("litigation_risk_status", "Clean"),
+                    "Estimated EBITDA (COP)": float(uw.get("ebitda", 0)),
+                    "EBITDA Margin (%)": round(float(getattr(uw.get("ebitda_margin"), "value", 0) * 100), 2) if hasattr(uw.get("ebitda_margin"), "value") else float(uw.get("ebitda_margin", 0)),
+                    "Credit Recommendation": uw.get("credit_recommendation", "Aprobado Términos Estándar"),
+                })
 
             crm_rows.append(crm_row)
 
-            # Structured Playbook Cadence for Interactive Web SDR UI
-            playbook_cadences.append({
-                "index": idx,
-                "company_name": lead["company_name"],
-                "clean_name": clean_name,
-                "tax_id": lead["nit"],
-                "tax_id_type": lead_tax,
-                "country": lead_c,
-                "city": lead["city"],
-                "website": lead["website_url"],
-                "decision_maker_name": lead["decision_maker_name"],
-                "decision_maker_title": lead["decision_maker_title"],
-                "targeted_campaign_persona": lead.get("targeted_campaign_persona", "Dirección General"),
-                "email": lead["email"],
-                "phone": lead["phone"],
-                "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
-                "is_mobile": lead.get("is_mobile", False),
-                "whatsapp_url": lead.get("whatsapp_url", ""),
-                "recommended_angle": recommended_angle,
-                "touches": {
-                    "touch1_linkedin": t1,
-                    "touch2_email": {
-                        "subject": t2_sub,
-                        "body": t2_body,
+            # Structured Playbook Cadence for Interactive Web SDR UI (Gated to Tier 2 and Tier 3)
+            if tier >= 2:
+                playbook_cadences.append({
+                    "index": idx,
+                    "company_name": lead["company_name"],
+                    "clean_name": clean_name,
+                    "tax_id": lead["nit"],
+                    "tax_id_type": lead_tax,
+                    "country": lead_c,
+                    "city": lead["city"],
+                    "website": lead["website_url"],
+                    "decision_maker_name": lead["decision_maker_name"],
+                    "decision_maker_title": lead["decision_maker_title"],
+                    "targeted_campaign_persona": lead.get("targeted_campaign_persona", "Dirección General"),
+                    "email": lead["email"],
+                    "phone": lead["phone"],
+                    "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
+                    "is_mobile": lead.get("is_mobile", False),
+                    "whatsapp_url": lead.get("whatsapp_url", ""),
+                    "recommended_angle": recommended_angle,
+                    "touches": {
+                        "touch1_linkedin": t1,
+                        "touch2_email": {
+                            "subject": t2_sub,
+                            "body": t2_body,
+                        },
+                        "touch3_followup": {
+                            "subject": t3_sub,
+                            "body": t3_body,
+                        },
+                        "touch4_social_proof": {
+                            "subject": t4_sub,
+                            "body": t4_body,
+                        },
+                        "touch5_breakup": {
+                            "subject": t5_sub,
+                            "body": t5_body,
+                        },
                     },
-                    "touch3_followup": {
-                        "subject": t3_sub,
-                        "body": t3_body,
-                    },
-                    "touch4_social_proof": {
-                        "subject": t4_sub,
-                        "body": t4_body,
-                    },
-                    "touch5_breakup": {
-                        "subject": t5_sub,
-                        "body": t5_body,
-                    },
-                },
-                "triggers": {
-                    "contracts_won": contracts["total_value_display"],
-                    "entity": contracts["top_contract_entity"],
-                    "intent": contracts["intent_level"],
-                    "expansion": lead["expansion_flag"],
-                }
-            })
+                    "triggers": {
+                        "contracts_won": contracts["total_value_display"],
+                        "entity": contracts["top_contract_entity"],
+                        "intent": contracts["intent_level"],
+                        "expansion": lead["expansion_flag"],
+                    }
+                })
 
             # Record in persistent ledger if not dry-run
             if not dry_run:
@@ -1557,89 +1576,121 @@ class GenerateProspectsUseCase:
             md_content = []
             md_content.append(f"# {country_flag} {country_name_title} B2B Qualified Prospect Batch — {campaign_name}")
             md_content.append(f"**Campaign ID:** `{campaign_id}` | **Date:** {now.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-            md_content.append(f"**Total Qualified Accounts:** {len(csv_rows)} | **Batch Directory:** `{batch_dir}`")
+            md_content.append(f"**Tier:** Tier {tier} ({'Directorio Base' if tier == 1 else 'Contactos Directos' if tier == 2 else 'Auditoría Completa NIIF'}) | **Total Qualified Accounts:** {len(csv_rows)}")
             md_content.append(f"*{ground_truth_desc}*\n")
             md_content.append("---")
-            md_content.append("\n## [PROFILE] Master Qualification Table with Expansion Intent Triggers\n")
-            md_content.append(
-                f"| # | Country | Company Name | Activity & Macro Sector | City | Decision Maker | Email & Phone | Website | Contracts Won (Trigger 1) | Expansion Flag (Trigger 3) |"
-            )
-            md_content.append(
-                "| :-: | :---: | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :--- |"
-            )
 
-            for r in csv_rows:
-                c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
-                web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
-                phone_cell = f"`{r['Corporate Phone']}`"
-                if r.get('WhatsApp Direct Link'):
-                    phone_cell += "<br><small>Móvil / WhatsApp</small>"
-                elif r.get('Phone Line Type'):
-                    phone_cell += f"<br><small>{r['Phone Line Type']}</small>"
-
+            if tier == 1:
+                md_content.append("\n## [DIRECTORIO BASE] Master Institutional Directory\n")
                 md_content.append(
-                    f"| {r['Index']} | {c_icon} `{r['Country']}` | **{r['Company Name']}**<br><small>{r['Tax ID Type']}: {r['Tax ID']}</small> | "
-                    f"**{r['Activity Code']}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
-                    f"**{r['Official Registered Contact']}**<br><small>{r['Official Statutory Title']}</small> | "
-                    f"`{r['Verified Work Email']}`<br>{phone_cell} | "
-                    f"{web_display} | **{r['Trigger 1: Total Contracts Won']}**<br><small>{r['Trigger 1: Top Contracting Entity'][:30]}</small> | "
-                    f"<small>{r['Trigger 3: Regional Expansion Flag']}</small> |"
+                    "| # | Country | Company Name | Activity & Macro Sector | City | Corporate Phone | Address | Website | Company Size |"
+                )
+                md_content.append(
+                    "| :-: | :---: | :--- | :--- | :---: | :--- | :--- | :--- | :---: |"
+                )
+                for r in csv_rows:
+                    c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
+                    web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                    phone_cell = f"`{r['Corporate Phone']}`"
+                    md_content.append(
+                        f"| {r['Index']} | {c_icon} `{r['Country']}` | **{r['Company Name']}**<br><small>{r['Tax ID Type']}: {r['Tax ID']}</small> | "
+                        f"**{r['Activity Code']}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
+                        f"{phone_cell} | {r.get('Address', '')} | {web_display} | {r.get('Company Size', '')} |"
+                    )
+
+                md_content.append("\n---\n")
+                md_content.append("## Detailed Institutional Profiles (Directorio Base)\n")
+                for r in csv_rows:
+                    c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
+                    web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                    md_content.append(f"### {r['Index']}. {c_icon} {r['Company Name']} ({r['City']}, {r['Country Name']})")
+                    md_content.append(f"* **Actividad Económica**: **{r['Activity Code']}** — {r['Economic Activity']}")
+                    md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r['Company Size']} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
+                    md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
+                    md_content.append(f"* **Teléfono Institucional (Centralita)**: `{r['Corporate Phone']}`")
+                    md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{r['Tax ID Type']}**: `{r['Tax ID']}`")
+                    md_content.append("---\n")
+            else:
+                md_content.append("\n## [PROFILE] Master Qualification Table with Expansion Intent Triggers\n")
+                md_content.append(
+                    f"| # | Country | Company Name | Activity & Macro Sector | City | Decision Maker | Email & Phone | Website | Contracts Won (Trigger 1) | Expansion Flag (Trigger 3) |"
+                )
+                md_content.append(
+                    "| :-: | :---: | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :--- |"
                 )
 
-            md_content.append("\n---\n")
-            md_content.append("## Detailed Profiles & 5-Touch Cadence\n")
+                for r in csv_rows:
+                    c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
+                    web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                    phone_cell = f"`{r['Corporate Phone']}`"
+                    if r.get('WhatsApp Direct Link'):
+                        phone_cell += "<br><small>Móvil / WhatsApp</small>"
+                    elif r.get('Phone Line Type'):
+                        phone_cell += f"<br><small>{r['Phone Line Type']}</small>"
 
-            for r in csv_rows:
-                c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
-                web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
-                wa_link = f" • [WhatsApp Directo]({r['WhatsApp Direct Link']})" if r.get('WhatsApp Direct Link') else ""
-                md_content.append(f"### {r['Index']}. {c_icon} {r['Company Name']} ({r['City']}, {r['Country Name']})")
-                md_content.append(f"* **Actividad Económica**: **{r['Activity Code']}** — {r['Economic Activity']}")
-                md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r['Company Size']} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
-                md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
-                md_content.append(f"* **Firmante Estatutario Registrado**: **{r['Official Registered Contact']}** ({r['Official Statutory Title']})")
-                md_content.append(f"* **Persona Objetivo de Campaña**: **{r['Targeted Campaign Persona']}**")
-                md_content.append(f"* **Email Corporativo**: `{r['Verified Work Email']}` | **Teléfono ({r['Phone Line Type']})**: `{r['Corporate Phone']}`{wa_link} | **Servidor MX**: `{r['Mail Server (MX)']}`")
-                md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{r['Tax ID Type']}**: `{r['Tax ID']}`")
-                md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r['Trigger 1: Total Contracts Won']}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
-                if r['Trigger 1: Top Contract Object']:
-                    md_content.append(f"  * *Objeto*: {r['Trigger 1: Top Contract Object']}")
-                md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [ Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
-                md_content.append(f"* **Trigger 3 (Expansión)**: {r['Trigger 3: Regional Expansion Flag']}")
-                md_content.append(f"* [ Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
+                    md_content.append(
+                        f"| {r['Index']} | {c_icon} `{r['Country']}` | **{r['Company Name']}**<br><small>{r['Tax ID Type']}: {r['Tax ID']}</small> | "
+                        f"**{r['Activity Code']}**<br><small>{r['Sector Macro']}</small> | {r['City']} | "
+                        f"**{r['Official Registered Contact']}**<br><small>{r['Official Statutory Title']}</small> | "
+                        f"`{r['Verified Work Email']}`<br>{phone_cell} | "
+                        f"{web_display} | **{r['Trigger 1: Total Contracts Won']}**<br><small>{r['Trigger 1: Top Contracting Entity'][:30]}</small> | "
+                        f"<small>{r['Trigger 3: Regional Expansion Flag']}</small> |"
+                    )
 
-                md_content.append("#### Touch 1: LinkedIn Connection Note (<300 chars)")
-                md_content.append(f"> \"{r['Touch 1: LinkedIn Connection Note']}\"\n")
+                md_content.append("\n---\n")
+                md_content.append("## Detailed Profiles & 5-Touch Cadence\n")
 
-                md_content.append(f"#### Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
-                md_content.append("```text")
-                md_content.append(r["Touch 2: Cold Email Body"])
-                md_content.append("```\n")
+                for r in csv_rows:
+                    c_icon = "🇪🇨" if r['Country'] == "EC" else ("🇩🇴" if r['Country'] == "DO" else "🇨🇴")
+                    web_display = f"[{r['Website']}]({r['Website']})" if r['Website'].startswith("http") else r['Website']
+                    wa_link = f" • [WhatsApp Directo]({r['WhatsApp Direct Link']})" if r.get('WhatsApp Direct Link') else ""
+                    md_content.append(f"### {r['Index']}. {c_icon} {r['Company Name']} ({r['City']}, {r['Country Name']})")
+                    md_content.append(f"* **Actividad Económica**: **{r['Activity Code']}** — {r['Economic Activity']}")
+                    md_content.append(f"* **Sector Macro**: {r['Sector Macro']} | **Tamaño**: {r['Company Size']} ({r['Revenue Bracket']} • {r['Estimated Employees']})")
+                    md_content.append(f"* **Sitio Web**: {web_display} — *{r['Website Audit Status']}*")
+                    md_content.append(f"* **Firmante Estatutario Registrado**: **{r['Official Registered Contact']}** ({r['Official Statutory Title']})")
+                    md_content.append(f"* **Persona Objetivo de Campaña**: **{r['Targeted Campaign Persona']}**")
+                    md_content.append(f"* **Email Corporativo**: `{r['Verified Work Email']}` | **Teléfono ({r['Phone Line Type']})**: `{r['Corporate Phone']}`{wa_link} | **Servidor MX**: `{r['Mail Server (MX)']}`")
+                    md_content.append(f"* **Dirección Corporativa**: {r['Address']} | **{r['Tax ID Type']}**: `{r['Tax ID']}`")
+                    md_content.append(f"* **Trigger 1 (Contratos Ganados)**: **{r['Trigger 1: Total Contracts Won']}** — {r['Trigger 1: Top Contracting Entity']} (*{r['Trigger 1: Intent Score']}*)")
+                    if r.get('Trigger 1: Top Contract Object'):
+                        md_content.append(f"  * *Objeto*: {r['Trigger 1: Top Contract Object']}")
+                    md_content.append(f"* **Trigger 2 (Búsqueda de Empleos / Vacantes)**: [ Ver Vacantes Activas en Google/LinkedIn]({r['Trigger 2: Hiring X-Ray Search URL']})")
+                    md_content.append(f"* **Trigger 3 (Expansión)**: {r['Trigger 3: Regional Expansion Flag']}")
+                    md_content.append(f"* [ Triangulación LinkedIn: Contacto Registrado & Directores de Área]({r['LinkedIn X-Ray URL']})\n")
 
-                md_content.append(f"#### Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
-                md_content.append("```text")
-                md_content.append(r["Touch 3: Operational Follow-up Body"])
-                md_content.append("```\n")
+                    md_content.append("#### Touch 1: LinkedIn Connection Note (<300 chars)")
+                    md_content.append(f"> \"{r['Touch 1: LinkedIn Connection Note']}\"\n")
 
-                md_content.append(f"#### Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
-                md_content.append("```text")
-                md_content.append(r["Touch 4: Social Proof / VIP Body"])
-                md_content.append("```\n")
+                    md_content.append(f"#### Touch 2: Cold Email (Día 1) — Asunto: *{r['Touch 2: Cold Email Subject']}*")
+                    md_content.append("```text")
+                    md_content.append(r["Touch 2: Cold Email Body"])
+                    md_content.append("```\n")
 
-                md_content.append(f"#### Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
-                md_content.append("```text")
-                md_content.append(r["Touch 5: Breakup / Catalog Body"])
-                md_content.append("```\n")
+                    md_content.append(f"#### Touch 3: Operational Follow-up (Día 4) — Asunto: *{r['Touch 3: Operational Follow-up Subject']}*")
+                    md_content.append("```text")
+                    md_content.append(r["Touch 3: Operational Follow-up Body"])
+                    md_content.append("```\n")
 
-                if tier == 3 and "Underwriting Grade" in r:
-                    md_content.append("#### Suscripción Financiera y Riesgo Legal (Tier 3)")
-                    md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
-                    md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {r['Trigger 1: Currency']}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
-                    md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
-                    md_content.append(f"* **Semáforo Legal**: **{r['Legal Risk: Litigation Status']}** — {r['Legal Risk: Dockets & Sanctions Summary']}")
-                    md_content.append(f"* **Recomendación Comercial de Crédito**: {r['Credit Terms Recommendation']}\n")
+                    md_content.append(f"#### Touch 4: Social Proof / VIP Day Pass (Día 8) — Asunto: *{r['Touch 4: Social Proof / VIP Subject']}*")
+                    md_content.append("```text")
+                    md_content.append(r["Touch 4: Social Proof / VIP Body"])
+                    md_content.append("```\n")
 
-                md_content.append("---\n")
+                    md_content.append(f"#### Touch 5: Breakup / Corporate Catalog (Día 14) — Asunto: *{r['Touch 5: Breakup / Catalog Subject']}*")
+                    md_content.append("```text")
+                    md_content.append(r["Touch 5: Breakup / Catalog Body"])
+                    md_content.append("```\n")
+
+                    if tier == 3 and "Underwriting Grade" in r:
+                        md_content.append("#### Suscripción Financiera y Riesgo Legal (Tier 3)")
+                        md_content.append(f"* **Calificación Integral**: **{r['Underwriting Grade']}** (Score: {r['Composite Quality Score (0-100)']}/100)")
+                        md_content.append(f"* **Solvencia Operativa**: EBITDA Est.: **${r['Solvency: Estimated EBITDA (COP)']:,.0f} {r['Trigger 1: Currency']}** (Margen: **{r['Solvency: EBITDA Margin (%)']}%** — *Tier {r['Solvency: Tier']}*)")
+                        md_content.append(f"* **Perfil Financiero**: {r['Solvency: Profile Summary']}")
+                        md_content.append(f"* **Semáforo Legal**: **{r['Legal Risk: Litigation Status']}** — {r['Legal Risk: Dockets & Sanctions Summary']}")
+                        md_content.append(f"* **Recomendación Comercial de Crédito**: {r['Credit Terms Recommendation']}\n")
+
+                    md_content.append("---\n")
 
             with open(md_filename, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_content))
@@ -1727,27 +1778,50 @@ class GenerateProspectsUseCase:
             intent_msg = contracts.get("intent_level") or lead.get("expansion_flag") or "Adjudicación Contrato Reciente"
             lead_c = lead.get("country", target_country)
 
-            t_item = {
-                "company_name": mask_teaser_company_name(lead.get("clean_name", lead.get("company_name", ""))),
-                "nit": mask_teaser_nit(raw_nit),
-                "tax_id": mask_teaser_nit(raw_nit),
-                "country": lead_c,
-                "country_name": lead.get("country_name", "Colombia"),
-                "flag": "🇪🇨" if lead_c == "EC" else ("🇩🇴" if lead_c == "DO" else "🇨🇴"),
-                "city": lead.get("city", ""),
-                "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
-                "decision_maker_name": mask_teaser_person_name(rep_name),
-                "decision_maker_role": rep_role,
-                "decision_maker_title": rep_role,
-                "targeted_role": lead.get("targeted_campaign_persona", "Dirección General"),
-                "email": mask_teaser_email(raw_email),
-                "phone": mask_teaser_phone(raw_phone, country=lead_c),
-                "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
-                "is_mobile": lead.get("is_mobile", False),
-                "intent_trigger": intent_msg,
-                "intent_level": intent_msg,
-                "has_contracts": contracts.get("has_contracts", False),
-            }
+            if tier == 1:
+                t_item = {
+                    "company_name": mask_teaser_company_name(lead.get("clean_name", lead.get("company_name", ""))),
+                    "nit": mask_teaser_nit(raw_nit),
+                    "tax_id": mask_teaser_nit(raw_nit),
+                    "country": lead_c,
+                    "country_name": lead.get("country_name", "Colombia"),
+                    "flag": "🇪🇨" if lead_c == "EC" else ("🇩🇴" if lead_c == "DO" else "🇨🇴"),
+                    "city": lead.get("city", ""),
+                    "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
+                    "decision_maker_name": None,
+                    "decision_maker_role": "Directorio Institucional",
+                    "decision_maker_title": "Directorio Institucional",
+                    "targeted_role": "Directorio Institucional",
+                    "email": None,
+                    "phone": mask_teaser_phone(raw_phone, country=lead_c),
+                    "phone_line_type": "Línea Corporativa / Centralita",
+                    "is_mobile": False,
+                    "intent_trigger": "Directorio Institucional Verificado",
+                    "intent_level": "Directorio Institucional",
+                    "has_contracts": False,
+                }
+            else:
+                t_item = {
+                    "company_name": mask_teaser_company_name(lead.get("clean_name", lead.get("company_name", ""))),
+                    "nit": mask_teaser_nit(raw_nit),
+                    "tax_id": mask_teaser_nit(raw_nit),
+                    "country": lead_c,
+                    "country_name": lead.get("country_name", "Colombia"),
+                    "flag": "🇪🇨" if lead_c == "EC" else ("🇩🇴" if lead_c == "DO" else "🇨🇴"),
+                    "city": lead.get("city", ""),
+                    "sector": getattr(lead.get("ciiu"), "sector_macro", str(lead.get("ciiu", ""))),
+                    "decision_maker_name": mask_teaser_person_name(rep_name),
+                    "decision_maker_role": rep_role,
+                    "decision_maker_title": rep_role,
+                    "targeted_role": lead.get("targeted_campaign_persona", "Dirección General"),
+                    "email": mask_teaser_email(raw_email),
+                    "phone": mask_teaser_phone(raw_phone, country=lead_c),
+                    "phone_line_type": lead.get("phone_line_type", "Línea Corporativa"),
+                    "is_mobile": lead.get("is_mobile", False),
+                    "intent_trigger": intent_msg,
+                    "intent_level": intent_msg,
+                    "has_contracts": contracts.get("has_contracts", False),
+                }
             if tier == 3 and "underwriting" in lead:
                 t_item["underwriting_grade"] = lead["underwriting"].get("underwriting_grade")
                 t_item["solvency_tier"] = lead["underwriting"].get("solvency_tier")

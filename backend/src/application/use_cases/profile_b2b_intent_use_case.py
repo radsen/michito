@@ -277,6 +277,11 @@ class ProfileB2BIntentUseCase:
                 summary_msg = (
                     f"Tu lote de {volume} empresas en {target_city} requiere auditoría y recolección activa en registros oficiales en segundo plano ($0 anticipo)."
                 )
+            elif recommended_tier == 1:
+                summary_msg = (
+                    f"Configuramos tu lote en {volume} cuentas institucionales verificadas en {target_city} "
+                    f"con alta afinidad para tu propuesta."
+                )
             else:
                 summary_msg = (
                     f"Configuramos tu lote en {volume} decisores clave verificados en {target_city} "
