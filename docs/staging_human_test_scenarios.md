@@ -8,7 +8,8 @@ This document serves as the master checklist and guide for conducting human end-
 
 | Resource | URL / Configuration |
 | :--- | :--- |
-| **Web Client (Staging)** | `https://michito-web-limgi3puaq-uc.a.run.app` |
+| **Batch Request Stepper (Staging)** | `https://michito-web-limgi3puaq-uc.a.run.app/solicitar` |
+| **Landing Web Client (Staging)** | `https://michito-web-limgi3puaq-uc.a.run.app` |
 | **Backend API (Staging)** | `https://michito-api-limgi3puaq-uc.a.run.app` |
 | **API Health Check** | `https://michito-api-limgi3puaq-uc.a.run.app/health` |
 | **Order Tracker Pattern** | `https://michito-web-limgi3puaq-uc.a.run.app/rastrear?order_id=<ORDER_ID>` |
