@@ -95,6 +95,17 @@ class DgcpDrAdapter:
                 if prefix in self.DGCP_RUBROS_MAP:
                     expanded_keywords.extend(self.DGCP_RUBROS_MAP[prefix])
 
+        # Fast statutory fallback for automated tests (avoids multi-minute external network timeouts)
+        is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
+        allow_fallbacks = is_test_env and os.getenv("ALLOW_STATUTORY_FALLBACK", "false").lower() in ("true", "1", "yes")
+        is_mocked_http = hasattr(urllib.request.urlopen, "assert_called")
+        if allow_fallbacks and not is_mocked_http:
+            return self._get_fallback_candidates(
+                city=city,
+                include_keywords=expanded_keywords,
+                ciiu_codes=ciiu_codes,
+            )[:limit]
+
         # Scale scan depth: Scan more pages if specific keywords are requested
         max_pages = max(4, (limit // 10) + 4) if expanded_keywords else max(1, (limit // 30) + 1)
 
