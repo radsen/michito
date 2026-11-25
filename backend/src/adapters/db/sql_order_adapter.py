@@ -156,6 +156,22 @@ class SqlOrderAdapter:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN verified_yield INTEGER DEFAULT 0"))
                     if "ready_notified_at" not in columns:
                         conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN ready_notified_at TIMESTAMP NULL"))
+                    if "geographic_scope" not in columns:
+                        conn.execute(text("ALTER TABLE prospecting_orders ADD COLUMN geographic_scope VARCHAR(32) DEFAULT 'metro_area'"))
+            if "taxonomy_locations" in table_names:
+                loc_columns = [c["name"] for c in inspector.get_columns("taxonomy_locations")]
+                with self.engine.begin() as conn:
+                    if "concentric_rings" not in loc_columns:
+                        conn.execute(text("ALTER TABLE taxonomy_locations ADD COLUMN concentric_rings JSON NULL"))
+                    if "expansion_rules" not in loc_columns:
+                        conn.execute(text("ALTER TABLE taxonomy_locations ADD COLUMN expansion_rules JSON NULL"))
+            if "taxonomy_sectors" in table_names:
+                sec_columns = [c["name"] for c in inspector.get_columns("taxonomy_sectors")]
+                with self.engine.begin() as conn:
+                    if "allowed_isic_divisions" not in sec_columns:
+                        conn.execute(text("ALTER TABLE taxonomy_sectors ADD COLUMN allowed_isic_divisions JSON NULL"))
+                    if "forbidden_isic_divisions" not in sec_columns:
+                        conn.execute(text("ALTER TABLE taxonomy_sectors ADD COLUMN forbidden_isic_divisions JSON NULL"))
             if "clients" in table_names:
                 client_columns = [c["name"] for c in inspector.get_columns("clients")]
                 if "referral_partner" not in client_columns:
@@ -225,6 +241,7 @@ class SqlOrderAdapter:
         delivery_total_qualified: int = 0,
         verified_yield: int = 0,
         ready_notified_at: Optional[datetime] = None,
+        geographic_scope: str = "metro_area",
     ) -> Dict[str, Any]:
         """
         Creates a new commercial prospecting order linked to the client account.
@@ -273,6 +290,7 @@ class SqlOrderAdapter:
             target_ciiu_codes=target_ciiu_codes,
             keywords_include=keywords_include,
             keywords_exclude=keywords_exclude,
+            geographic_scope=geographic_scope,
             directionality=directionality,
             rfq_specifications=rfq_specifications,
             status=status,

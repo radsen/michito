@@ -315,6 +315,8 @@ class OrderWorkerDaemon:
                 exec_kwargs["directionality"] = req.get("directionality")
             if req.get("rfq_specifications"):
                 exec_kwargs["rfq_specifications"] = req.get("rfq_specifications")
+            if req.get("geographic_scope"):
+                exec_kwargs["geographic_scope"] = req.get("geographic_scope")
 
             job_result = self.use_case.execute(**exec_kwargs)
             elapsed = time.time() - t0

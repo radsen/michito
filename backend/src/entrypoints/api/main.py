@@ -102,6 +102,7 @@ class RequestDto(BaseModel):
     exclusions: Optional[List[str]] = None
     directionality: Optional[str] = "vendor_to_clients"
     rfq_specifications: Optional[str] = None
+    geographic_scope: Optional[str] = "metro_area"
 
 class CreateOrderRequest(BaseModel):
     client: ClientDto
@@ -798,6 +799,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
             location_allocations=normalized_locations,
             directionality=payload.request.directionality or "vendor_to_clients",
             rfq_specifications=payload.request.rfq_specifications,
+            geographic_scope=payload.request.geographic_scope or "metro_area",
             status="intake_submitted",
             verified_yield=0,
             payment_amount_in_cents=total_price_cents,

@@ -129,6 +129,7 @@ class OrderModel(Base):
     target_ciiu_codes: Any = Column(JSON, nullable=True)
     keywords_include: Any = Column(JSON, nullable=True)
     keywords_exclude: Any = Column(JSON, nullable=True)
+    geographic_scope: Any = Column(String(32), default="metro_area", index=True)  # strict_city, metro_area, regional_corridor, national
 
     # Bidirectional Commercial Directionality & RFQ Specs
     directionality: Any = Column(String(32), default="vendor_to_clients", index=True)
@@ -214,6 +215,7 @@ class OrderModel(Base):
                 "keywords_include": self.keywords_include,
                 "keywords_exclude": self.keywords_exclude,
                 "exclusions": self.keywords_exclude,
+                "geographic_scope": self.geographic_scope or "metro_area",
             },
             "status": self.status,
             "verified_yield": self.verified_yield or 0,
@@ -304,7 +306,9 @@ class TaxonomyLocationModel(Base):
     region_name: Any = Column(String(128), nullable=False, index=True)  # Department / Province / State
     city_name: Any = Column(String(128), nullable=False, index=True)    # City / Metro center
     aliases: Any = Column(JSON, nullable=True)  # List of municipalities, metropolitan areas, vernacular names
-    registry_sources: Any = Column(JSON, nullable=True)  # Sources: ["rues", "camara_medellin", "secop", "dgcp", "sercop"]
+    concentric_rings: Any = Column(JSON, nullable=False, default=dict)  # {"ring_0": [...], "ring_1": [...], "ring_2": [...]}
+    expansion_rules: Any = Column(JSON, nullable=False, default=dict)   # {"default_scope": "metro_area", "max_allowed_ring": 1}
+    registry_sources: Any = Column(JSON, nullable=True)  # Sources: ["rues", "camara_medellin", "secop", "supersociedades", "dgcp", "sercop"]
     is_active: Any = Column(Boolean, default=True, index=True)
     created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -316,6 +320,8 @@ class TaxonomyLocationModel(Base):
             "region_name": self.region_name,
             "city_name": self.city_name,
             "aliases": self.aliases or [],
+            "concentric_rings": self.concentric_rings or {},
+            "expansion_rules": self.expansion_rules or {},
             "registry_sources": self.registry_sources or [],
             "is_active": bool(self.is_active),
         }

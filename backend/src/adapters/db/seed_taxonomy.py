@@ -34,7 +34,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Cundinamarca",
         "city_name": "Bogotá D.C.",
         "aliases": ["Bogotá", "Distrito Capital", "Sabana de Bogotá", "Chía", "Cota", "Soacha", "Funza", "Mosquera", "Madrid", "Siberia"],
-        "registry_sources": ["rues", "camara_bogota", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Bogotá", "Distrito Capital de Bogotá"],
+            "ring_1": ["Chía", "Cota", "Soacha", "Cajicá"],
+            "ring_2": ["Funza", "Mosquera", "Madrid", "Zipaquirá", "Sopó", "Facatativá"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -44,7 +54,18 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Antioquia",
         "city_name": "Medellín",
         "aliases": ["Medellín", "Valle de Aburrá", "Envigado", "Itagüí", "Sabaneta", "Bello", "Rionegro", "Oriente Antioqueño", "Guarne", "Girardota"],
-        "registry_sources": ["rues", "camara_medellin", "camara_aburra_sur", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Medellín"],
+            "ring_1": ["Envigado", "Itagüí", "Sabaneta", "Bello", "La Estrella", "Caldas", "Copacabana", "Girardota"],
+            "ring_2": ["Rionegro", "Guarne", "Marinilla", "El Retiro"],
+            "ring_3": ["Barbosa", "La Ceja", "Carmen de Viboral"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -54,7 +75,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Valle del Cauca",
         "city_name": "Cali",
         "aliases": ["Cali", "Santiago de Cali", "Yumbo", "Jamundí", "Palmira", "Buenaventura", "Buga", "Tuluá"],
-        "registry_sources": ["rues", "camara_cali", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Cali", "Santiago de Cali"],
+            "ring_1": ["Yumbo", "Jamundí", "Palmira"],
+            "ring_2": ["Buga", "Tuluá", "Candelaria", "Pradera"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -64,7 +95,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Atlántico",
         "city_name": "Barranquilla",
         "aliases": ["Barranquilla", "Soledad", "Puerto Colombia", "Malambo", "Costa Caribe"],
-        "registry_sources": ["rues", "camara_barranquilla", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Barranquilla"],
+            "ring_1": ["Soledad", "Puerto Colombia", "Malambo"],
+            "ring_2": ["Galapa", "Baranoa", "Sabanalarga"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -74,7 +115,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Santander",
         "city_name": "Bucaramanga",
         "aliases": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta", "Barrancabermeja"],
-        "registry_sources": ["rues", "camara_bucaramanga", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Bucaramanga"],
+            "ring_1": ["Floridablanca", "Girón", "Piedecuesta"],
+            "ring_2": ["Lebrija", "Barrancabermeja"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -84,7 +135,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Bolívar",
         "city_name": "Cartagena",
         "aliases": ["Cartagena", "Cartagena de Indias", "Mamonal", "Turbaco", "Costa Caribe"],
-        "registry_sources": ["rues", "camara_cartagena", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Cartagena", "Cartagena de Indias"],
+            "ring_1": ["Turbaco", "Arjona", "Turbana"],
+            "ring_2": ["Pasacaballos", "Santa Rosa de Lima"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -94,7 +155,17 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Risaralda",
         "city_name": "Pereira",
         "aliases": ["Pereira", "Dosquebradas", "Eje Cafetero", "Santa Rosa de Cabal"],
-        "registry_sources": ["rues", "camara_pereira", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Pereira"],
+            "ring_1": ["Dosquebradas", "Santa Rosa de Cabal"],
+            "ring_2": ["Cartago", "La Virginia"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -104,7 +175,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Caldas",
         "city_name": "Manizales",
         "aliases": ["Manizales", "Villamaría", "Eje Cafetero", "Chinchiná"],
-        "registry_sources": ["rues", "camara_manizales", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Manizales"],
+            "ring_1": ["Villamaría", "Chinchiná", "Neira", "Palestina"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -114,7 +194,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Quindío",
         "city_name": "Armenia",
         "aliases": ["Armenia", "Calarcá", "Eje Cafetero", "La Tebaida", "Montenegro"],
-        "registry_sources": ["rues", "camara_armenia", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Armenia"],
+            "ring_1": ["Calarcá", "La Tebaida", "Montenegro", "Circasia"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -124,7 +213,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Tolima",
         "city_name": "Ibagué",
         "aliases": ["Ibagué", "Espinal"],
-        "registry_sources": ["rues", "camara_ibague", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Ibagué"],
+            "ring_1": ["Espinal", "Flandes", "Alvarado"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
     {
@@ -134,7 +232,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Norte de Santander",
         "city_name": "Cúcuta",
         "aliases": ["Cúcuta", "Los Patios", "Villa del Rosario"],
-        "registry_sources": ["rues", "camara_cucuta", "secop", "dian"],
+        "concentric_rings": {
+            "ring_0": ["Cúcuta"],
+            "ring_1": ["Los Patios", "Villa del Rosario", "El Zulia"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
         "is_active": True,
     },
 
@@ -146,6 +253,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Distrito Nacional",
         "city_name": "Santo Domingo",
         "aliases": ["Santo Domingo", "Distrito Nacional", "Piantini", "Naco", "Bella Vista", "Evaristo Morales", "Zona Colonial", "Santo Domingo Este", "Santo Domingo Oeste"],
+        "concentric_rings": {
+            "ring_0": ["Santo Domingo", "Distrito Nacional"],
+            "ring_1": ["Santo Domingo Este", "Santo Domingo Oeste", "Santo Domingo Norte"],
+            "ring_2": ["Boca Chica", "San Cristóbal", "Bajos de Haina", "Pedro Brand", "Los Alcarrizos"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["dgcp", "dgii", "onapi"],
         "is_active": True,
     },
@@ -156,6 +273,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Santiago",
         "city_name": "Santiago de los Caballeros",
         "aliases": ["Santiago", "Santiago de los Caballeros", "El Cibao", "Tamboril", "Villa González"],
+        "concentric_rings": {
+            "ring_0": ["Santiago de los Caballeros", "Santiago"],
+            "ring_1": ["Tamboril", "Villa González", "Licey al Medio", "Puñal"],
+            "ring_2": ["Moca", "Navarrete"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["dgcp", "dgii", "onapi"],
         "is_active": True,
     },
@@ -166,6 +293,15 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "La Altagracia",
         "city_name": "Punta Cana",
         "aliases": ["Punta Cana", "Bávaro", "Higüey", "Cap Cana", "Verón"],
+        "concentric_rings": {
+            "ring_0": ["Punta Cana", "Higüey"],
+            "ring_1": ["Bávaro", "Verón", "Cap Cana"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["dgcp", "dgii", "onapi"],
         "is_active": True,
     },
@@ -176,6 +312,15 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "La Romana",
         "city_name": "La Romana",
         "aliases": ["La Romana", "Casa de Campo", "Bayahíbe"],
+        "concentric_rings": {
+            "ring_0": ["La Romana"],
+            "ring_1": ["Bayahíbe", "Guaymate"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["dgcp", "dgii", "onapi"],
         "is_active": True,
     },
@@ -186,6 +331,15 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "San Cristóbal",
         "city_name": "San Cristóbal",
         "aliases": ["San Cristóbal", "Bajos de Haina", "Haina", "Zona Industrial Haina"],
+        "concentric_rings": {
+            "ring_0": ["San Cristóbal"],
+            "ring_1": ["Bajos de Haina", "Haina", "Yaguate"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["dgcp", "dgii", "onapi"],
         "is_active": True,
     },
@@ -198,6 +352,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Pichincha",
         "city_name": "Quito",
         "aliases": ["Quito", "Distrito Metropolitano de Quito", "Cumbayá", "Tumbaco", "Los Chillos", "Valle de Cumbayá", "Calderón"],
+        "concentric_rings": {
+            "ring_0": ["Quito", "Distrito Metropolitano de Quito"],
+            "ring_1": ["Cumbayá", "Tumbaco", "Los Chillos", "Valle de Cumbayá", "Calderón"],
+            "ring_2": ["Rumiñahui", "Sangolquí", "Machachi", "Tabacundo"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["sercop", "supercias", "sri"],
         "is_active": True,
     },
@@ -208,6 +372,16 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Guayas",
         "city_name": "Guayaquil",
         "aliases": ["Guayaquil", "Samborondón", "Durán", "Daule", "Vía a la Costa", "La Puntilla"],
+        "concentric_rings": {
+            "ring_0": ["Guayaquil"],
+            "ring_1": ["Samborondón", "Durán", "Daule", "La Puntilla"],
+            "ring_2": ["Milagro", "Nobol", "Salitre"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["sercop", "supercias", "sri"],
         "is_active": True,
     },
@@ -218,6 +392,15 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Azuay",
         "city_name": "Cuenca",
         "aliases": ["Cuenca", "Azuay", "Gualaceo", "Challuabamba"],
+        "concentric_rings": {
+            "ring_0": ["Cuenca"],
+            "ring_1": ["Gualaceo", "Paute", "Challuabamba"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["sercop", "supercias", "sri"],
         "is_active": True,
     },
@@ -228,6 +411,15 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "Manabí",
         "city_name": "Manta",
         "aliases": ["Manta", "Portoviejo", "Montecristi"],
+        "concentric_rings": {
+            "ring_0": ["Manta"],
+            "ring_1": ["Montecristi", "Jaramijó", "Portoviejo"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["sercop", "supercias", "sri"],
         "is_active": True,
     },
@@ -238,7 +430,58 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
         "region_name": "El Oro",
         "city_name": "Machala",
         "aliases": ["Machala", "Puerto Bolívar", "Pasaje", "Santa Rosa"],
+        "concentric_rings": {
+            "ring_0": ["Machala"],
+            "ring_1": ["Puerto Bolívar", "Pasaje", "Santa Rosa", "El Guabo"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
         "registry_sources": ["sercop", "supercias", "sri"],
+        "is_active": True,
+    },
+
+    # --- 🇨🇱 CHILE ---
+    {
+        "location_id": "cl_santiago_centro",
+        "country_code": "CL",
+        "country_name": "Chile",
+        "region_name": "Región Metropolitana de Santiago",
+        "city_name": "Santiago",
+        "aliases": ["Santiago", "Gran Santiago", "Providencia", "Las Condes", "Vitacura", "Ñuñoa"],
+        "concentric_rings": {
+            "ring_0": ["Santiago", "Santiago Centro"],
+            "ring_1": ["Providencia", "Las Condes", "Vitacura", "Ñuñoa", "San Miguel", "Recoleta"],
+            "ring_2": ["Maipú", "La Florida", "Puente Alto", "San Bernardo", "Quilicura"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["chilecompra", "res", "sii"],
+        "is_active": True,
+    },
+    {
+        "location_id": "cl_valparaiso",
+        "country_code": "CL",
+        "country_name": "Chile",
+        "region_name": "Valparaíso",
+        "city_name": "Valparaíso",
+        "aliases": ["Valparaíso", "Viña del Mar", "Concón", "Quilpué", "Villa Alemana"],
+        "concentric_rings": {
+            "ring_0": ["Valparaíso", "Viña del Mar"],
+            "ring_1": ["Concón", "Quilpué", "Villa Alemana"],
+            "ring_2": ["Quillota", "San Antonio"],
+        },
+        "expansion_rules": {
+            "default_scope": "metro_area",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["chilecompra", "res", "sii"],
         "is_active": True,
     },
 ]
