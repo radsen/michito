@@ -12,6 +12,7 @@ import { HowItWorks } from "./components/landing/HowItWorks";
 import { DeliverablesStandards } from "./components/landing/DeliverablesStandards";
 import { PricingMatrix } from "./components/pricing/PricingMatrix";
 import { OrderGenerator } from "./components/order/OrderGenerator";
+import { BatchRequestWizard } from "./components/order/BatchRequestWizard";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { TrackOrderPage } from "./components/tracker/TrackOrderPage";
 import { TermsPage } from "./components/legal/TermsPage";
@@ -48,7 +49,7 @@ export const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState<string>(() => {
     try {
       const p = window.location.pathname;
-      if (p === "/rastrear" || p === "/terminos") return p;
+      if (p === "/rastrear" || p === "/terminos" || p === "/solicitar") return p;
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("order_id") || urlParams.get("quote") || urlParams.get("approval")) return "/rastrear";
     } catch {
@@ -150,6 +151,15 @@ export const App: React.FC = () => {
           />
         ) : currentPath === "/terminos" ? (
           <TermsPage onBack={() => navigate("/")} />
+        ) : currentPath === "/solicitar" ? (
+          <div style={{ minHeight: "80vh", paddingTop: 32, paddingBottom: 64 }}>
+            <ErrorBoundary fallbackTitle="Error al inicializar el Asistente de Prospección">
+              <BatchRequestWizard
+                onBack={() => navigate("/")}
+                onNavigateTrack={(orderId) => navigate(`/rastrear?order_id=${orderId}`)}
+              />
+            </ErrorBoundary>
+          </div>
         ) : (
           <>
             <Hero />
@@ -157,9 +167,14 @@ export const App: React.FC = () => {
             <ComparisonTable />
             <DeliverablesStandards onNavigateTerms={() => navigate("/terminos")} />
             <PricingMatrix />
-            <ErrorBoundary fallbackTitle="Error al inicializar el Generador Universal de Leads">
-              <OrderGenerator />
-            </ErrorBoundary>
+            <section id="generador" style={{ padding: "40px 0" }}>
+              <ErrorBoundary fallbackTitle="Error al inicializar el Asistente de Prospección">
+                <BatchRequestWizard
+                  onBack={() => navigate("/")}
+                  onNavigateTrack={(orderId) => navigate(`/rastrear?order_id=${orderId}`)}
+                />
+              </ErrorBoundary>
+            </section>
           </>
         )}
       </main>

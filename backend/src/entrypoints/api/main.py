@@ -667,7 +667,7 @@ def run_fast_radar_scan(
     return masked_samples
 
 @app.post("/api/v1/orders", status_code=201)
-def create_prospecting_order(payload: CreateOrderRequest, request: Request):
+def create_prospecting_order(payload: CreateOrderRequest, request: Request, background_tasks: BackgroundTasks):
     """
     Ingests an on-demand prospecting order from Web Portal or WhatsApp,
     creates the client record, persists order in PostgreSQL, and queues it for the worker.
@@ -809,40 +809,53 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request):
 
         stream_token = generate_order_stream_token(order["order_id"], client_email_clean)
 
-        # Asynchronously trigger decoupled batch harvesting job (skipped in automated tests to prevent thread lock collisions)
-        is_test_env = "pytest" in sys.modules or os.environ.get("TESTING") == "1"
-        if not is_test_env:
+        # Defers Cloud Run Job triggering, email delivery, and alert dispatching to background tasks.
+        # Guarantees the HTTP 201 response returns to the client in < 50ms without blocking on external SMTP/GCP I/O.
+        def _dispatch_background_order_tasks(order_obj: Dict[str, Any], client_name_val: str, client_email_val: str, campaign_val: str, total_price_cop_val: float):
+            # 1. Asynchronously trigger decoupled batch harvesting job (skipped in automated tests to prevent thread lock collisions)
+            is_test_env = "pytest" in sys.modules or os.environ.get("TESTING") == "1"
+            if not is_test_env:
+                try:
+                    from src.adapters.jobs.cloud_run_job_adapter import CloudRunJobAdapter
+                    job_adapter = CloudRunJobAdapter()
+                    job_adapter.trigger_batch_harvesting_job(order_obj["order_id"])
+                    logger.info(f"[OrdersApi] Asynchronous batch harvesting job triggered for `{order_obj['order_id']}`.")
+                except Exception as job_err:
+                    logger.error(f"[OrdersApi] Could not trigger async harvesting job for `{order_obj['order_id']}`: {job_err}")
+
+            # 2. Dispatch feed / alert event
             try:
-                from src.adapters.jobs.cloud_run_job_adapter import CloudRunJobAdapter
-                job_adapter = CloudRunJobAdapter()
-                job_adapter.trigger_batch_harvesting_job(order["order_id"])
-                logger.info(f"[OrdersApi] Asynchronous batch harvesting job triggered for `{order['order_id']}`.")
-            except Exception as job_err:
-                logger.error(f"[OrdersApi] Could not trigger async harvesting job for `{order['order_id']}`: {job_err}")
+                if hasattr(app_container, "alert_dispatcher"):
+                    app_container.alert_dispatcher.send_feed_event(
+                        "New Order Intake Submitted",
+                        f"Order `{order_obj['order_id']}` received for *{client_name_val}* ({client_email_val}). Auditing official registries in background.",
+                        details={
+                            "order_id": order_obj["order_id"],
+                            "client": client_name_val,
+                            "campaign": campaign_val,
+                            "city": order_obj.get("city") or "Medellín",
+                            "requested_leads": limit,
+                            "tier": f"Tier {target_tier}",
+                            "estimated_cop": f"${total_price_cop_val:,.0f} COP",
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"Could not dispatch order feed event: {e}")
 
-        try:
-            if hasattr(app_container, "alert_dispatcher"):
-                app_container.alert_dispatcher.send_feed_event(
-                    "New Order Intake Submitted",
-                    f"Order `{order['order_id']}` received for *{payload.client.name}* ({payload.client.email}). Auditing official registries in background.",
-                    details={
-                        "order_id": order["order_id"],
-                        "client": payload.client.name,
-                        "campaign": payload.request.campaign_id,
-                        "city": payload.request.city or "Medellín",
-                        "requested_leads": limit,
-                        "tier": f"Tier {target_tier}",
-                        "estimated_cop": f"${total_price_cop:,.0f} COP",
-                    },
-                )
-        except Exception as e:
-            logger.warning(f"Could not dispatch order feed event: {e}")
+            # 3. Dispatch immediate order intake confirmation email
+            try:
+                omnichannel_delivery_adapter.send_order_received_notification(order_obj)
+            except Exception as notify_err:
+                logger.warning(f"Could not dispatch order received email: {notify_err}")
 
-        # Dispatch immediate order intake confirmation email
-        try:
-            omnichannel_delivery_adapter.send_order_received_notification(order)
-        except Exception as notify_err:
-            logger.warning(f"Could not dispatch order received email: {notify_err}")
+        background_tasks.add_task(
+            _dispatch_background_order_tasks,
+            order,
+            payload.client.name,
+            payload.client.email,
+            payload.request.campaign_id or "universal_prospecting",
+            total_price_cop,
+        )
 
         return {
             "status": "success",

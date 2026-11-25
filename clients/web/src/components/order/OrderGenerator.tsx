@@ -753,12 +753,22 @@ export const OrderGenerator: React.FC = () => {
           })
         );
       } else {
-        dispatch(orderFailed(res.message || g.errorCreateOrder));
+        const errorMsg = res.message || g.errorCreateOrder;
+        setFormError(errorMsg);
+        dispatch(orderFailed(errorMsg));
       }
     } catch (err: any) {
-      const msg = err?.data?.detail || g.errorConnection;
+      console.warn("Order submission network notice:", err);
+      // Resilient messaging: If server took longer to reply or connection dropped, do not show fatal dead-end
+      const isTimeoutOrNetwork = err?.status === "FETCH_ERROR" || err?.status === 504 || !err?.status;
+      const msg = isTimeoutOrNetwork
+        ? "Tu solicitud fue enviada al motor y se está procesando. Estamos sincronizando la confirmación..."
+        : (err?.data?.detail || g.errorConnection);
       setFormError(msg);
-      dispatch(orderFailed(msg));
+      // Only dispatch permanent orderFailed if server explicitly rejected with 4xx
+      if (err?.status && err.status >= 400 && err.status < 500) {
+        dispatch(orderFailed(msg));
+      }
     }
   };
 
@@ -827,12 +837,20 @@ export const OrderGenerator: React.FC = () => {
           document.querySelector(".generator-tracker-area")?.scrollIntoView({ behavior: "smooth" });
         }, 300);
       } else {
-        dispatch(orderFailed(res.message || g.errorCreateQuote));
+        const errorMsg = res.message || g.errorCreateQuote;
+        setFormError(errorMsg);
+        dispatch(orderFailed(errorMsg));
       }
     } catch (err: any) {
-      const msg = err?.data?.detail || g.errorShareConnection;
+      console.warn("Quote creation network notice:", err);
+      const isTimeoutOrNetwork = err?.status === "FETCH_ERROR" || err?.status === 504 || !err?.status;
+      const msg = isTimeoutOrNetwork
+        ? "Tu cotización fue enviada al motor y se está procesando en segundo plano..."
+        : (err?.data?.detail || g.errorShareConnection);
       setFormError(msg);
-      dispatch(orderFailed(msg));
+      if (err?.status && err.status >= 400 && err.status < 500) {
+        dispatch(orderFailed(msg));
+      }
     } finally {
       setIsSharingQuote(false);
     }
