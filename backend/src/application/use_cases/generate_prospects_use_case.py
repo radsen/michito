@@ -534,6 +534,7 @@ class GenerateProspectsUseCase:
             self.underwriter = UnderwriteLeadUseCase()
 
         # 0. Unpack Universal Prospecting Request if provided
+        u_dict: Optional[Dict[str, Any]] = None
         if universal_request is not None:
             if hasattr(universal_request, "to_dict"):
                 u_dict = universal_request.to_dict()
@@ -586,7 +587,7 @@ class GenerateProspectsUseCase:
                 "ciiu_codes": target_ciiu_codes or [],
                 "keywords_include": keywords_include or [],
                 "keywords_exclude": keywords_exclude or [],
-                "geographic_scope": (universal_request and getattr(universal_request, "geographic_scope", None)) or (u_dict.get("geographic_scope") if 'u_dict' in locals() else None) or geographic_scope or "metro_area",
+                "geographic_scope": (universal_request and getattr(universal_request, "geographic_scope", None)) or (u_dict.get("geographic_scope") if u_dict else None) or geographic_scope or "metro_area",
                 "roles": target_roles or (["Director Comercial", "Gerente Comercial", "Gerente de Ventas", "Gerente General"] if directionality in ("client_to_vendors", "procurement") else DEFAULT_ROLES),
             }
             touches_cfg = generate_dynamic_touches(
@@ -624,7 +625,7 @@ class GenerateProspectsUseCase:
                 target_cfg["sectors"] = target_sectors
             if target_ciiu_codes:
                 target_cfg["ciiu_codes"] = target_ciiu_codes
-            target_cfg["geographic_scope"] = (universal_request and getattr(universal_request, "geographic_scope", None)) or (u_dict.get("geographic_scope") if 'u_dict' in locals() else None) or target_cfg.get("geographic_scope") or geographic_scope or "metro_area"
+            target_cfg["geographic_scope"] = (universal_request and getattr(universal_request, "geographic_scope", None)) or (u_dict.get("geographic_scope") if u_dict else None) or target_cfg.get("geographic_scope") or geographic_scope or "metro_area"
             if offer_description:
                 touches_cfg = generate_dynamic_touches(
                     offer_description=offer_description,
