@@ -13,6 +13,8 @@ from unittest.mock import MagicMock
 
 from src.application.services.location_taxonomy_service import LocationTaxonomyService, LocationHierarchy
 from src.adapters.registries.colombia.supersociedades_soda_adapter import SupersociedadesSodaAdapter
+from src.adapters.registries.dominican_republic.dgii_rnc_adapter import DgiiRncAdapter
+from src.adapters.registries.ecuador.supercias_ecuador_adapter import SuperciasEcuadorAdapter
 from src.application.use_cases.generate_prospects_use_case import GenerateProspectsUseCase
 
 
@@ -86,3 +88,62 @@ def test_bounded_concentric_harvesting_termination_and_tam_status(tmp_path):
         assert "rings_scanned" in terr_data
         assert len(terr_data["rings_scanned"]) >= 1
         assert terr_data["fulfillment_status"] in ("FULLY_FULFILLED", "TERRITORY_TAM_EXHAUSTED")
+
+
+def test_dgii_and_supercias_candidate_harvesting():
+    # 1. DGII in Dominican Republic 🇩🇴
+    dgii = DgiiRncAdapter(use_live_api=False)
+    do_candidates = dgii.fetch_candidates(city="Santo Domingo", ciiu_codes=["6201"], limit=5)
+    assert len(do_candidates) >= 1
+    for c in do_candidates:
+        assert c["data_source"] == "DGII_DOMINICAN_REPUBLIC_REGISTRY"
+        assert c["rnc"]
+        assert c["country"] == "DO"
+        assert c["currency"] == "DOP"
+        assert c["ciiu_code"].startswith("62")
+
+    # 2. SuperCias in Ecuador 🇪🇨
+    supercias = SuperciasEcuadorAdapter(use_live_api=False)
+    ec_candidates = supercias.fetch_candidates(city="Quito", ciiu_codes=["6201"], limit=5)
+    assert len(ec_candidates) >= 1
+    for c in ec_candidates:
+        assert c["data_source"] == "SUPERCIAS_ECUADOR_REGISTRY"
+        assert c["ruc"]
+        assert c["country"] == "EC"
+        assert c["currency"] == "USD"
+        assert c["ciiu_code"].startswith("62")
+
+
+def test_multi_country_concentric_harvesting_integration():
+    mock_auditor = MagicMock()
+    mock_auditor.audit.return_value = (True, "https://www.example.com", "Active Audited Site")
+
+    use_case = GenerateProspectsUseCase(
+        web_auditor=mock_auditor,
+        verify_mx_fn=lambda email: (True, "mx1.example.com"),
+    )
+
+    # 1. Dominican Republic order in Santo Domingo 🇩🇴
+    do_result = use_case.execute(
+        city="Santo Domingo",
+        country="DO",
+        limit=5,
+        target_ciiu_codes=["6201"],
+        tier=1,
+        geographic_scope="metro_area",
+    )
+    assert do_result["total_qualified"] > 0
+    assert any(l["country"] == "DO" for l in do_result["leads"])
+
+    # 2. Ecuador order in Quito 🇪🇨
+    ec_result = use_case.execute(
+        city="Quito",
+        country="EC",
+        limit=5,
+        target_ciiu_codes=["6201"],
+        tier=1,
+        geographic_scope="metro_area",
+    )
+    assert ec_result["total_qualified"] > 0
+    assert any(l["country"] == "EC" for l in ec_result["leads"])
+

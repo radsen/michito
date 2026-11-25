@@ -30,6 +30,8 @@ from src.application.ports.mailbox_verifier_port import MailboxVerifierPort
 from src.adapters.verifiers.socket_smtp_verifier_adapter import SocketSmtpVerifierAdapter
 from src.application.services.location_taxonomy_service import LocationTaxonomyService
 from src.adapters.registries.colombia.supersociedades_soda_adapter import SupersociedadesSodaAdapter
+from src.adapters.registries.dominican_republic.dgii_rnc_adapter import DgiiRncAdapter
+from src.adapters.registries.ecuador.supercias_ecuador_adapter import SuperciasEcuadorAdapter
 
 # Outputs root relative to workspace root (canonical repo root outputs/)
 _candidate_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
@@ -486,6 +488,8 @@ class GenerateProspectsUseCase:
         mailbox_verifier: Optional[MailboxVerifierPort] = None,
         location_service: Optional[Any] = None,
         supersociedades_harvester: Optional[Any] = None,
+        dgii_harvester: Optional[Any] = None,
+        supercias_harvester: Optional[Any] = None,
     ):
         self.harvester_co = harvester_co
         self.harvester_dr = harvester_dr
@@ -498,6 +502,8 @@ class GenerateProspectsUseCase:
         self.mailbox_verifier = mailbox_verifier or SocketSmtpVerifierAdapter()
         self.location_service = location_service or LocationTaxonomyService()
         self.supersociedades_harvester = supersociedades_harvester or SupersociedadesSodaAdapter()
+        self.dgii_harvester = dgii_harvester or DgiiRncAdapter()
+        self.supercias_harvester = supercias_harvester or SuperciasEcuadorAdapter()
 
     def execute(
         self,
@@ -1019,6 +1025,28 @@ class GenerateProspectsUseCase:
                                             raw_candidates.append(sc)
                                 except Exception as ss_err:
                                     print(f"[GenerateProspects] SuperSociedades harvest probe for {c_ring} encountered: {ss_err}")
+
+                            # C. Commercial Harvester: DGII Master RNC in Dominican Republic 🇩🇴
+                            elif c_code == "DO":
+                                try:
+                                    dgii_candidates = self.dgii_harvester.fetch_candidates(**city_kwargs)
+                                    for dc in dgii_candidates:
+                                        cand_id = dc.get("rnc") or dc.get("nit") or dc.get("tax_id")
+                                        if cand_id and not any(r.get("nit") == cand_id for r in raw_candidates):
+                                            raw_candidates.append(dc)
+                                except Exception as dgii_err:
+                                    print(f"[GenerateProspects] DGII RNC harvest probe for {c_ring} encountered: {dgii_err}")
+
+                            # D. Commercial Harvester: SuperCias in Ecuador 🇪🇨
+                            elif c_code == "EC":
+                                try:
+                                    sc_candidates = self.supercias_harvester.fetch_candidates(**city_kwargs)
+                                    for ec_cand in sc_candidates:
+                                        cand_id = ec_cand.get("ruc") or ec_cand.get("nit") or ec_cand.get("tax_id")
+                                        if cand_id and not any(r.get("nit") == cand_id for r in raw_candidates):
+                                            raw_candidates.append(ec_cand)
+                                except Exception as sc_err:
+                                    print(f"[GenerateProspects] SuperCias harvest probe for {c_ring} encountered: {sc_err}")
 
                             if len(raw_candidates) >= t_quota * raw_multiplier:
                                 break
