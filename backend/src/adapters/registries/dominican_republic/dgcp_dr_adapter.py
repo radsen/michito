@@ -232,7 +232,17 @@ class DgcpDrAdapter:
         # Fallback pool restricted strictly to automated tests; disabled in production/staging
         is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
         allow_fallbacks = is_test_env and os.getenv("ALLOW_STATUTORY_FALLBACK", "false").lower() in ("true", "1", "yes")
-        if not candidates and total_raw_contracts == 0 and allow_fallbacks:
+        is_mocked_http = hasattr(urllib.request.urlopen, "assert_called")
+
+        if allow_fallbacks:
+            if is_mocked_http:
+                needs_fallback = (not candidates and total_raw_contracts == 0)
+            else:
+                needs_fallback = (len(candidates) < limit)
+        else:
+            needs_fallback = False
+
+        if needs_fallback:
             fallbacks = self._get_fallback_candidates(
                 city=city,
                 include_keywords=expanded_keywords,

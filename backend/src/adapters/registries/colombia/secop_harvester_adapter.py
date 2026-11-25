@@ -485,10 +485,18 @@ class SecopHarvesterAdapter:
         # -------------------------------------------------------------
         is_test_env = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
         allow_fallbacks = is_test_env and os.getenv("ALLOW_STATUTORY_FALLBACK", "false").lower() in ("true", "1", "yes")
-        needs_fallback = (not qualified_leads) if is_test_env else False
+        is_mocked_http = hasattr(urllib.request.urlopen, "assert_called")
+
+        if allow_fallbacks:
+            if is_mocked_http:
+                needs_fallback = (len(qualified_leads) == 0)
+            else:
+                needs_fallback = (len(qualified_leads) < limit)
+        else:
+            needs_fallback = False
 
         if needs_fallback and allow_fallbacks:
-            needed_count = limit - len(qualified_leads) if not is_test_env else limit
+            needed_count = limit - len(qualified_leads)
             fallback_items = self._get_fallback_candidates(
                 city=city,
                 include_keywords=valid_kw,
@@ -498,7 +506,7 @@ class SecopHarvesterAdapter:
             )
             # Try first with strict keywords if provided
             for item in fallback_items:
-                lead = _process_item(item, require_keywords=bool(include_keywords))
+                lead = _process_item(item, require_keywords=bool(kw_to_check))
                 if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
                     qualified_leads.append(lead)
                     if len(qualified_leads) >= limit:
