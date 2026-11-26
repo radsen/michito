@@ -23,6 +23,12 @@ from src.adapters.db.models import (
     TaxonomyRoleModel,
     TaxonomySectorModel,
     SearchIntentQueryModel,
+    CompanyModel,
+    IndividualModel,
+    CompanyIndividualRoleModel,
+    ContactChannelModel,
+    CompanyChannelLinkModel,
+    IndividualChannelLinkModel,
 )
 from src.adapters.partners.partner_registry import PartnerRegistry
 import re
@@ -703,7 +709,10 @@ class SqlOrderAdapter:
                     if lead.get("phone"):
                         existing_lead.direct_mobile_phone = lead["phone"]
 
-                # 2. Add to Order Manifest (Products by Order)
+                # 2. Dual-Persist to Normalized Multi-Contact Enterprise Graph (v2.0)
+                self._persist_normalized_records(session, lead, country, tax_id, order_obj.city, now)
+
+                # 3. Add to Order Manifest (Products by Order)
                 existing_link = session.query(OrderLeadModel).filter_by(order_id=order_id, lead_id=lead_id).first()
                 if not existing_link:
                     manifest_entry = OrderLeadModel(
@@ -767,6 +776,209 @@ class SqlOrderAdapter:
 
             session.commit()
             return True
+
+    def _persist_normalized_records(
+        self,
+        session,
+        lead: Dict[str, Any],
+        country: str,
+        tax_id: str,
+        fallback_city: str,
+        now: datetime,
+    ) -> None:
+        """
+        Idempotently persists the normalized multi-contact enterprise graph:
+        Company -> Individuals -> Roles -> Contact Channels -> Channel Links.
+        """
+        try:
+            clean_tax_id = re.sub(r"\D", "", tax_id) or tax_id.strip()
+            company_id = f"{country}_{clean_tax_id}"
+            clean_company_name = (lead.get("company_name") or "").strip()
+            if not clean_company_name:
+                return
+
+            # 1. Upsert Company
+            company = session.get(CompanyModel, company_id)
+            ciiu_obj = lead.get("ciiu")
+            ciiu_code = getattr(ciiu_obj, "code", lead.get("ciiu_code"))
+            sector_macro = getattr(ciiu_obj, "sector_macro", lead.get("sector_macro"))
+            city = lead.get("city") or fallback_city or "Medellín"
+            dept = lead.get("department") or ""
+
+            if not company:
+                company = CompanyModel(
+                    company_id=company_id,
+                    tax_id=tax_id,
+                    country=country,
+                    legal_name=clean_company_name,
+                    clean_name=lead.get("clean_name") or clean_company_name,
+                    trade_name=lead.get("trade_name") or clean_company_name,
+                    department=dept,
+                    municipality=city,
+                    address=lead.get("address", ""),
+                    primary_ciiu=ciiu_code,
+                    macrosector=sector_macro,
+                    corporate_type=lead.get("company_type", "Sociedad Comercial"),
+                    revenue_bracket=lead.get("revenue_bracket"),
+                    employees_bracket=lead.get("employees_bracket"),
+                    website_url=lead.get("website_url"),
+                    website_status=lead.get("website_audit_status", "ONLINE_ACTIVE_HTTP200" if lead.get("website_url") else "OFFLINE_STATUTORY_ACTIVE"),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(company)
+            else:
+                company.updated_at = now
+                if lead.get("website_url"):
+                    company.website_url = lead["website_url"]
+                if ciiu_code:
+                    company.primary_ciiu = ciiu_code
+
+            # 2. Upsert Individual (Decision Maker)
+            rep_name = (lead.get("decision_maker_name") or "Gerente General").strip()
+            name_slug = re.sub(r"\W+", "_", rep_name.lower()).strip("_")[:32]
+            individual_id = f"IND_{country}_{clean_tax_id}_{name_slug}"
+
+            individual = session.get(IndividualModel, individual_id)
+            if not individual:
+                individual = IndividualModel(
+                    individual_id=individual_id,
+                    country=country,
+                    full_name=rep_name,
+                    first_name=lead.get("first_name", rep_name.split()[0] if rep_name else "Líder"),
+                    linkedin_url=lead.get("linkedin_xray_url"),
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(individual)
+            else:
+                individual.updated_at = now
+                if lead.get("linkedin_xray_url"):
+                    individual.linkedin_url = lead["linkedin_xray_url"]
+
+            # 3. Upsert Role Link
+            role_id = f"ROLE_{company_id}_{individual_id}"
+            role = session.get(CompanyIndividualRoleModel, role_id)
+            role_title = lead.get("decision_maker_title") or "Representante Legal"
+            is_operational = not any(w in role_title.lower() for w in ("revisor fiscal", "abogado externo", "apoderado judicial"))
+
+            if not role:
+                role = CompanyIndividualRoleModel(
+                    role_id=role_id,
+                    company_id=company_id,
+                    individual_id=individual_id,
+                    title=role_title,
+                    role_category=lead.get("decision_maker_category", "statutory_signer"),
+                    is_operational_decision_maker=is_operational,
+                    tenure_status="active",
+                    verified_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(role)
+            else:
+                role.verified_at = now
+                role.updated_at = now
+
+            # 4. Upsert Contact Channels (Email & Phone)
+            raw_email = (lead.get("email") or "").strip().lower()
+            if raw_email and "@" in raw_email:
+                channel_email_id = f"CH_EMAIL_{raw_email}"
+                ch_email = session.get(ContactChannelModel, channel_email_id)
+                is_corp = not any(p in raw_email for p in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com"))
+                ch_type = "corporate_email" if is_corp else "statutory_email"
+
+                if not ch_email:
+                    ch_email = ContactChannelModel(
+                        channel_id=channel_email_id,
+                        channel_type=ch_type,
+                        normalized_value=raw_email,
+                        raw_value=raw_email,
+                        verification_state="mx_valid" if lead.get("mx_host") else "unverified",
+                        mx_host=lead.get("mx_host"),
+                        network_footprint_count=1,
+                        verified_at=now,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    session.add(ch_email)
+                else:
+                    ch_email.verified_at = now
+                    ch_email.network_footprint_count = (ch_email.network_footprint_count or 1) + 1
+                    ch_email.updated_at = now
+
+                # Link email to individual and company
+                link_ind_email_id = f"LNK_IND_{individual_id}_{channel_email_id}"
+                if not session.get(IndividualChannelLinkModel, link_ind_email_id):
+                    session.add(IndividualChannelLinkModel(
+                        link_id=link_ind_email_id,
+                        individual_id=individual_id,
+                        channel_id=channel_email_id,
+                        channel_ownership="direct_executive_email" if is_corp else "external_firm_email",
+                        created_at=now,
+                    ))
+
+                link_co_email_id = f"LNK_CO_{company_id}_{channel_email_id}"
+                if not session.get(CompanyChannelLinkModel, link_co_email_id):
+                    session.add(CompanyChannelLinkModel(
+                        link_id=link_co_email_id,
+                        company_id=company_id,
+                        channel_id=channel_email_id,
+                        channel_usage="general_inbox" if is_corp else "legal_notification_inbox",
+                        is_primary_switchboard=False,
+                        created_at=now,
+                    ))
+
+            raw_phone = (lead.get("phone") or "").strip()
+            digits_phone = re.sub(r"\D", "", raw_phone)
+            if digits_phone and len(digits_phone) >= 7:
+                channel_phone_id = f"CH_PHONE_{country}_{digits_phone}"
+                ch_phone = session.get(ContactChannelModel, channel_phone_id)
+                clean_digits = digits_phone[2:] if (digits_phone.startswith("57") and len(digits_phone) == 12) else digits_phone
+                is_mobile = clean_digits.startswith("3") and len(clean_digits) == 10 if country == "CO" else False
+                p_type = "mobile_phone" if is_mobile else "landline_pbx"
+
+                if not ch_phone:
+                    ch_phone = ContactChannelModel(
+                        channel_id=channel_phone_id,
+                        channel_type=p_type,
+                        normalized_value=digits_phone,
+                        raw_value=raw_phone,
+                        verification_state="whatsapp_active" if is_mobile else "unverified",
+                        network_footprint_count=1,
+                        verified_at=now,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    session.add(ch_phone)
+                else:
+                    ch_phone.verified_at = now
+                    ch_phone.network_footprint_count = (ch_phone.network_footprint_count or 1) + 1
+                    ch_phone.updated_at = now
+
+                link_ind_phone_id = f"LNK_IND_{individual_id}_{channel_phone_id}"
+                if not session.get(IndividualChannelLinkModel, link_ind_phone_id):
+                    session.add(IndividualChannelLinkModel(
+                        link_id=link_ind_phone_id,
+                        individual_id=individual_id,
+                        channel_id=channel_phone_id,
+                        channel_ownership="direct_mobile" if is_mobile else "headquarters_pbx",
+                        created_at=now,
+                    ))
+
+                link_co_phone_id = f"LNK_CO_{company_id}_{channel_phone_id}"
+                if not session.get(CompanyChannelLinkModel, link_co_phone_id):
+                    session.add(CompanyChannelLinkModel(
+                        link_id=link_co_phone_id,
+                        company_id=company_id,
+                        channel_id=channel_phone_id,
+                        channel_usage="plant_switchboard" if not is_mobile else "direct_contact",
+                        is_primary_switchboard=not is_mobile,
+                        created_at=now,
+                    ))
+
+        except Exception as norm_err:
+            logger.debug(f"[SqlOrderAdapter] Normalized record persistence notice: {norm_err}")
 
     def update_telemetry(self, order_id: str, telemetry: Dict[str, Any], status: Optional[str] = None) -> bool:
         """

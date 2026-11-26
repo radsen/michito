@@ -44,6 +44,154 @@ class ClientModel(Base):
     orders: Any = relationship("OrderModel", back_populates="client_entity")
 
 
+# ==============================================================================
+# Normalized Multi-Contact Enterprise Architecture (v2.0)
+# Decouples Companies, Individuals, Roles, and Canonical Contact Channels (N:M Graph)
+# ==============================================================================
+
+class CompanyModel(Base):
+    """
+    Canonical Corporate Entity.
+    Represents an incorporated legal person (S.A.S., S.A., S.R.L., SpA) or formal merchant.
+    """
+    __tablename__ = "companies"
+
+    company_id: Any = Column(String(64), primary_key=True, index=True)  # e.g. "CO_900123456"
+    tax_id: Any = Column(String(64), nullable=False, index=True)  # NIT in CO, RNC in DO, RUC in EC, RUT in CL
+    country: Any = Column(String(4), nullable=False, default="CO", index=True)
+    legal_name: Any = Column(String(255), nullable=False)
+    clean_name: Any = Column(String(255), nullable=False, index=True)
+    trade_name: Any = Column(String(255), nullable=True)  # Nombre Comercial / Rótulo
+    department: Any = Column(String(128), nullable=True, index=True)
+    municipality: Any = Column(String(128), nullable=False, index=True)
+    address: Any = Column(Text, nullable=True)
+
+    # Activity & Classification (DANE / UN ISIC Rev. 4)
+    primary_ciiu: Any = Column(String(32), nullable=True, index=True)
+    secondary_ciius: Any = Column(JSON, nullable=True)
+    macrosector: Any = Column(String(128), nullable=True, index=True)
+    corporate_type: Any = Column(String(128), nullable=True)
+    revenue_bracket: Any = Column(String(64), nullable=True)
+    employees_bracket: Any = Column(String(64), nullable=True)
+
+    # Digital Footprint & Attributed Presence
+    website_url: Any = Column(Text, nullable=True)
+    website_status: Any = Column(String(64), default="UNVERIFIED", index=True)  # ONLINE_ACTIVE_HTTP200, OFFLINE_STATUTORY_ACTIVE, NO_INDEXED_PRESENCE
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    roles = relationship("CompanyIndividualRoleModel", back_populates="company", cascade="all, delete-orphan")
+    channel_links = relationship("CompanyChannelLinkModel", back_populates="company", cascade="all, delete-orphan")
+
+
+class IndividualModel(Base):
+    """
+    Canonical Human Decision Maker / Executive.
+    Can hold roles across multiple sister companies, holdings, or statutory proxies.
+    """
+    __tablename__ = "individuals"
+
+    individual_id: Any = Column(String(64), primary_key=True, index=True)  # e.g. "IND_CO_1017263720" or UUID
+    national_id: Any = Column(String(64), nullable=True, index=True)  # Cédula de Ciudadanía, Pasaporte, DNI
+    country: Any = Column(String(4), default="CO", index=True)
+    full_name: Any = Column(String(255), nullable=False, index=True)
+    first_name: Any = Column(String(128), nullable=True)
+    last_name: Any = Column(String(128), nullable=True)
+    linkedin_url: Any = Column(Text, nullable=True)
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    roles = relationship("CompanyIndividualRoleModel", back_populates="individual", cascade="all, delete-orphan")
+    channel_links = relationship("IndividualChannelLinkModel", back_populates="individual", cascade="all, delete-orphan")
+
+
+class CompanyIndividualRoleModel(Base):
+    """
+    Associative Junction Table: Links an Individual to a Company with Role Nuance.
+    Differentiates internal operational directors from external law firms and accounting proxies.
+    """
+    __tablename__ = "company_individual_roles"
+
+    role_id: Any = Column(String(64), primary_key=True, index=True)
+    company_id: Any = Column(String(64), ForeignKey("companies.company_id"), nullable=False, index=True)
+    individual_id: Any = Column(String(64), ForeignKey("individuals.individual_id"), nullable=False, index=True)
+    title: Any = Column(String(255), nullable=False)  # e.g. "Gerente General", "Director de Operaciones", "Apoderado General"
+    role_category: Any = Column(String(64), default="statutory_signer", index=True)  # internal_c_level, statutory_signer, external_counsel, fiscal_auditor, procurement_chief, plant_director
+    is_operational_decision_maker: Any = Column(Boolean, default=True, index=True)  # TRUE for plant/commercial managers; FALSE for external law firms & auditors
+    tenure_status: Any = Column(String(32), default="active", index=True)  # active, revoked, former
+    verified_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    company = relationship("CompanyModel", back_populates="roles")
+    individual = relationship("IndividualModel", back_populates="roles")
+
+
+class ContactChannelModel(Base):
+    """
+    Canonical Communication Channel.
+    Stores a unique normalized phone number or email address with deliverability state
+    and global network footprint count across companies.
+    """
+    __tablename__ = "contact_channels"
+
+    channel_id: Any = Column(String(64), primary_key=True, index=True)
+    channel_type: Any = Column(String(32), nullable=False, index=True)  # mobile_phone, landline_pbx, corporate_email, statutory_email
+    normalized_value: Any = Column(String(255), nullable=False, unique=True, index=True)  # E.164 phone or lowercase email
+    raw_value: Any = Column(String(255), nullable=True)
+    verification_state: Any = Column(String(32), default="unverified", index=True)  # mx_valid, smtp_deliverable, whatsapp_active, unverified, invalid_bounce
+    mx_host: Any = Column(String(255), nullable=True)
+    network_footprint_count: Any = Column(Integer, default=1, index=True)  # Distinct companies linked to this channel
+    suppressed_opt_out: Any = Column(Boolean, default=False, index=True)  # Habeas Data compliance
+    verified_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    company_links = relationship("CompanyChannelLinkModel", back_populates="channel", cascade="all, delete-orphan")
+    individual_links = relationship("IndividualChannelLinkModel", back_populates="channel", cascade="all, delete-orphan")
+
+
+class CompanyChannelLinkModel(Base):
+    """
+    Links a Company directly to a Channel (e.g. Headquarters PBX, Main Administrative Email).
+    """
+    __tablename__ = "company_channel_links"
+
+    link_id: Any = Column(String(64), primary_key=True, index=True)
+    company_id: Any = Column(String(64), ForeignKey("companies.company_id"), nullable=False, index=True)
+    channel_id: Any = Column(String(64), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
+    channel_usage: Any = Column(String(64), default="general_inbox", index=True)  # headquarters_pbx, legal_notification_inbox, general_inbox, plant_switchboard, shared_holding_line
+    is_primary_switchboard: Any = Column(Boolean, default=False, index=True)
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    company = relationship("CompanyModel", back_populates="channel_links")
+    channel = relationship("ContactChannelModel", back_populates="company_links")
+
+
+class IndividualChannelLinkModel(Base):
+    """
+    Links an Individual to a Channel (e.g. Direct Mobile Phone, Direct Executive Email).
+    """
+    __tablename__ = "individual_channel_links"
+
+    link_id: Any = Column(String(64), primary_key=True, index=True)
+    individual_id: Any = Column(String(64), ForeignKey("individuals.individual_id"), nullable=False, index=True)
+    channel_id: Any = Column(String(64), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
+    channel_ownership: Any = Column(String(64), default="direct_mobile", index=True)  # direct_mobile, direct_executive_email, external_firm_email, whatsapp_direct
+
+    created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    individual = relationship("IndividualModel", back_populates="channel_links")
+    channel = relationship("ContactChannelModel", back_populates="individual_links")
+
+
 class LeadModel(Base):
     """
     Verified Lead Asset Pool (Inventory).
