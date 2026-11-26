@@ -1109,6 +1109,9 @@ class SqlOrderAdapter:
             if raw_email and "@" in raw_email:
                 channel_email_id = f"CH_EMAIL_{raw_email}"
                 ch_email = session.get(ContactChannelModel, channel_email_id)
+                if not ch_email:
+                    ch_email = session.query(ContactChannelModel).filter_by(normalized_value=raw_email).first()
+
                 is_corp = not any(p in raw_email for p in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com"))
                 ch_type = "corporate_email" if is_corp else "statutory_email"
 
@@ -1126,7 +1129,9 @@ class SqlOrderAdapter:
                         updated_at=now,
                     )
                     session.add(ch_email)
+                    session.flush()
                 else:
+                    channel_email_id = ch_email.channel_id
                     ch_email.verified_at = now
                     ch_email.network_footprint_count = (ch_email.network_footprint_count or 1) + 1
                     ch_email.updated_at = now
@@ -1165,6 +1170,9 @@ class SqlOrderAdapter:
             if digits_phone and len(digits_phone) >= 7:
                 channel_phone_id = f"CH_PHONE_{country}_{digits_phone}"
                 ch_phone = session.get(ContactChannelModel, channel_phone_id)
+                if not ch_phone:
+                    ch_phone = session.query(ContactChannelModel).filter_by(normalized_value=digits_phone).first()
+
                 clean_digits = digits_phone[2:] if (digits_phone.startswith("57") and len(digits_phone) == 12) else digits_phone
                 is_mobile = clean_digits.startswith("3") and len(clean_digits) == 10 if country == "CO" else False
                 p_type = "mobile_phone" if is_mobile else "landline_pbx"
@@ -1182,7 +1190,9 @@ class SqlOrderAdapter:
                         updated_at=now,
                     )
                     session.add(ch_phone)
+                    session.flush()
                 else:
+                    channel_phone_id = ch_phone.channel_id
                     ch_phone.verified_at = now
                     ch_phone.network_footprint_count = (ch_phone.network_footprint_count or 1) + 1
                     ch_phone.updated_at = now

@@ -100,7 +100,7 @@ if [ "${SKIP_TESTS:-false}" != "true" ]; then
     if [ -x "./venv/bin/pytest" ]; then
         PYTEST_BIN="./venv/bin/pytest"
     fi
-    ALLOW_STATUTORY_FALLBACK=true $PYTEST_BIN backend/tests/unit backend/tests/integration backend/tests/e2e -q || {
+    TESTING=1 ALLOW_STATUTORY_FALLBACK=true $PYTEST_BIN backend/tests/unit backend/tests/integration backend/tests/e2e -q || {
         echo "ERROR: Quality Gate Failed! Aborting deployment to [${ENV_UPPER}]."
         exit 1
     }
