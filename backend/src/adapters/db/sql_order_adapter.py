@@ -9,7 +9,7 @@ import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
-from sqlalchemy import create_engine, select, update, and_, not_, or_
+from sqlalchemy import create_engine, select, update, and_, not_, or_, func
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -833,6 +833,154 @@ class SqlOrderAdapter:
 
             session.commit()
             return True
+
+    def persist_normalized_leads(
+        self,
+        leads: List[Dict[str, Any]],
+        country: str = "CO",
+        fallback_city: str = "Medellín",
+    ) -> int:
+        """
+        Public method to persist normalized multi-contact leads (companies, individuals, channels)
+        directly to the PostgreSQL lakehouse, supporting asymmetric caching outside of orders.
+        """
+        if not leads:
+            return 0
+        now = datetime.now(timezone.utc)
+        persisted = 0
+        with self._get_session() as session:
+            for lead in leads:
+                c_tax = lead.get("nit") or lead.get("rnc") or lead.get("tax_id")
+                if not c_tax:
+                    continue
+                c_country = (lead.get("country") or country).strip().upper()
+                c_city = lead.get("city") or fallback_city
+                self._persist_normalized_records(session, lead, c_country, str(c_tax), c_city, now)
+                persisted += 1
+            session.commit()
+        return persisted
+
+    def get_cached_candidates(
+        self,
+        country: str,
+        cities: Optional[List[str]] = None,
+        ciiu_codes: Optional[List[str]] = None,
+        sectors: Optional[List[str]] = None,
+        excluded_nits: Optional[List[str]] = None,
+        limit: int = 50,
+        max_age_days: int = 365,
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieves normalized candidate entities from the local PostgreSQL Lakehouse (companies table)
+        within the active statutory TTL window (default 365 days).
+        Enables 0ms registry latency, protects SODA rate-limits, and eliminates speculative harvesting.
+        """
+        c_code = (country or "CO").strip().upper()
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        results: List[Dict[str, Any]] = []
+
+        try:
+            with self._get_session() as session:
+                stmt = select(CompanyModel).where(
+                    CompanyModel.country == c_code,
+                    CompanyModel.updated_at >= cutoff_date,
+                )
+                if cities:
+                    city_lowers = [c.strip().lower() for c in cities if c]
+                    stmt = stmt.where(func.lower(CompanyModel.municipality).in_(city_lowers))
+                if ciiu_codes:
+                    clean_codes = [c.strip().zfill(4) for c in ciiu_codes if c]
+                    stmt = stmt.where(CompanyModel.primary_ciiu.in_(clean_codes))
+                if sectors and not ciiu_codes:
+                    sec_lowers = [s.strip().lower() for s in sectors if s]
+                    stmt = stmt.where(
+                        or_(*[func.lower(CompanyModel.macrosector).contains(s) for s in sec_lowers])
+                    )
+                if excluded_nits:
+                    clean_excl = [re.sub(r"\D", "", str(n)) for n in excluded_nits if n]
+                    clean_excl_raw = [str(n).strip() for n in excluded_nits if n]
+                    all_excl = list(set(clean_excl + clean_excl_raw))
+                    if all_excl:
+                        stmt = stmt.where(CompanyModel.tax_id.notin_(all_excl))
+
+                stmt = stmt.order_by(CompanyModel.updated_at.desc()).limit(limit)
+                companies = session.scalars(stmt).all()
+
+                for comp in companies:
+                    rep_name = "Representante Legal"
+                    rep_role = "Representante Legal"
+                    direct_phone = ""
+                    direct_email = ""
+                    direct_mx = ""
+                    is_mobile = False
+
+                    # Check roles
+                    for r in comp.roles:
+                        if r.tenure_status == "active":
+                            if r.individual:
+                                rep_name = r.individual.full_name
+                                rep_role = r.title
+                            if r.is_operational_decision_maker:
+                                break
+
+                    # Check channels: individual channels first, then company channels
+                    for ind_link in getattr(comp, "roles", []):
+                        if ind_link.individual:
+                            for c_link in ind_link.individual.channel_links:
+                                ch = c_link.channel
+                                if ch and ch.verification_state != "invalid_bounce":
+                                    if ch.channel_type in ("mobile_phone", "landline_pbx", "central_switchboard") and not direct_phone:
+                                        direct_phone = ch.raw_value or ch.normalized_value
+                                        is_mobile = (ch.channel_type == "mobile_phone")
+                                    elif ch.channel_type in ("corporate_email", "statutory_email") and not direct_email:
+                                        direct_email = ch.normalized_value
+                                        direct_mx = ch.mx_host or ""
+
+                    for comp_link in comp.channel_links:
+                        ch = comp_link.channel
+                        if ch and ch.verification_state != "invalid_bounce":
+                            if ch.channel_type in ("mobile_phone", "landline_pbx", "central_switchboard") and not direct_phone:
+                                direct_phone = ch.raw_value or ch.normalized_value
+                                is_mobile = (ch.channel_type == "mobile_phone")
+                            elif ch.channel_type in ("corporate_email", "statutory_email") and not direct_email:
+                                direct_email = ch.normalized_value
+                                direct_mx = ch.mx_host or direct_mx
+
+                    results.append({
+                        "company_id": comp.company_id,
+                        "nit": comp.tax_id,
+                        "nombre": comp.legal_name,
+                        "company_name": comp.legal_name,
+                        "clean_name": comp.clean_name,
+                        "municipio": comp.municipality,
+                        "city": comp.municipality,
+                        "departamento": comp.department or "",
+                        "direccion": comp.address or "",
+                        "ciiu_code": comp.primary_ciiu or "7020",
+                        "sector": comp.macrosector or "Servicios Empresariales",
+                        "sector_macro": comp.macrosector or "Servicios Empresariales",
+                        "descripcion_categoria_principal": comp.macrosector or "Servicios Empresariales",
+                        "website": comp.website_url,
+                        "website_url": comp.website_url,
+                        "website_audit_status": comp.website_status or "OFFLINE_STATUTORY_ACTIVE",
+                        "tama_o_entidad": comp.employees_bracket or comp.revenue_bracket or "Mediana",
+                        "nombre_representante_legal": rep_name,
+                        "decision_maker_name": rep_name,
+                        "cargo_representante_legal": rep_role,
+                        "decision_maker_title": rep_role,
+                        "correo": direct_email,
+                        "email": direct_email,
+                        "telefono": direct_phone,
+                        "phone": direct_phone,
+                        "is_mobile": is_mobile,
+                        "mx_host": direct_mx or None,
+                        "is_cached_statutory": True,
+                        "cached_at": comp.updated_at.isoformat() if comp.updated_at else None,
+                    })
+        except Exception:
+            pass
+
+        return results
 
     def _persist_normalized_records(
         self,

@@ -510,6 +510,7 @@ class GenerateProspectsUseCase:
         supersociedades_harvester: Optional[Any] = None,
         dgii_harvester: Optional[Any] = None,
         supercias_harvester: Optional[Any] = None,
+        order_repository: Optional[Any] = None,
     ):
         self.harvester_co = harvester_co
         self.harvester_dr = harvester_dr
@@ -524,6 +525,7 @@ class GenerateProspectsUseCase:
         self.supersociedades_harvester = supersociedades_harvester or SupersociedadesSodaAdapter()
         self.dgii_harvester = dgii_harvester or DgiiRncAdapter()
         self.supercias_harvester = supercias_harvester or SuperciasEcuadorAdapter()
+        self.order_repository = order_repository
 
     def execute(
         self,
@@ -960,46 +962,71 @@ class GenerateProspectsUseCase:
             rings_scanned: List[str] = []
 
             # 1. First probe local verified database inventory (PostgreSQL / SQLite)
-            if not is_mock_harvester:
+            if not is_mock_harvester or self.order_repository is not None:
                 try:
-                    from src.adapters.db.sql_order_adapter import SqlOrderAdapter
-                    sql_ad = SqlOrderAdapter()
-                    for r_idx, r_cities in allowed_rings:
-                        for c_ring in r_cities:
-                            cached_db_leads = sql_ad.get_cached_fresh_leads(
-                                city=c_ring,
+                    sql_ad = self.order_repository
+                    if not sql_ad:
+                        from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+                        sql_ad = SqlOrderAdapter()
+
+                    # 1a. Probe normalized Lakehouse candidates (CompanyModel 3NF schema)
+                    all_allowed_cities = [c for _, r_cities in allowed_rings for c in r_cities] if allowed_rings else ([target_city] if target_city else None)
+                    if hasattr(sql_ad, "get_cached_candidates"):
+                        try:
+                            cached_lakehouse = sql_ad.get_cached_candidates(
                                 country=c_code,
-                                limit=max(t_quota * raw_multiplier, 100),
+                                cities=all_allowed_cities,
                                 ciiu_codes=effective_ciius,
-                                keywords=kw_include,
                                 sectors=effective_sectors,
+                                excluded_nits=clean_excl_nits,
+                                limit=max(t_quota * raw_multiplier, 100),
                                 max_age_days=365,
                             )
-                            for cl in cached_db_leads:
+                            for cl in cached_lakehouse:
                                 cand_id = cl.get("tax_id") or cl.get("nit")
                                 if cand_id and not any(r.get("nit") == cand_id for r in raw_candidates):
-                                    raw_candidates.append({
-                                        "company_name": cl.get("company_name"),
-                                        "nit": cand_id,
-                                        "rnc": cand_id,
-                                        "ruc": cand_id,
-                                        "city": cl.get("city") or c_ring,
-                                        "address": cl.get("address") or "",
-                                        "sector": cl.get("sector_macro") or cl.get("sector") or "Servicios Empresariales",
-                                        "ciiu_code": cl.get("ciiu_code"),
-                                        "decision_maker_name": cl.get("decision_maker_name") or "Gerente General",
-                                        "decision_maker_title": cl.get("decision_maker_title") or "Representante Legal",
-                                        "email": cl.get("email"),
-                                        "phone": cl.get("phone"),
-                                        "website": cl.get("website_url"),
-                                        "website_url": cl.get("website_url"),
-                                        "website_audit_status": cl.get("website_audit_status") or "ONLINE_ACTIVE_HTTP200",
-                                        "mx_host": cl.get("mx_host"),
-                                    })
+                                    raw_candidates.append(cl)
+                        except Exception as e_lh:
+                            print(f"[GenerateProspects] Lakehouse candidate query skipped: {e_lh}")
+
+                    # 1b. Probe delivered order lead inventory (LeadModel)
+                    if len(raw_candidates) < t_quota * raw_multiplier and hasattr(sql_ad, "get_cached_fresh_leads"):
+                        for r_idx, r_cities in allowed_rings:
+                            for c_ring in r_cities:
+                                cached_db_leads = sql_ad.get_cached_fresh_leads(
+                                    city=c_ring,
+                                    country=c_code,
+                                    limit=max(t_quota * raw_multiplier, 100),
+                                    ciiu_codes=effective_ciius,
+                                    keywords=kw_include,
+                                    sectors=effective_sectors,
+                                    max_age_days=365,
+                                )
+                                for cl in cached_db_leads:
+                                    cand_id = cl.get("tax_id") or cl.get("nit")
+                                    if cand_id and not any(r.get("nit") == cand_id for r in raw_candidates):
+                                        raw_candidates.append({
+                                            "company_name": cl.get("company_name"),
+                                            "nit": cand_id,
+                                            "rnc": cand_id,
+                                            "ruc": cand_id,
+                                            "city": cl.get("city") or c_ring,
+                                            "address": cl.get("address") or "",
+                                            "sector": cl.get("sector_macro") or cl.get("sector") or "Servicios Empresariales",
+                                            "ciiu_code": cl.get("ciiu_code"),
+                                            "decision_maker_name": cl.get("decision_maker_name") or "Gerente General",
+                                            "decision_maker_title": cl.get("decision_maker_title") or "Representante Legal",
+                                            "email": cl.get("email"),
+                                            "phone": cl.get("phone"),
+                                            "website": cl.get("website_url"),
+                                            "website_url": cl.get("website_url"),
+                                            "website_audit_status": cl.get("website_audit_status") or "ONLINE_ACTIVE_HTTP200",
+                                            "mx_host": cl.get("mx_host"),
+                                        })
+                                if len(raw_candidates) >= t_quota * raw_multiplier:
+                                    break
                             if len(raw_candidates) >= t_quota * raw_multiplier:
                                 break
-                        if len(raw_candidates) >= t_quota * raw_multiplier:
-                            break
                 except Exception as e:
                     print(f"[GenerateProspects] Database inventory query skipped: {e}")
 
@@ -1216,11 +1243,22 @@ class GenerateProspectsUseCase:
                             continue
 
                 # DANE / Regional Activity Classification
-                ciiu_obj = CiiuCode.infer_from_text(
-                    company_name=company_name,
-                    email=email,
-                    raw_desc=item.get("sector", "")
-                )
+                item_ciiu = item.get("ciiu_code")
+                if item_ciiu:
+                    try:
+                        ciiu_obj = CiiuCode.from_code(str(item_ciiu))
+                    except Exception:
+                        ciiu_obj = CiiuCode.infer_from_text(
+                            company_name=company_name,
+                            email=email,
+                            raw_desc=item.get("sector", "")
+                        )
+                else:
+                    ciiu_obj = CiiuCode.infer_from_text(
+                        company_name=company_name,
+                        email=email,
+                        raw_desc=item.get("sector", "")
+                    )
                 cand_division = ciiu_obj.code[:2] if len(ciiu_obj.code) >= 2 else ""
 
                 # Cross-Sector Negative Division Guard (Dynamically Enforced from PostgreSQL Taxonomy)
@@ -1417,6 +1455,7 @@ class GenerateProspectsUseCase:
                     "contracts_data": contracts_data,
                     "hiring_xray_url": hiring_xray,
                     "expansion_flag": expansion_flag,
+                    "is_cached_statutory": item.get("is_cached_statutory", False),
                 }
 
                 all_selected.append(lead_record)
@@ -2102,6 +2141,19 @@ class GenerateProspectsUseCase:
                 t_item["solvency_tier"] = lead["underwriting"].get("solvency_tier")
                 t_item["litigation_risk"] = lead["underwriting"].get("litigation_risk_status")
             teaser_list.append(t_item)
+
+        # Asymmetrically persist statutory profiles to Lakehouse for progressive enrichment flywheel
+        if all_selected and not dry_run:
+            try:
+                sql_ad = self.order_repository
+                if not sql_ad:
+                    from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+                    sql_ad = SqlOrderAdapter()
+                if hasattr(sql_ad, "persist_normalized_leads"):
+                    fallback_c = scanned_cities[0] if scanned_cities else (city or "Medellín")
+                    sql_ad.persist_normalized_leads(all_selected, country=target_country, fallback_city=fallback_c)
+            except Exception as e_persist:
+                print(f"[GenerateProspects] Asymmetric lakehouse persistence skipped: {e_persist}")
 
         return {
             "status": "success",
