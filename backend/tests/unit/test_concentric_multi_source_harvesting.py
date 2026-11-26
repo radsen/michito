@@ -147,3 +147,46 @@ def test_multi_country_concentric_harvesting_integration():
     assert ec_result["total_qualified"] > 0
     assert any(l["country"] == "EC" for l in ec_result["leads"])
 
+
+def test_scenario_2_medellin_textiles_high_recall_tier2():
+    """
+    Scenario 2: 🇨🇴 Medellín Textiles & Apparel - Tier 2 High Recall Validation.
+    Validates that lead delivery jumps from 4 to 100+ qualified leads,
+    preventing website audit dropouts via OFFLINE_STATUTORY_ACTIVE relaxation.
+    """
+    mock_auditor = MagicMock()
+    # Simulate realistic web presence: some sites fail HTTP 200, but valid registry + MX + phone exist
+    mock_auditor.audit.return_value = (False, "", "Sitio Web No Disponible")
+
+    use_case = GenerateProspectsUseCase(
+        web_auditor=mock_auditor,
+        verify_mx_fn=lambda email: (True, "mail.example.com"),
+    )
+
+    result = use_case.execute(
+        campaign="universal",
+        offer_description="Confección y dotación de prendas de vestir textiles en Medellín",
+        country="CO",
+        city="Medellín",
+        target_sectors=["fashion_apparel_textiles"],
+        target_ciiu_codes=["1410", "1312", "1399"],
+        tier=2,
+        limit=100,
+        geographic_scope="metro_area",
+    )
+
+    leads = result.get("leads", [])
+    assert len(leads) >= 100, f"Expected 100+ leads, got {len(leads)}"
+
+    # Validate data integrity on delivered leads
+    for lead in leads:
+        assert lead["nit"]
+        assert lead["email"]
+        assert lead["phone"]
+        assert lead["decision_maker_name"]
+        assert lead["decision_maker_title"]
+        assert lead["website_audit_status"] in ("ONLINE_ACTIVE_HTTP200", "OFFLINE_STATUTORY_ACTIVE")
+        # Ensure correct sector classification without contamination
+        assert lead["ciiu_code"][:2] in ("13", "14", "15", "46", "47")
+
+

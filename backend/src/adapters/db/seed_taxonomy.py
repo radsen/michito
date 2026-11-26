@@ -734,9 +734,24 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
             "metalmecanica", "maquinaria industrial", "transformacion", "materia prima", "textiles"
         ],
         "keywords_exclude_defaults": ["taller artesanal", "manualidades", "costura domiciliaria"],
-        "allowed_isic_divisions": ["13", "17", "20", "22", "24", "25", "28"],
+        "allowed_isic_divisions": ["13", "14", "15", "17", "20", "22", "24", "25", "28", "46", "47"],
         "forbidden_isic_divisions": ["62", "63", "85", "86", "56", "79"],
         "usage_count": 130,
+        "is_active": True,
+    },
+    {
+        "sector_id": "fashion_apparel_textiles",
+        "sector_name": "Moda, Confecciones, Textiles & Calzado",
+        "country_code": "ALL",
+        "ciiu_codes": ["C1311", "C1312", "C1313", "C1391", "C1392", "C1399", "C1410", "C1420", "C1430", "C1511", "C1512", "C1521", "C1522", "C1523", "G4641", "G4771", "G4772"],
+        "keywords_include": [
+            "textiles", "confecciones", "prendas de vestir", "moda", "hilanderia", "telas",
+            "ropa", "calzado", "marroquineria", "cuero", "maquila textil", "costura industrial", "patronaje"
+        ],
+        "keywords_exclude_defaults": ["taller de remiendos", "costura casera"],
+        "allowed_isic_divisions": ["13", "14", "15", "46", "47"],
+        "forbidden_isic_divisions": ["62", "63", "85", "86", "41", "42", "43", "71", "24", "38"],
+        "usage_count": 220,
         "is_active": True,
     },
     {

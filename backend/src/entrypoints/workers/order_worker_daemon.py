@@ -64,6 +64,11 @@ class OrderWorkerDaemon:
         elif os.environ.get("DATABASE_URL") or not os.environ.get("FIRESTORE_EMULATOR_HOST"):
             from src.adapters.db.sql_order_adapter import SqlOrderAdapter
             self.order_repository = SqlOrderAdapter()
+            try:
+                from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                GLOBAL_ISIC_INDEX.load_from_db()
+            except Exception as e:
+                logger.warning(f"Failed to hot-load dynamic taxonomy in worker daemon: {e}")
         else:
             self.order_repository = FirestoreOrderAdapter()
 

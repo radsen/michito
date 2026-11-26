@@ -540,6 +540,200 @@ class TaxonomySectorModel(Base):
         }
 
 
+class TaxonomyIsicCodeModel(Base):
+    """
+    Universal UN ISIC Rev. 4 / DANE CIIU Rev. 4 Master Economic Activity Catalog.
+    Country-agnostic single source of truth for 4-digit economic activities.
+    """
+    __tablename__ = "taxonomy_isic_codes"
+
+    code = Column(String(8), primary_key=True, index=True)
+    division = Column(String(4), nullable=False, index=True)
+    section = Column(String(2), nullable=False, index=True)
+    section_title = Column(String(256), nullable=False)
+    title = Column(String(256), nullable=False, index=True)
+    sector_macro = Column(String(128), nullable=False, index=True)
+    keywords = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, default=True, index=True)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    country_registries = relationship("TaxonomyIsicCountryRegistryModel", back_populates="isic_code_ref", cascade="all, delete-orphan")
+    role_links = relationship("TaxonomyIsicRoleLinkModel", back_populates="isic_code_ref", cascade="all, delete-orphan")
+    sector_links = relationship("TaxonomySectorIsicLinkModel", back_populates="isic_code_ref", cascade="all, delete-orphan")
+    semantic_patterns = relationship("TaxonomySemanticPatternModel", back_populates="isic_code_ref", cascade="all, delete-orphan")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "code": self.code,
+            "division": self.division,
+            "section": self.section,
+            "section_title": self.section_title,
+            "title": self.title,
+            "sector_macro": self.sector_macro,
+            "keywords": self.keywords or [],
+            "is_active": bool(self.is_active),
+            "version": self.version,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class TaxonomyIsicCountryRegistryModel(Base):
+    """
+    Intermediate 1-to-N Mapping from Universal ISIC code to country-specific procurement registries:
+    - Colombia 🇨🇴: SODA / SECOP categories and DIAN RUT Box 46
+    - Dominican Republic 🇩🇴: DGCP Procurement Rubros and DGII Activity codes
+    - Ecuador 🇪🇨: SERCOP CPC codes and SuperCias activity categories
+    """
+    __tablename__ = "taxonomy_isic_country_registries"
+    __table_args__ = (
+        UniqueConstraint("isic_code", "country_code", "registry_system", "external_code", name="uq_isic_country_registry"),
+    )
+
+    registry_id = Column(Integer, primary_key=True, autoincrement=True)
+    isic_code = Column(String(8), ForeignKey("taxonomy_isic_codes.code", ondelete="CASCADE"), nullable=False, index=True)
+    country_code = Column(String(4), nullable=False, index=True)       # CO, DO, EC, ALL
+    registry_system = Column(String(32), nullable=False, index=True)   # secop_soda, dgcp_rubro, sercop_cpc, dgii_tax, sri_tax
+    external_code = Column(String(64), nullable=False, index=True)     # e.g. "88121", "531015"
+    external_label = Column(String(256), nullable=False)
+    search_keyword = Column(String(128), nullable=True)
+    is_active = Column(Boolean, default=True, index=True)
+
+    isic_code_ref = relationship("TaxonomyIsicCodeModel", back_populates="country_registries")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "registry_id": self.registry_id,
+            "isic_code": self.isic_code,
+            "country_code": self.country_code,
+            "registry_system": self.registry_system,
+            "external_code": self.external_code,
+            "external_label": self.external_label,
+            "search_keyword": self.search_keyword,
+            "is_active": bool(self.is_active),
+        }
+
+
+class TaxonomyIsicRoleLinkModel(Base):
+    """
+    Intermediate N-to-N Junction between Universal ISIC codes and Executive Roles (TaxonomyRoleModel).
+    Enables country-specific executive titles without duplicating ISIC code rows.
+    """
+    __tablename__ = "taxonomy_isic_role_links"
+    __table_args__ = (
+        UniqueConstraint("isic_code", "role_id", "country_code", name="uq_isic_role_country"),
+    )
+
+    link_id = Column(Integer, primary_key=True, autoincrement=True)
+    isic_code = Column(String(8), ForeignKey("taxonomy_isic_codes.code", ondelete="CASCADE"), nullable=False, index=True)
+    role_id = Column(String(64), ForeignKey("taxonomy_roles.role_id", ondelete="CASCADE"), nullable=False, index=True)
+    country_code = Column(String(4), default="ALL", nullable=False, index=True)
+    priority_rank = Column(Integer, default=1, index=True)  # 1 = Primary decision maker, 2 = Secondary, 3 = RFQ
+
+    isic_code_ref = relationship("TaxonomyIsicCodeModel", back_populates="role_links")
+    role = relationship("TaxonomyRoleModel")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "link_id": self.link_id,
+            "isic_code": self.isic_code,
+            "role_id": self.role_id,
+            "country_code": self.country_code,
+            "priority_rank": self.priority_rank,
+        }
+
+
+class TaxonomySectorIsicLinkModel(Base):
+    """
+    Intermediate N-to-N Junction between Business Sectors (TaxonomySectorModel) and Universal ISIC codes.
+    Distinguishes allowed, core, and forbidden divisions dynamically.
+    """
+    __tablename__ = "taxonomy_sector_isic_links"
+    __table_args__ = (
+        UniqueConstraint("sector_id", "isic_code", "relation_type", name="uq_sector_isic_rel"),
+    )
+
+    link_id = Column(Integer, primary_key=True, autoincrement=True)
+    sector_id = Column(String(64), ForeignKey("taxonomy_sectors.sector_id", ondelete="CASCADE"), nullable=False, index=True)
+    isic_code = Column(String(8), ForeignKey("taxonomy_isic_codes.code", ondelete="CASCADE"), nullable=False, index=True)
+    relation_type = Column(String(16), default="allowed", nullable=False, index=True)  # allowed, forbidden, core
+
+    isic_code_ref = relationship("TaxonomyIsicCodeModel", back_populates="sector_links")
+    sector = relationship("TaxonomySectorModel")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "link_id": self.link_id,
+            "sector_id": self.sector_id,
+            "isic_code": self.isic_code,
+            "relation_type": self.relation_type,
+        }
+
+
+class TaxonomySemanticPatternModel(Base):
+    """
+    Agent-Learned and Seed Regex Patterns for Sub-Millisecond Classification.
+    Stores newly discovered corporate terms, acronyms, and industry vernacular dynamically.
+    """
+    __tablename__ = "taxonomy_semantic_patterns"
+
+    pattern_id = Column(String(64), primary_key=True, index=True)
+    target_isic_code = Column(String(8), ForeignKey("taxonomy_isic_codes.code", ondelete="CASCADE"), nullable=False, index=True)
+    regex_pattern = Column(Text, nullable=False)
+    country_code = Column(String(4), default="ALL", nullable=False, index=True)
+    priority = Column(Integer, default=100, index=True)
+    match_count = Column(Integer, default=0, index=True)
+    confirmed_count = Column(Integer, default=0, index=True)
+    source = Column(String(32), default="seed", nullable=False, index=True)  # seed, agent_learned, admin_verified
+    is_active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    isic_code_ref = relationship("TaxonomyIsicCodeModel", back_populates="semantic_patterns")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pattern_id": self.pattern_id,
+            "target_isic_code": self.target_isic_code,
+            "regex_pattern": self.regex_pattern,
+            "country_code": self.country_code,
+            "priority": self.priority,
+            "match_count": self.match_count,
+            "confirmed_count": self.confirmed_count,
+            "source": self.source,
+            "is_active": bool(self.is_active),
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class TaxonomyExclusionRuleModel(Base):
+    """
+    Cross-Sector Contamination & Representative Blacklist Exclusion Rules.
+    Replaces static tuples for bankrupt status, legal liquidators, and cross-sector contradictions.
+    """
+    __tablename__ = "taxonomy_exclusion_rules"
+
+    rule_id = Column(String(64), primary_key=True, index=True)
+    target_sector_id = Column(String(64), ForeignKey("taxonomy_sectors.sector_id", ondelete="CASCADE"), nullable=True, index=True)
+    country_code = Column(String(4), default="ALL", nullable=False, index=True)
+    rule_type = Column(String(32), nullable=False, index=True)  # representative_placeholder, bankrupt_status, sector_contradiction
+    term = Column(String(128), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, index=True)
+
+    sector = relationship("TaxonomySectorModel")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "target_sector_id": self.target_sector_id,
+            "country_code": self.country_code,
+            "rule_type": self.rule_type,
+            "term": self.term,
+            "is_active": bool(self.is_active),
+        }
+
+
 class SearchIntentQueryModel(Base):
     """
     AI Agent Search Intent Memory Bank & Agent Training Log.

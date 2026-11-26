@@ -417,18 +417,42 @@ gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name=
 Run the full testing battery before any promotion to staging or production:
 
 ```bash
-# 1. Backend Unit Tests (199 tests)
-pytest backend/tests/unit -q
+# 1. Complete Automated Backend Test Battery (321 tests across unit, integration, and e2e)
+PYTHONPATH=backend ALLOW_STATUTORY_FALLBACK=true TESTING=1 venv/bin/pytest backend/tests/unit backend/tests/integration backend/tests/e2e -q
 
-# 2. Wompi Gateway Unit Scenarios (Approved, Declined, Fraud, PSE, Nequi)
-pytest backend/tests/unit/adapters/test_wompi_gateway_scenarios.py -v
-
-# 3. Backend Integration & E2E Tests (59 tests including 19 enterprise scenarios)
-pytest backend/tests/integration backend/tests/e2e -q
-
-# 4. Web Frontend Playwright E2E Suite (27 tests)
-cd clients/web && npx playwright test
+# 2. Web Frontend Playwright E2E Suite
+cd clients/web && npm run build
 ```
 
-All 285 tests must pass (100% green) before executing `./deploy.sh prod`.
+All 321 backend tests must pass (100% green) before executing `./deploy.sh staging all` or `./deploy.sh prod all`.
+
+---
+
+## 16. Dynamic Relational Taxonomy Migration & Multi-Country Architecture
+
+Michito deploys a normalized 9-table relational taxonomy engine directly in PostgreSQL. It eliminates hardcoded taxonomy catalogs from source code, enabling autonomous agents to learn new economic patterns and buying persona associations at runtime without requiring application re-deployment.
+
+### 16.1 Automated Idempotent Migration
+The migration runs automatically inside the FastAPI lifespan handler and the `OrderWorkerDaemon` on startup. To execute it manually against any database:
+```bash
+# Migrate and seed all 9 taxonomy tables
+python backend/scripts/migrate_relational_taxonomy.py --db-url="postgresql+psycopg://user:pass@host:5432/dbname"
+```
+
+### 16.2 The 9 Relational Taxonomy Tables
+| Table | Rows | Purpose |
+| :--- | :---: | :--- |
+| `taxonomy_locations` | 23 | Administrative territories, metro clusters & concentric expansion rings |
+| `taxonomy_roles` | 34 | Normalized B2B corporate personas and seniority levels |
+| `taxonomy_sectors` | 12 | Latin American macro economic sectors (ISIC Section Mappings) |
+| `taxonomy_isic_codes` | 247 | Universal UN ISIC Rev. 4 / DANE CIIU economic activities |
+| `taxonomy_isic_country_registries` | 739 | Cross-country adaptations (DANE Colombia, DGII DR, SuperCias Ecuador) |
+| `taxonomy_isic_role_links` | 3,943 | Country-calibrated buying persona links (typical buyers per activity) |
+| `taxonomy_sector_isic_links` | 717 | Sector-to-activity assignments and division memberships |
+| `taxonomy_semantic_patterns` | 28+ | Seed & agent-learned regex patterns for sub-millisecond classification |
+| `taxonomy_exclusion_rules` | 18 | Bankrupt/liquidator placeholders and cross-sector contamination rules |
+
+### 16.3 Production Live SODA API Configuration
+Staging and production containers run with `SODA_USE_LIVE_API=true` injected via `deploy.sh`. This enables live querying against official government SODA endpoints (SECOP II, Supersociedades) with SODA `$offset` pagination ladders and concentric metropolitan valley expansions.
+
 

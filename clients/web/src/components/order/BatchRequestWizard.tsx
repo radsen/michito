@@ -16,6 +16,7 @@ import {
   useGetPricingCatalogQuery,
   useGetTrmRatesQuery,
 } from "../../store/api/michitoApi";
+import { SUPPORTED_COUNTRIES } from "../../config/countries";
 import {
   Sparkles,
   Building2,
@@ -457,13 +458,13 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                     onChange={(e) => {
                       const c = e.target.value;
                       setSelectedCountry(c);
-                      setSelectedCity(countryCities[c][0]);
+                      setSelectedCity((countryCities[c] || [])[0] || "");
                     }}
                     style={{ width: "100%", padding: "10px", borderRadius: 8, background: "#020617", color: "#fff", border: "1px solid #334155" }}
                   >
-                    <option value="CO">Colombia 🇨🇴</option>
-                    <option value="DO">República Dominicana 🇩🇴</option>
-                    <option value="EC">Ecuador 🇪🇨</option>
+                    {Object.values(SUPPORTED_COUNTRIES).filter((c) => countryCities[c.code]).map((c) => (
+                      <option key={c.code} value={c.code}>{c.name} {c.flag}</option>
+                    ))}
                   </select>
                 </div>
 

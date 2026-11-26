@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { MapPin, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { LocationAllocationPayload, useLazyValidateLocationQuery, useSearchLocationsQuery } from "../../store/api/michitoApi";
+import { COUNTRY_FLAGS } from "../../config/countries";
 
 export interface GeoQuotaAllocatorProps {
   allocations: LocationAllocationPayload[];
@@ -29,12 +30,7 @@ export const GeoQuotaAllocator: React.FC<GeoQuotaAllocatorProps> = ({
   });
 
   const [triggerValidation] = useLazyValidateLocationQuery();
-
-  const countryFlags: Record<string, string> = {
-    CO: "🇨🇴",
-    DO: "🇩🇴",
-    EC: "🇪🇨",
-  };
+  const countryFlags = COUNTRY_FLAGS;
 
   const handleAddLocation = async (loc: any) => {
     // Check if already added

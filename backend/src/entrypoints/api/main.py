@@ -27,6 +27,7 @@ from src.domain.entities.company import Company
 from src.domain.value_objects.tax_id import TaxId
 from src.adapters.db.sql_order_adapter import SqlOrderAdapter
 from src.adapters.partners.partner_registry import PartnerRegistry
+from contextlib import asynccontextmanager
 from src.adapters.delivery.omnichannel_delivery_adapter import OmnichannelDeliveryAdapter
 from src.application.use_cases.deliver_order_use_case import DeliverOrderUseCase
 from src.application.services.brief_parser_service import BriefParserService
@@ -35,7 +36,20 @@ from campaign_loader import list_available_campaigns, load_campaign
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Michito B2B Intelligence Engine API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Hot-load dynamic relational taxonomy from PostgreSQL
+    try:
+        from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+        loaded_count = GLOBAL_ISIC_INDEX.load_from_db()
+        logger.info(f"[Startup] Successfully hot-loaded {loaded_count} ISIC codes from PostgreSQL taxonomy.")
+    except Exception as e:
+        logger.warning(f"[Startup] Relational taxonomy hot-load from DB skipped or failed: {e}")
+    yield
+
+
+app = FastAPI(title="Michito B2B Intelligence Engine API", version="2.0.0", lifespan=lifespan)
 
 # Enable Cross-Origin Resource Sharing (CORS) with explicit trusted origins
 allowed_origins_raw = os.environ.get(

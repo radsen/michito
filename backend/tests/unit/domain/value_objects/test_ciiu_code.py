@@ -5,32 +5,32 @@ class TestCiiuCode(unittest.TestCase):
     def test_known_ciiu_codes(self):
         c_6201 = CiiuCode.from_code("6201")
         self.assertEqual(c_6201.code, "6201")
-        self.assertEqual(c_6201.sector_macro, "Tecnología, Software & Analítica")
+        self.assertEqual(c_6201.sector_macro, "Desarrollo de Software & Apps")
         self.assertIn("planificación", c_6201.description)
 
         c_7020 = CiiuCode.from_code("7020")
         self.assertEqual(c_7020.code, "7020")
-        self.assertEqual(c_7020.sector_macro, "Consultoría Empresarial & Gestión")
+        self.assertEqual(c_7020.sector_macro, "Consultoría Estratégica & Gestión")
 
         c_6910 = CiiuCode.from_code("6910")
-        self.assertEqual(c_6910.sector_macro, "Servicios Legales & Corporativos")
+        self.assertEqual(c_6910.sector_macro, "Bufetes de Abogados & Asesoría Legal")
 
     def test_display_string(self):
         c = CiiuCode.from_code("6201")
-        self.assertEqual(c.to_display_string(), "CIIU 6201: Tecnología, Software & Analítica")
+        self.assertEqual(c.to_display_string(), "CIIU 6201: Desarrollo de Software & Apps")
 
     def test_infer_from_text(self):
         c_tech = CiiuCode.infer_from_text("Global Tech Software Solutions S.A.S.", "admin@globaltech.com")
         self.assertEqual(c_tech.code, "6201")
-        self.assertEqual(c_tech.sector_macro, "Tecnología, Software & Analítica")
+        self.assertEqual(c_tech.sector_macro, "Desarrollo de Software & Apps")
 
         c_law = CiiuCode.infer_from_text("Delgado & Rocha Abogados Asociados S.A.S.")
         self.assertEqual(c_law.code, "6910")
-        self.assertEqual(c_law.sector_macro, "Servicios Legales & Corporativos")
+        self.assertEqual(c_law.sector_macro, "Bufetes de Abogados & Asesoría Legal")
 
         c_consult = CiiuCode.infer_from_text("Estrategia y Consultores de Gestión S.A.S.")
         self.assertEqual(c_consult.code, "7020")
-        self.assertEqual(c_consult.sector_macro, "Consultoría Empresarial & Gestión")
+        self.assertEqual(c_consult.sector_macro, "Consultoría Estratégica & Gestión")
 
     def test_universal_isic_resolution(self):
         # 0111 is agriculture/cereals from the Universal ISIC Rev. 4 catalog

@@ -3,7 +3,7 @@ Unit tests for the Normalized Multi-Contact Enterprise Graph Architecture (v2.0)
 Verifies decoupled companies, individuals, shared contact channels, and role classifications.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from src.adapters.db.models import (
     Base,
     CompanyModel,
@@ -215,3 +215,133 @@ def test_persist_order_leads_populates_normalized_graph():
         phone_ch = session.get(ContactChannelModel, "CH_PHONE_CO_573112345678")
         assert phone_ch is not None
         assert phone_ch.channel_type == "mobile_phone"
+
+
+def test_law_firm_shared_contact_footprint_detection():
+    """
+    Phase 4: Shared Contact & Law Firm Footprint Intelligence.
+    Verifies that statutory revisores fiscales, external legal counsel, and shared
+    law firm channels (e.g. Baker Tilly, KPMG) are classified with:
+    - is_operational_decision_maker = False
+    - role_category in ('fiscal_auditor', 'external_counsel')
+    - get_shared_contact_footprint exposes multi-company reach.
+    """
+    adapter = SqlOrderAdapter()
+    now = datetime.now(timezone.utc)
+
+    # Create dummy order with legal proxy
+    created = adapter.create_order(
+        client_name="Test Legal Audit Client",
+        client_email="legalclient@example.com",
+        campaign_id="textile_medellin_test",
+        country="CO",
+        city="Medellín",
+        limit=5,
+        tier=2,
+    )
+    order_id = created["order_id"]
+
+    proxy_lead = {
+        "company_name": "Industrias Textiles del Norte S.A.S.",
+        "clean_name": "Industrias Textiles del Norte",
+        "nit": "901.999.888-5",
+        "city": "Medellín",
+        "department": "Antioquia",
+        "ciiu_code": "1399",
+        "sector_macro": "Manufactura Textil",
+        "company_type": "Sociedad por acciones simplificada",
+        "decision_maker_name": "Dr. Fernando Lloreda Posada",
+        "decision_maker_title": "Revisor Fiscal Principal & Apoderado Especial",
+        "email": "notificaciones@bakertilly.co",
+        "phone": "+57 4 444 8899",
+        "website_url": "https://www.textilesdelnorte.com.co",
+        "website_audit_status": "ONLINE_ACTIVE_HTTP200",
+        "mx_host": "mail.bakertilly.co",
+    }
+
+    res = {
+        "total_qualified": 1,
+        "sample_teaser": [proxy_lead],
+        "leads": [proxy_lead],
+    }
+
+    success = adapter.complete_order(order_id, res, amount_in_cents=9900000)
+    assert success is True
+
+    # 1. Verify Role classification
+    with adapter._get_session() as session:
+        co = session.get(CompanyModel, "CO_9019998885")
+        assert co is not None
+
+        role = session.query(CompanyIndividualRoleModel).filter_by(company_id=co.company_id).first()
+        assert role is not None
+        assert role.is_operational_decision_maker is False
+        assert role.role_category in ("fiscal_auditor", "external_counsel")
+
+        ch = session.get(ContactChannelModel, "CH_EMAIL_notificaciones@bakertilly.co")
+        assert ch is not None
+        assert ch.network_footprint_count >= 1
+
+    # 2. Verify Footprint lookup API
+    footprint = adapter.get_shared_contact_footprint("notificaciones@bakertilly.co")
+    assert footprint is not None
+    assert footprint["normalized_value"] == "notificaciones@bakertilly.co"
+    assert footprint["is_external_proxy"] is True
+    assert footprint["proxy_classification"] == "external_law_firm"
+    assert footprint["associated_companies_count"] >= 1
+
+
+def test_tiered_freshness_ttl_and_jit_verification():
+    """
+    Phase 5: Just-In-Time (JIT) Verification & Cache Freshness Engine.
+    Verifies that get_cached_fresh_leads enforces tiered TTLs:
+    - Fresh leads under 60 days are returned directly.
+    - Leads older than 60 days trigger fast JIT MX validation.
+    - Dead mailboxes are discarded from cached fulfillment.
+    """
+    adapter = SqlOrderAdapter()
+    now = datetime.now(timezone.utc)
+    old_verified = now - timedelta(days=90)  # Exceeds 60-day deliverability TTL
+
+    # Seed an aged lead in DB
+    with adapter._get_session() as session:
+        from src.adapters.db.models import LeadModel
+        aged_lead = LeadModel(
+            lead_id="CO_9015554441",
+            tax_id="901.555.444-1",
+            country="CO",
+            city="Medellín",
+            company_name="Hilanderías de Antioquia S.A.S.",
+            clean_name="Hilanderías de Antioquia",
+            ciiu_code="1311",
+            sector_macro="Manufactura Textil",
+            activity_description="Hilatura y tejeduría",
+            segment_name="Mediana Empresa",
+            revenue_bracket="$1.000M - $5.000M COP",
+            employees_bracket="11-50",
+            decision_maker_name="Carlos Mario Gómez",
+            decision_maker_title="Gerente General",
+            verified_email="contacto@hilanderiasantioquia.co",
+            direct_mobile_phone="+57 310 999 8877",
+            verified_at=old_verified,
+        )
+        session.merge(aged_lead)
+        session.commit()
+
+    # Query cached leads with JIT verification active
+    cached = adapter.get_cached_fresh_leads(
+        city="Medellín",
+        country="CO",
+        limit=5,
+        ciiu_codes=["1311"],
+        statutory_ttl_days=365,
+        deliverability_ttl_days=60,
+        jit_verify=True,
+    )
+
+    # In test mode, verify_mx succeeds and updates verified_at to now
+    assert len(cached) >= 1
+    matched = next((c for c in cached if c["tax_id"] == "901.555.444-1"), None)
+    assert matched is not None
+    assert matched["company_name"] == "Hilanderías de Antioquia S.A.S."
+

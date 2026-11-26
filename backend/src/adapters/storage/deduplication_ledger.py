@@ -72,6 +72,23 @@ class DeduplicationLedger:
             "prospects": {}
         }
 
+    def reset(self) -> None:
+        """Resets in-memory ledger state and cleans the underlying JSON file."""
+        self.data = {
+            "metadata": {
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_updated_at": datetime.now(timezone.utc).isoformat(),
+                "total_prospects": 0,
+            },
+            "prospects": {},
+            "bounced_emails": {},
+        }
+        if os.path.exists(self.ledger_path):
+            try:
+                os.remove(self.ledger_path)
+            except Exception:
+                pass
+
     def _save(self) -> None:
         if "metadata" not in self.data:
             self.data["metadata"] = {

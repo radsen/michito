@@ -31,6 +31,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
     def __init__(self, outputs_dir: Optional[str] = None):
         if outputs_dir:
             self.outputs_dir = Path(outputs_dir)
+        elif os.environ.get("MICHITO_OUTPUTS_DIR"):
+            self.outputs_dir = Path(os.environ["MICHITO_OUTPUTS_DIR"])
         else:
             repo_candidate = Path(__file__).resolve().parent.parent.parent.parent.parent / "outputs"
             if (Path(__file__).resolve().parent.parent.parent.parent.parent / "backend").exists():

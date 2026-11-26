@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-web dev-api dev-worker build test test-unit test-integration test-e2e test-playwright test-cov prospects stats pilot clean
+.PHONY: help install dev dev-web dev-api dev-worker build test test-unit test-integration test-e2e test-playwright test-cov prospects stats pilot clean clean-outputs
 
 PYTHON := ./venv/bin/python
 PYTEST := ./venv/bin/pytest
@@ -70,6 +70,9 @@ stats:
 pilot:
 	cd backend && ../$(PYTHON) scripts/generate_tinkko_pilot_batch.py
 
-clean:
+clean-outputs:
+	find outputs -mindepth 1 ! -name '.gitkeep' -delete
+
+clean: clean-outputs
 	rm -rf clients/web/dist .pytest_cache backend/.pytest_cache
 

@@ -321,16 +321,47 @@ Below is the verbatim script and UX sequence the Dev Team must implement in the 
 To verify the pipeline locally before deployment:
 
 ```bash
-# 1. Start Firebase Local Emulators (Firestore on 8080)
-firebase emulators:start --only firestore
+# 1. Run Complete Automated Test Suite (321 tests across unit, integration, and e2e)
+PYTHONPATH=backend ALLOW_STATUTORY_FALLBACK=true TESTING=1 venv/bin/pytest backend/tests/unit backend/tests/integration backend/tests/e2e -q
 
-# 2. Run All Unit Tests (13 tests across domain, adapters, and use cases)
-PYTHONPATH=. venv/bin/python3 -m unittest discover tests/unit
+# 2. Build Web Client
+npm run build --workspace=clients/web
 
 # 3. Run a Dry-Run Prospecting Batch CLI
-venv/bin/python3 generate_prospects.py --campaign tinkko_dr_offices --limit 3 --dry-run
+venv/bin/python backend/generate_prospects.py --campaign universal --limit 3 --dry-run
 
 # 4. Start the Background Worker Daemon in Run-Once Mode
-venv/bin/python3 order_worker.py --once
+venv/bin/python backend/order_worker.py --once
 ```
+
+---
+
+## 8. Relational Data Model & Multi-Contact Intelligence
+
+### 8.1 3NF Normalized Multi-Contact Architecture
+Michito decouples statutory company registrations from individuals and contact channels using a normalized 3NF schema:
+- **`companies` (`CompanyModel`)**: Statutory company identity, tax ID (NIT/RNC/RUC), legal business name, trade name, verified website, declared CIIU/ISIC activity, employee size, annual revenue bracket, active legal status, and registration date.
+- **`individuals` (`IndividualModel`)**: Person identity, statutory full name, professional title, calibrated role category (`legal_representative`, `operations_director`, `general_manager`, `procurement_manager`, `commercial_director`), and operational decision-maker boolean flag.
+- **`contact_channels` (`ContactChannelModel`)**: Specific communication channel linked to an individual and company:
+  - `channel_type`: `email`, `mobile`, `landline_pbx`, `whatsapp`, `linkedin`
+  - `channel_value`: Cleaned E.164 phone or lowercase email address
+  - `channel_ownership`: `direct_personal`, `statutory_official`, `corporate_shared`, `law_firm_shared_channel`
+  - `verification_source`: `soda_statutory_registry`, `dns_mx_socket`, `smtp_handshake`, `manual_operator`
+  - `deliverability_status`: `verified_active`, `deliverable`, `undeliverable`, `unverified`
+
+### 8.2 Shared Contact & Law Firm Footprint Intelligence
+Many Latin American companies share legal representatives or statutory auditors who are external law firms or accounting agencies (e.g., Baker Tilly, KPMG, Deloitte, PwC, Brigard, Lloreda). Michito calculates `network_footprint_count` across all harvested companies:
+- If a phone or email is associated with $\ge 5$ distinct companies, or belongs to a known legal/audit domain, Michito automatically sets:
+  - `is_operational_decision_maker = False`
+  - `role_category = "fiscal_auditor"` or `"external_counsel"`
+  - `channel_ownership = "law_firm_shared_channel"`
+- This guarantees clients reach true internal operational leaders rather than external statutory signatories.
+
+### 8.3 Tiered Freshness TTL & Fast JIT Verification
+Cached lead data decays according to differentiated lifespans:
+1. **Statutory Company Profile**: 365 days TTL (NIT, corporate registration).
+2. **Central Headquarters PBX / Landline**: 180 days TTL.
+3. **Direct Mobile & MX Deliverability**: 60 days TTL.
+4. **Just-In-Time (JIT) Verification**: At order fulfillment time, for any cached record older than 60 days, Michito executes a 50ms async non-blocking DNS MX verification check. If deliverable, `verified_at` is updated to current timestamp; if undeliverable, the stale record is discarded and freshly harvested.
+
 

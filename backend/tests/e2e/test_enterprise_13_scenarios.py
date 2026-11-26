@@ -68,6 +68,10 @@ class TestEnterprise13Scenarios(unittest.TestCase):
             app_container.alert_dispatcher.webhook_url = ""
             app_container.alert_dispatcher.feed_webhook_url = ""
 
+    def setUp(self):
+        if hasattr(self, "test_ledger") and self.test_ledger:
+            self.test_ledger.reset()
+
     def _execute_order_lifecycle(self, scenario_key: str, payload: dict, expected_tier: int = 2) -> tuple[str, dict]:
         # 1. Intake: Create Order
         res_post = self.client.post("/api/v1/orders", json=payload)

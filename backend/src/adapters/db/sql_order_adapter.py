@@ -42,6 +42,18 @@ def _strip_accents(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").lower().strip()
 
 
+LAW_OR_AUDIT_KEYWORDS = (
+    "revisor fiscal", "revisoria fiscal", "auditor externo", "auditoria externa",
+    "abogado externo", "apoderado especial", "apoderado judicial", "asesor juridico externo",
+    "firma de abogados", "sociedad de contadores", "fiduciaria", "curador",
+)
+LAW_OR_AUDIT_DOMAINS = (
+    "bakertilly", "kpmg", "deloitte", "ey.com", "pwc", "bdo", "grantthornton",
+    "brigard", "posseherrera", "phrlegal", "gomezpinzon", "cuatrecasas", "dentons",
+    "lloreda", "dlapiper", "bakerlaw", "tributaristas", "asesoreslegales", "bufetegomez",
+)
+
+
 class SqlOrderAdapter:
     """
     Relational Database Order & Lead Inventory Adapter.
@@ -539,14 +551,27 @@ class SqlOrderAdapter:
         sectors: Optional[List[str]] = None,
         client_id: Optional[str] = None,
         max_age_days: int = 45,
+        statutory_ttl_days: int = 365,
+        landline_ttl_days: int = 180,
+        deliverability_ttl_days: int = 60,
+        jit_verify: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Queries the reusable Lead Inventory for verified fresh leads that have NOT
         been delivered to this specific client yet, strictly filtered by statutory
         CIIU code, keywords, or sector to guarantee zero false matches.
+
+        Enforces Tiered Freshness TTL Architecture:
+        - Statutory Company Profile & NIT: 365 days TTL
+        - Central Landline / PBX Switchboard: 180 days TTL
+        - Direct Executive Mobile & MX Deliverability: 60 days TTL
+        - Executes JIT fast micro-verification for leads exceeding 60 days.
         """
         now = datetime.now(timezone.utc)
-        threshold_date = now - timedelta(days=max_age_days)
+        effective_statutory_days = max(max_age_days, statutory_ttl_days) if statutory_ttl_days else max_age_days
+        threshold_date = now - timedelta(days=effective_statutory_days)
+        landline_cutoff = now - timedelta(days=landline_ttl_days)
+        deliverability_cutoff = now - timedelta(days=deliverability_ttl_days)
 
         with self._get_session() as session:
             conditions = [
@@ -598,11 +623,41 @@ class SqlOrderAdapter:
                 )
                 stmt = stmt.where(not_(LeadModel.lead_id.in_(subquery)))
 
-            stmt = stmt.limit(limit)
+            stmt = stmt.limit(limit * 2)
             leads = session.scalars(stmt).all()
 
             results = []
             for lead in leads:
+                lead_v_at = lead.verified_at
+                if lead_v_at and lead_v_at.tzinfo is None:
+                    lead_v_at = lead_v_at.replace(tzinfo=timezone.utc)
+
+                # Tiered Freshness Check 1: Stale Landline (older than 180 days with no verified mobile)
+                raw_p = lead.direct_mobile_phone or ""
+                clean_p = re.sub(r"\D", "", raw_p)
+                if clean_p.startswith("57") and len(clean_p) > 10:
+                    clean_p = clean_p[2:]
+                is_mobile_phone = clean_p.startswith("3") and len(clean_p) == 10 if country == "CO" else True
+                is_landline = not is_mobile_phone and len(clean_p) >= 7
+                if is_landline and lead_v_at and lead_v_at < landline_cutoff:
+                    continue
+
+                # Tiered Freshness Check 2: Deliverability TTL (older than 60 days or unverified) -> JIT Fast Ping
+                if jit_verify and (lead_v_at is None or lead_v_at < deliverability_cutoff):
+                    lead_email = lead.verified_email
+                    if lead_email and "@" in lead_email:
+                        try:
+                            from src.application.use_cases.generate_prospects_use_case import verify_mx
+                            ok_mx, mx_res = verify_mx(lead_email)
+                            if ok_mx:
+                                lead.verified_at = now
+                                lead.mx_host = mx_res
+                                session.flush()
+                            else:
+                                continue  # Stale / dead mailbox, omit from cached delivery
+                        except Exception:
+                            pass
+
                 results.append({
                     "lead_id": lead.lead_id,
                     "tax_id": lead.tax_id,
@@ -631,6 +686,8 @@ class SqlOrderAdapter:
                     "linkedin_xray_url": lead.linkedin_xray_url,
                     "verified_at": lead.verified_at.isoformat() if lead.verified_at else None,
                 })
+                if len(results) >= limit:
+                    break
             return results
 
     def complete_order(
@@ -860,7 +917,21 @@ class SqlOrderAdapter:
             role_id = f"ROLE_{company_id}_{individual_id}"
             role = session.get(CompanyIndividualRoleModel, role_id)
             role_title = lead.get("decision_maker_title") or "Representante Legal"
-            is_operational = not any(w in role_title.lower() for w in ("revisor fiscal", "abogado externo", "apoderado judicial"))
+            role_lower = role_title.lower()
+            raw_email = (lead.get("email") or "").strip().lower()
+
+            is_audit = any(w in role_lower for w in ("revisor fiscal", "revisoria", "auditor"))
+            is_legal_proxy = any(w in role_lower for w in ("abogado externo", "apoderado", "asesor juridico")) or any(d in raw_email for d in LAW_OR_AUDIT_DOMAINS)
+
+            if is_audit:
+                is_operational = False
+                role_category = "fiscal_auditor"
+            elif is_legal_proxy:
+                is_operational = False
+                role_category = "external_counsel"
+            else:
+                is_operational = not any(w in role_lower for w in ("liquidador", "promotor"))
+                role_category = lead.get("decision_maker_category", "statutory_signer")
 
             if not role:
                 role = CompanyIndividualRoleModel(
@@ -868,7 +939,7 @@ class SqlOrderAdapter:
                     company_id=company_id,
                     individual_id=individual_id,
                     title=role_title,
-                    role_category=lead.get("decision_maker_category", "statutory_signer"),
+                    role_category=role_category,
                     is_operational_decision_maker=is_operational,
                     tenure_status="active",
                     verified_at=now,
@@ -877,11 +948,13 @@ class SqlOrderAdapter:
                 )
                 session.add(role)
             else:
+                role.title = role_title
+                role.role_category = role_category
+                role.is_operational_decision_maker = is_operational
                 role.verified_at = now
                 role.updated_at = now
 
             # 4. Upsert Contact Channels (Email & Phone)
-            raw_email = (lead.get("email") or "").strip().lower()
             if raw_email and "@" in raw_email:
                 channel_email_id = f"CH_EMAIL_{raw_email}"
                 ch_email = session.get(ContactChannelModel, channel_email_id)
@@ -906,15 +979,22 @@ class SqlOrderAdapter:
                     ch_email.verified_at = now
                     ch_email.network_footprint_count = (ch_email.network_footprint_count or 1) + 1
                     ch_email.updated_at = now
+                    if ch_email.network_footprint_count >= 5:
+                        role.is_operational_decision_maker = False
+                        if role.role_category == "statutory_signer":
+                            role.role_category = "external_counsel"
 
                 # Link email to individual and company
+                is_shared_proxy = (ch_email.network_footprint_count and ch_email.network_footprint_count >= 5) or any(d in raw_email for d in LAW_OR_AUDIT_DOMAINS)
+                email_ownership = "law_firm_shared_channel" if is_shared_proxy else ("direct_executive_email" if is_corp else "external_firm_email")
+
                 link_ind_email_id = f"LNK_IND_{individual_id}_{channel_email_id}"
                 if not session.get(IndividualChannelLinkModel, link_ind_email_id):
                     session.add(IndividualChannelLinkModel(
                         link_id=link_ind_email_id,
                         individual_id=individual_id,
                         channel_id=channel_email_id,
-                        channel_ownership="direct_executive_email" if is_corp else "external_firm_email",
+                        channel_ownership=email_ownership,
                         created_at=now,
                     ))
 
@@ -924,7 +1004,7 @@ class SqlOrderAdapter:
                         link_id=link_co_email_id,
                         company_id=company_id,
                         channel_id=channel_email_id,
-                        channel_usage="general_inbox" if is_corp else "legal_notification_inbox",
+                        channel_usage="legal_notification_inbox" if is_shared_proxy else ("general_inbox" if is_corp else "legal_notification_inbox"),
                         is_primary_switchboard=False,
                         created_at=now,
                     ))
@@ -1761,4 +1841,58 @@ class SqlOrderAdapter:
             session.commit()
             session.refresh(new_role)
             return new_role.to_dict()
+
+    def get_shared_contact_footprint(self, channel_value: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves the multi-company network footprint for a shared contact channel (email or phone).
+        Distinguishes internal operators from external law firms and accounting proxies.
+        """
+        if not channel_value:
+            return None
+        clean_val = channel_value.strip().lower()
+        if "@" in clean_val:
+            channel_id = f"CH_EMAIL_{clean_val}"
+        else:
+            digits = re.sub(r"\D", "", clean_val)
+            channel_id = f"CH_PHONE_CO_{digits}"
+
+        with self._get_session() as session:
+            ch = session.scalar(
+                select(ContactChannelModel).where(
+                    or_(
+                        ContactChannelModel.channel_id == channel_id,
+                        ContactChannelModel.normalized_value == clean_val,
+                        ContactChannelModel.normalized_value == re.sub(r"\D", "", clean_val),
+                    )
+                )
+            )
+            if not ch:
+                return None
+
+            fp_count = ch.network_footprint_count or len(ch.company_links) or 1
+            is_proxy = fp_count >= 5 or any(d in ch.normalized_value for d in LAW_OR_AUDIT_DOMAINS)
+            proxy_type = "external_law_firm" if is_proxy else "internal_operator"
+
+            companies = []
+            for link in ch.company_links:
+                co = link.company
+                if co:
+                    companies.append({
+                        "company_id": co.company_id,
+                        "legal_name": co.legal_name,
+                        "tax_id": co.tax_id,
+                        "city": co.municipality,
+                        "channel_usage": link.channel_usage,
+                    })
+
+            return {
+                "channel_id": ch.channel_id,
+                "channel_type": ch.channel_type,
+                "normalized_value": ch.normalized_value,
+                "network_footprint_count": fp_count,
+                "is_external_proxy": is_proxy,
+                "proxy_classification": proxy_type,
+                "associated_companies_count": len(companies),
+                "associated_companies": companies,
+            }
 

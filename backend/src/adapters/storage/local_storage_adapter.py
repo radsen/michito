@@ -19,7 +19,8 @@ class LocalStorageAdapter(StoragePort):
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
         if not os.path.exists(os.path.join(repo_root, "backend")):
             repo_root = os.getcwd()
-        self.base_dir = os.path.abspath(base_dir or os.path.join(repo_root, "outputs"))
+        default_outputs = os.environ.get("MICHITO_OUTPUTS_DIR") or os.path.join(repo_root, "outputs")
+        self.base_dir = os.path.abspath(base_dir or default_outputs)
         self.base_url = base_url.rstrip("/")
         os.makedirs(self.base_dir, exist_ok=True)
 

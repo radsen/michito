@@ -135,6 +135,13 @@ class SecopHarvesterAdapter:
         lower = name.lower().strip()
         if len(lower) < 3 or re.match(r"^[\d\W]+$", lower):
             return True
+        try:
+            from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+            rules = GLOBAL_ISIC_INDEX.get_exclusion_rules(rule_type="representative_placeholder") + GLOBAL_ISIC_INDEX.get_exclusion_rules(rule_type="bankrupt_status")
+            if rules and any(kw in lower for kw in rules):
+                return True
+        except Exception:
+            pass
         return any(kw in lower for kw in self.BANKRUPT_OR_PLACEHOLDER_KEYWORDS)
 
     def _determine_representative_role(self, raw_name: str) -> str:
@@ -254,6 +261,14 @@ class SecopHarvesterAdapter:
                     valid_kw.extend(["medicos", "salud", "clinica"])
                 elif clean_c.startswith(("463", "10", "11")):
                     valid_kw.extend(["alimentos", "viveres", "distribuidora"])
+                elif clean_c.startswith(("13", "14", "15", "4641", "4642", "4771", "4772")):
+                    valid_kw.extend(["textiles", "confeccion", "ropa", "calzado", "uniformes", "telas"])
+
+        if not valid_kw and sectors:
+            for s in sectors:
+                s_lower = s.lower()
+                if any(k in s_lower for k in ("textil", "fashion", "moda", "apparel", "ropa", "confecci", "calzado")):
+                    valid_kw.extend(["textiles", "confeccion", "ropa", "calzado", "uniformes", "telas"])
 
         if valid_kw:
             params["$q"] = valid_kw[0]
@@ -313,10 +328,12 @@ class SecopHarvesterAdapter:
             rep_name = (item.get("nombre_representante_legal") or "").strip()
 
             email = (
-                item.get("correo_representante_legal")
-                or item.get("correo")
+                item.get("correo")
+                or item.get("correo_representante_legal")
                 or ""
             ).strip().lower()
+            if not self._is_valid_email(email):
+                email = (item.get("correo_representante_legal") or item.get("correo") or "").strip().lower()
 
             phone = self._clean_phone(
                 item.get("telefono_representante_legal") or item.get("telefono")
@@ -338,7 +355,15 @@ class SecopHarvesterAdapter:
             # Universal Cross-Sector Negative Exclusion Gate
             if is_food_query:
                 # If query is food/restaurant, immediately discard non-food sectors
-                has_negative = any(neg in full_text for neg in FOOD_NEGATIVE_SECTORS)
+                food_negatives = FOOD_NEGATIVE_SECTORS
+                try:
+                    from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
+                    dyn_neg = GLOBAL_ISIC_INDEX.get_exclusion_rules(sector_id="food_agriculture")
+                    if dyn_neg:
+                        food_negatives = tuple(dyn_neg)
+                except Exception:
+                    pass
+                has_negative = any(neg in full_text for neg in food_negatives)
                 if has_negative:
                     # Allow only if there is a distinct positive food keyword present
                     has_positive_food = any(f_term in full_text for f_term in ("alimento", "restauran", "viveres", "abarrote", "panader", "lacteo", "carnic", "bebida", "comestib"))
@@ -388,28 +413,42 @@ class SecopHarvesterAdapter:
                 "decision_maker_title": clean_rep_title,
                 "decision_maker_category": "Representación Legal / Registrada (RUES / SECOP)",
                 "email": email,
+                "representative_email": (item.get("correo_representante_legal") or "").strip().lower(),
+                "general_email": (item.get("correo") or "").strip().lower(),
                 "phone": phone,
                 "linkedin_xray_url": google_xray,
                 "data_source": "SECOP_II_REGISTRY",
             }
 
         # -------------------------------------------------------------
-        # SODA LADDER TIER 1: Primary Query & Multi-Token Domain Expansion
+        # SODA LADDER TIER 1: Primary Query & Multi-Token Domain Expansion with Offset Ladder
         # -------------------------------------------------------------
-        query_candidates = valid_kw[:3] if valid_kw else [None]
+        query_candidates = valid_kw[:6] if valid_kw else [None]
         for kw in query_candidates:
             if len(qualified_leads) >= limit:
                 break
-            tier1_params = dict(params)
-            if kw:
-                tier1_params["$q"] = kw
-            raw_data = self._execute_soda_request(tier1_params)
-            for item in raw_data:
-                lead = _process_item(item, require_keywords=bool(kw_to_check))
-                if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
-                    qualified_leads.append(lead)
-                    if len(qualified_leads) >= limit:
-                        break
+            offset = 0
+            while len(qualified_leads) < limit and offset <= 400:
+                tier1_params = dict(params)
+                if kw:
+                    tier1_params["$q"] = kw
+                if offset > 0:
+                    tier1_params["$offset"] = str(offset)
+                tier1_params["$limit"] = str(min(limit - len(qualified_leads) + 50, 200))
+                raw_data = self._execute_soda_request(tier1_params)
+                if not raw_data:
+                    break
+                new_added = 0
+                for item in raw_data:
+                    lead = _process_item(item, require_keywords=bool(kw_to_check))
+                    if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                        qualified_leads.append(lead)
+                        new_added += 1
+                        if len(qualified_leads) >= limit:
+                            break
+                if new_added == 0 or len(raw_data) < 20 or offset >= 200:
+                    break
+                offset += len(raw_data)
 
         # -------------------------------------------------------------
         # SODA LADDER TIER 2: Parent 2-Digit ISIC Division Broadening
@@ -447,36 +486,57 @@ class SecopHarvesterAdapter:
         # -------------------------------------------------------------
         if len(qualified_leads) < limit and "municipio" in params:
             m_key = city.strip().lower()
+            cluster_cities: List[str] = []
+            dept_name: Optional[str] = None
+            try:
+                from src.application.services.location_taxonomy_service import LocationTaxonomyService
+                loc_svc = LocationTaxonomyService()
+                hier = loc_svc.resolve_location("CO", city)
+                if hier:
+                    dept_name = hier.region_name
+                    if hier.concentric_rings:
+                        for ring_key in sorted(hier.concentric_rings.keys()):
+                            for c_item in hier.concentric_rings[ring_key]:
+                                if c_item and c_item.lower() != m_key and c_item not in cluster_cities:
+                                    cluster_cities.append(c_item)
+            except Exception:
+                pass
+
             if m_key in self.METRO_CLUSTERS:
                 cluster_info = self.METRO_CLUSTERS[m_key]
-                # First try top 2 specific cluster municipalities in concentric order
-                for c_city in cluster_info.get("cluster_cities", [])[:2]:
-                    if len(qualified_leads) >= limit:
-                        break
-                    if c_city.lower() == m_key:
-                        continue
-                    c_params = dict(params)
-                    c_params["municipio"] = c_city
-                    c_data = self._execute_soda_request(c_params)
-                    for item in c_data:
-                        lead = _process_item(item, require_keywords=bool(kw_to_check))
-                        if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
-                            qualified_leads.append(lead)
-                            if len(qualified_leads) >= limit:
-                                break
+                if not cluster_cities:
+                    cluster_cities = cluster_info.get("cluster_cities", [])
+                if not dept_name:
+                    dept_name = cluster_info.get("dept")
 
-                # If still under limit, broaden to the entire Department
-                if len(qualified_leads) < limit:
-                    cluster_params = dict(params)
-                    cluster_params.pop("municipio", None)
-                    cluster_params["departamento"] = cluster_info["dept"]
-                    cluster_data = self._execute_soda_request(cluster_params)
-                    for item in cluster_data:
-                        lead = _process_item(item, require_keywords=bool(kw_to_check))
-                        if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
-                            qualified_leads.append(lead)
-                            if len(qualified_leads) >= limit:
-                                break
+            # First try specific cluster municipalities in concentric order (all cluster cities)
+            for c_city in cluster_cities:
+                if len(qualified_leads) >= limit:
+                    break
+                if c_city.lower() == m_key:
+                    continue
+                c_params = dict(params)
+                c_params["municipio"] = c_city
+                c_data = self._execute_soda_request(c_params)
+                for item in c_data:
+                    lead = _process_item(item, require_keywords=bool(kw_to_check))
+                    if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                        qualified_leads.append(lead)
+                        if len(qualified_leads) >= limit:
+                            break
+
+            # If still under limit and department known, broaden to the entire Department
+            if len(qualified_leads) < limit and dept_name:
+                cluster_params = dict(params)
+                cluster_params.pop("municipio", None)
+                cluster_params["departamento"] = dept_name
+                cluster_data = self._execute_soda_request(cluster_params)
+                for item in cluster_data:
+                    lead = _process_item(item, require_keywords=bool(kw_to_check))
+                    if lead and not any(q["nit"] == lead["nit"] for q in qualified_leads):
+                        qualified_leads.append(lead)
+                        if len(qualified_leads) >= limit:
+                            break
 
         # -------------------------------------------------------------
         # SODA LADDER TIER 4: Guaranteed Resilient Fallback Pool (Test Environments ONLY)

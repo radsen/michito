@@ -508,3 +508,18 @@ class BriefParserService:
             "token_usage": result["token_usage"],
         }
         return result
+
+    def batch_classify_ambiguous_companies(
+        self,
+        companies: List[Dict[str, Any]],
+        country_code: str = "CO",
+    ) -> List[Dict[str, Any]]:
+        """
+        Classifies ambiguous companies via local BM25 with batched Gemini 2.5 Flash fallback.
+        """
+        try:
+            from src.application.services.semantic_classification_service import SemanticClassificationService
+        except ImportError:
+            from backend.src.application.services.semantic_classification_service import SemanticClassificationService
+        classifier = SemanticClassificationService(api_key=self.api_key)
+        return classifier.batch_classify_ambiguous_companies(companies, country_code=country_code)
