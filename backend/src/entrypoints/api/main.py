@@ -42,7 +42,17 @@ async def lifespan(app: FastAPI):
     # Hot-load dynamic relational taxonomy from PostgreSQL
     try:
         from src.domain.taxonomy.isic_index import GLOBAL_ISIC_INDEX
-        loaded_count = GLOBAL_ISIC_INDEX.load_from_db()
+        from src.adapters.db.sql_order_adapter import SqlOrderAdapter
+        adapter = SqlOrderAdapter()
+        loaded_count = GLOBAL_ISIC_INDEX.load_from_db(adapter.engine)
+        if loaded_count == 0:
+            logger.info("[Startup] Relational taxonomy empty in DB, running auto-seeding...")
+            try:
+                from scripts.migrate_relational_taxonomy import run_migration
+                run_migration(adapter.database_url)
+                loaded_count = GLOBAL_ISIC_INDEX.load_from_db(adapter.engine)
+            except Exception as mig_err:
+                logger.warning(f"[Startup] Taxonomy auto-migration notice: {mig_err}")
         logger.info(f"[Startup] Successfully hot-loaded {loaded_count} ISIC codes from PostgreSQL taxonomy.")
     except Exception as e:
         logger.warning(f"[Startup] Relational taxonomy hot-load from DB skipped or failed: {e}")
