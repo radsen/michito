@@ -160,6 +160,26 @@ class TestSqlOrderAdapter(unittest.TestCase):
         self.assertEqual(statement["pending_commission_cop"], 60000)
         self.assertEqual(len(statement["orders"]), 2)
 
+    def test_conexiones_digitales_partner_attribution_and_commission(self):
+        order = self.adapter.create_order(
+            client_name="Agencia Cliente CD",
+            client_email="cliente@feriascolombia.com",
+            campaign_id="eventos_ferias_b2b",
+            referral_partner="conexiones_digitales",
+        )
+        self.assertEqual(order["partner"]["referral_partner"], "conexiones_digitales")
+        self.assertEqual(order["partner"]["commission_rate"], 0.20)
+
+        self.adapter.mark_order_paid(order["order_id"], transaction_id="tx_cd_1", amount_in_cents=180000000)  # 1.8M COP
+        statement = self.adapter.get_partner_statement("conexiones_digitales")
+        self.assertEqual(statement["partner_id"], "conexiones_digitales")
+        self.assertEqual(statement["partner_name"], "Conexiones Digitales")
+        self.assertEqual(statement["commission_rate"], 0.20)
+        self.assertEqual(statement["total_orders"], 1)
+        self.assertEqual(statement["total_gross_revenue_cop"], 1800000)
+        # 20% of 1,800,000 = 360,000 COP
+        self.assertEqual(statement["total_commission_owed_cop"], 360000)
+
     def test_fallback_to_direct_partner(self):
         order = self.adapter.create_order(
             client_name="Organic User",
