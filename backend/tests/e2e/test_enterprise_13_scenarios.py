@@ -49,10 +49,13 @@ class TestEnterprise13Scenarios(unittest.TestCase):
         from unittest.mock import MagicMock
         mock_web_auditor = MagicMock()
         mock_web_auditor.audit.side_effect = lambda *args, **kwargs: (True, args[0] if args and args[0] else "https://www.example.com", "Active Test Site")
+        mock_mailbox_verifier = MagicMock()
+        mock_mailbox_verifier.verify_email.return_value = "valid"
         cls.use_case = GenerateProspectsUseCase(
             ledger=cls.test_ledger,
             verify_mx_fn=lambda *args, **kwargs: (True, "mail.example.com"),
             web_auditor=mock_web_auditor,
+            mailbox_verifier=mock_mailbox_verifier,
         )
 
         cls.worker = OrderWorkerDaemon(

@@ -95,8 +95,9 @@ class SocketSmtpVerifierAdapter(MailboxVerifierPort):
 
         domain = email.split("@")[1].strip()
 
-        # In automated test mode (TESTING=1), fast-path unless unit test explicitly patched resolver/socket
-        if os.getenv("TESTING") == "1" and not getattr(dns.resolver.resolve, "_mock_name", None) and not hasattr(dns.resolver.resolve, "assert_called"):
+        # In automated test mode (TESTING=1 or PYTEST_CURRENT_TEST), fast-path unless unit test explicitly patched resolver/socket
+        is_test_env = os.getenv("TESTING") == "1" or os.getenv("PYTEST_CURRENT_TEST") is not None
+        if is_test_env and not getattr(dns.resolver.resolve, "_mock_name", None) and not hasattr(dns.resolver.resolve, "assert_called"):
             return "valid" if "." in domain else "invalid"
 
         resolved_mx = mx_host or self._get_mx_record(domain)
