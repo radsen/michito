@@ -7,11 +7,14 @@ Supports PostgreSQL (Local / Cloud SQL), MySQL, and SQLite.
 import os
 import sys
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union, Set
 from sqlalchemy import create_engine, select, update, and_, not_, or_, func
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+
+logger = logging.getLogger(__name__)
 
 from src.adapters.db.models import (
     Base,
@@ -866,7 +869,7 @@ class SqlOrderAdapter:
         cities: Optional[List[str]] = None,
         ciiu_codes: Optional[List[str]] = None,
         sectors: Optional[List[str]] = None,
-        excluded_nits: Optional[List[str]] = None,
+        excluded_nits: Optional[Union[List[str], Set[str]]] = None,
         limit: int = 50,
         max_age_days: int = 365,
     ) -> List[Dict[str, Any]]:
@@ -897,8 +900,8 @@ class SqlOrderAdapter:
                         or_(*[func.lower(CompanyModel.macrosector).contains(s) for s in sec_lowers])
                     )
                 if excluded_nits:
-                    clean_excl = [re.sub(r"\D", "", str(n)) for n in excluded_nits if n]
-                    clean_excl_raw = [str(n).strip() for n in excluded_nits if n]
+                    clean_excl = [re.sub(r"\D", "", n) for n in excluded_nits if n]
+                    clean_excl_raw = [n.strip() for n in excluded_nits if n]
                     all_excl = list(set(clean_excl + clean_excl_raw))
                     if all_excl:
                         stmt = stmt.where(CompanyModel.tax_id.notin_(all_excl))

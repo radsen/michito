@@ -978,7 +978,7 @@ class GenerateProspectsUseCase:
                                 cities=all_allowed_cities,
                                 ciiu_codes=effective_ciius,
                                 sectors=effective_sectors,
-                                excluded_nits=clean_excl_nits,
+                                excluded_nits=list(clean_excl_nits),
                                 limit=max(t_quota * raw_multiplier, 100),
                                 max_age_days=365,
                             )
