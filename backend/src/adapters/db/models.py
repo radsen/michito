@@ -93,7 +93,7 @@ class IndividualModel(Base):
     """
     __tablename__ = "individuals"
 
-    individual_id: Any = Column(String(64), primary_key=True, index=True)  # e.g. "IND_CO_1017263720" or UUID
+    individual_id: Any = Column(String(128), primary_key=True, index=True)  # e.g. "IND_CO_1017263720" or UUID
     national_id: Any = Column(String(64), nullable=True, index=True)  # Cédula de Ciudadanía, Pasaporte, DNI
     country: Any = Column(String(4), default="CO", index=True)
     full_name: Any = Column(String(255), nullable=False, index=True)
@@ -116,9 +116,9 @@ class CompanyIndividualRoleModel(Base):
     """
     __tablename__ = "company_individual_roles"
 
-    role_id: Any = Column(String(64), primary_key=True, index=True)
-    company_id: Any = Column(String(64), ForeignKey("companies.company_id"), nullable=False, index=True)
-    individual_id: Any = Column(String(64), ForeignKey("individuals.individual_id"), nullable=False, index=True)
+    role_id: Any = Column(String(128), primary_key=True, index=True)
+    company_id: Any = Column(String(128), ForeignKey("companies.company_id"), nullable=False, index=True)
+    individual_id: Any = Column(String(128), ForeignKey("individuals.individual_id"), nullable=False, index=True)
     title: Any = Column(String(255), nullable=False)  # e.g. "Gerente General", "Director de Operaciones", "Apoderado General"
     role_category: Any = Column(String(64), default="statutory_signer", index=True)  # internal_c_level, statutory_signer, external_counsel, fiscal_auditor, procurement_chief, plant_director
     is_operational_decision_maker: Any = Column(Boolean, default=True, index=True)  # TRUE for plant/commercial managers; FALSE for external law firms & auditors
@@ -140,7 +140,7 @@ class ContactChannelModel(Base):
     """
     __tablename__ = "contact_channels"
 
-    channel_id: Any = Column(String(64), primary_key=True, index=True)
+    channel_id: Any = Column(String(128), primary_key=True, index=True)
     channel_type: Any = Column(String(32), nullable=False, index=True)  # mobile_phone, landline_pbx, corporate_email, statutory_email
     normalized_value: Any = Column(String(255), nullable=False, unique=True, index=True)  # E.164 phone or lowercase email
     raw_value: Any = Column(String(255), nullable=True)
@@ -163,9 +163,9 @@ class CompanyChannelLinkModel(Base):
     """
     __tablename__ = "company_channel_links"
 
-    link_id: Any = Column(String(64), primary_key=True, index=True)
-    company_id: Any = Column(String(64), ForeignKey("companies.company_id"), nullable=False, index=True)
-    channel_id: Any = Column(String(64), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
+    link_id: Any = Column(String(128), primary_key=True, index=True)
+    company_id: Any = Column(String(128), ForeignKey("companies.company_id"), nullable=False, index=True)
+    channel_id: Any = Column(String(128), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
     channel_usage: Any = Column(String(64), default="general_inbox", index=True)  # headquarters_pbx, legal_notification_inbox, general_inbox, plant_switchboard, shared_holding_line
     is_primary_switchboard: Any = Column(Boolean, default=False, index=True)
 
@@ -181,9 +181,9 @@ class IndividualChannelLinkModel(Base):
     """
     __tablename__ = "individual_channel_links"
 
-    link_id: Any = Column(String(64), primary_key=True, index=True)
-    individual_id: Any = Column(String(64), ForeignKey("individuals.individual_id"), nullable=False, index=True)
-    channel_id: Any = Column(String(64), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
+    link_id: Any = Column(String(128), primary_key=True, index=True)
+    individual_id: Any = Column(String(128), ForeignKey("individuals.individual_id"), nullable=False, index=True)
+    channel_id: Any = Column(String(128), ForeignKey("contact_channels.channel_id"), nullable=False, index=True)
     channel_ownership: Any = Column(String(64), default="direct_mobile", index=True)  # direct_mobile, direct_executive_email, external_firm_email, whatsapp_direct
 
     created_at: Any = Column(DateTime, default=lambda: datetime.now(timezone.utc))

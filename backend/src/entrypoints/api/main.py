@@ -48,7 +48,10 @@ async def lifespan(app: FastAPI):
         if loaded_count == 0:
             logger.info("[Startup] Relational taxonomy empty in DB, running auto-seeding...")
             try:
-                from scripts.migrate_relational_taxonomy import run_migration
+                try:
+                    from scripts.migrate_relational_taxonomy import run_migration
+                except ImportError:
+                    from backend.scripts.migrate_relational_taxonomy import run_migration
                 run_migration(adapter.database_url)
                 loaded_count = GLOBAL_ISIC_INDEX.load_from_db(adapter.engine)
             except Exception as mig_err:

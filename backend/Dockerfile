@@ -50,6 +50,7 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 
 # Copy application source code, modules, configurations, and data
 COPY --chown=michito:michito backend/src/ /app/src/
+COPY --chown=michito:michito backend/scripts/ /app/scripts/
 COPY --chown=michito:michito backend/campaigns/ /app/campaigns/
 COPY --chown=michito:michito backend/templates/ /app/templates/
 COPY --chown=michito:michito backend/data/ /app/data/

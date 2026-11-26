@@ -142,6 +142,29 @@ def run_migration(db_url: str):
     logger.info("Step 1: Creating taxonomy schema tables if missing...")
     Base.metadata.create_all(bind=engine)
 
+    # 1.0 Alter Enterprise Graph columns to VARCHAR(128) if PostgreSQL
+    if engine.dialect.name == "postgresql":
+        logger.info("Step 1.0: Ensuring VARCHAR(128) on enterprise graph primary and foreign keys...")
+        with engine.begin() as conn:
+            for ddl in (
+                "ALTER TABLE company_individual_roles ALTER COLUMN role_id TYPE VARCHAR(128)",
+                "ALTER TABLE company_individual_roles ALTER COLUMN company_id TYPE VARCHAR(128)",
+                "ALTER TABLE company_individual_roles ALTER COLUMN individual_id TYPE VARCHAR(128)",
+                "ALTER TABLE company_channel_links ALTER COLUMN link_id TYPE VARCHAR(128)",
+                "ALTER TABLE company_channel_links ALTER COLUMN company_id TYPE VARCHAR(128)",
+                "ALTER TABLE company_channel_links ALTER COLUMN channel_id TYPE VARCHAR(128)",
+                "ALTER TABLE individual_channel_links ALTER COLUMN link_id TYPE VARCHAR(128)",
+                "ALTER TABLE individual_channel_links ALTER COLUMN individual_id TYPE VARCHAR(128)",
+                "ALTER TABLE individual_channel_links ALTER COLUMN channel_id TYPE VARCHAR(128)",
+                "ALTER TABLE contact_channels ALTER COLUMN channel_id TYPE VARCHAR(128)",
+                "ALTER TABLE individuals ALTER COLUMN individual_id TYPE VARCHAR(128)",
+                "ALTER TABLE companies ALTER COLUMN company_id TYPE VARCHAR(128)",
+            ):
+                try:
+                    conn.execute(text(ddl))
+                except Exception as alter_err:
+                    logger.debug(f"DDL alter notice ({ddl}): {alter_err}")
+
     with Session(engine) as session:
         # 1.1 Seed fundamental locations, roles, and sectors
         logger.info("Step 1.1: Seeding fundamental locations, roles, and sectors...")

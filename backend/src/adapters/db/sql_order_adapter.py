@@ -36,6 +36,7 @@ from src.adapters.db.models import (
 from src.adapters.partners.partner_registry import PartnerRegistry
 import re
 import unicodedata
+import hashlib
 
 
 def _strip_accents(text: str) -> str:
@@ -1044,8 +1045,8 @@ class SqlOrderAdapter:
 
             # 2. Upsert Individual (Decision Maker)
             rep_name = (lead.get("decision_maker_name") or "Gerente General").strip()
-            name_slug = re.sub(r"\W+", "_", rep_name.lower()).strip("_")[:32]
-            individual_id = f"IND_{country}_{clean_tax_id}_{name_slug}"
+            name_slug = re.sub(r"\W+", "_", rep_name.lower()).strip("_")[:24]
+            individual_id = f"IND_{country}_{clean_tax_id}_{name_slug}"[:60]
 
             individual = session.get(IndividualModel, individual_id)
             if not individual:
@@ -1066,6 +1067,8 @@ class SqlOrderAdapter:
 
             # 3. Upsert Role Link
             role_id = f"ROLE_{company_id}_{individual_id}"
+            if len(role_id) > 64:
+                role_id = f"ROLE_{hashlib.md5(role_id.encode()).hexdigest()}"
             role = session.get(CompanyIndividualRoleModel, role_id)
             role_title = lead.get("decision_maker_title") or "Representante Legal"
             role_lower = role_title.lower()
@@ -1108,6 +1111,8 @@ class SqlOrderAdapter:
             # 4. Upsert Contact Channels (Email & Phone)
             if raw_email and "@" in raw_email:
                 channel_email_id = f"CH_EMAIL_{raw_email}"
+                if len(channel_email_id) > 64:
+                    channel_email_id = f"CH_EM_{hashlib.md5(raw_email.encode()).hexdigest()}"
                 ch_email = session.get(ContactChannelModel, channel_email_id)
                 if not ch_email:
                     ch_email = session.query(ContactChannelModel).filter_by(normalized_value=raw_email).first()
@@ -1145,6 +1150,8 @@ class SqlOrderAdapter:
                 email_ownership = "law_firm_shared_channel" if is_shared_proxy else ("direct_executive_email" if is_corp else "external_firm_email")
 
                 link_ind_email_id = f"LNK_IND_{individual_id}_{channel_email_id}"
+                if len(link_ind_email_id) > 64:
+                    link_ind_email_id = f"LNK_IND_{hashlib.md5(link_ind_email_id.encode()).hexdigest()}"
                 if not session.get(IndividualChannelLinkModel, link_ind_email_id):
                     session.add(IndividualChannelLinkModel(
                         link_id=link_ind_email_id,
@@ -1155,6 +1162,8 @@ class SqlOrderAdapter:
                     ))
 
                 link_co_email_id = f"LNK_CO_{company_id}_{channel_email_id}"
+                if len(link_co_email_id) > 64:
+                    link_co_email_id = f"LNK_CO_{hashlib.md5(link_co_email_id.encode()).hexdigest()}"
                 if not session.get(CompanyChannelLinkModel, link_co_email_id):
                     session.add(CompanyChannelLinkModel(
                         link_id=link_co_email_id,
@@ -1169,6 +1178,8 @@ class SqlOrderAdapter:
             digits_phone = re.sub(r"\D", "", raw_phone)
             if digits_phone and len(digits_phone) >= 7:
                 channel_phone_id = f"CH_PHONE_{country}_{digits_phone}"
+                if len(channel_phone_id) > 64:
+                    channel_phone_id = f"CH_PH_{hashlib.md5(channel_phone_id.encode()).hexdigest()}"
                 ch_phone = session.get(ContactChannelModel, channel_phone_id)
                 if not ch_phone:
                     ch_phone = session.query(ContactChannelModel).filter_by(normalized_value=digits_phone).first()
@@ -1198,6 +1209,8 @@ class SqlOrderAdapter:
                     ch_phone.updated_at = now
 
                 link_ind_phone_id = f"LNK_IND_{individual_id}_{channel_phone_id}"
+                if len(link_ind_phone_id) > 64:
+                    link_ind_phone_id = f"LNK_IND_{hashlib.md5(link_ind_phone_id.encode()).hexdigest()}"
                 if not session.get(IndividualChannelLinkModel, link_ind_phone_id):
                     session.add(IndividualChannelLinkModel(
                         link_id=link_ind_phone_id,
@@ -1208,6 +1221,8 @@ class SqlOrderAdapter:
                     ))
 
                 link_co_phone_id = f"LNK_CO_{company_id}_{channel_phone_id}"
+                if len(link_co_phone_id) > 64:
+                    link_co_phone_id = f"LNK_CO_{hashlib.md5(link_co_phone_id.encode()).hexdigest()}"
                 if not session.get(CompanyChannelLinkModel, link_co_phone_id):
                     session.add(CompanyChannelLinkModel(
                         link_id=link_co_phone_id,
