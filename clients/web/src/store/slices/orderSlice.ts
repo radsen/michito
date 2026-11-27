@@ -40,8 +40,8 @@ function getInitialActiveOrderId(): string | null {
     if (fromUrl && fromUrl.startsWith("ord_")) {
       return fromUrl;
     }
-    // Only auto-restore session order if user is explicitly on the tracking page (/rastrear)
-    if (window.location.pathname === "/rastrear") {
+    // Only auto-restore session order if user is explicitly on the tracking page (/track or legacy /rastrear)
+    if (window.location.pathname === "/track" || window.location.pathname === "/rastrear") {
       const fromSession = sessionStorage.getItem("michito_session_order_id");
       if (fromSession && fromSession.startsWith("ord_")) {
         return fromSession;

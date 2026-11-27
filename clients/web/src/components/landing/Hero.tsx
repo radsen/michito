@@ -3,7 +3,11 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { ShieldCheck, Building, TrendingUp, PenTool, ArrowRight, ArrowDown } from "lucide-react";
 
-export const Hero: React.FC = () => {
+interface HeroProps {
+  onNavigateRequest?: () => void;
+}
+
+export const Hero: React.FC<HeroProps> = ({ onNavigateRequest }) => {
   const { dict } = useSelector((state: RootState) => state.language);
   const h = dict.hero;
 
@@ -30,7 +34,16 @@ export const Hero: React.FC = () => {
         <p className="hero-subtitle">{h.subtitle}</p>
 
         <div className="hero-cta-group">
-          <button onClick={() => scrollTo("generador")} className="hero-primary-btn">
+          <button
+            onClick={() => {
+              if (onNavigateRequest) {
+                onNavigateRequest();
+              } else {
+                scrollTo("generador");
+              }
+            }}
+            className="hero-primary-btn"
+          >
             <span>{h.primaryCta}</span>
             <ArrowRight className="w-5 h-5" />
           </button>

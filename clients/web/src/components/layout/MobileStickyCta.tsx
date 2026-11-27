@@ -3,7 +3,11 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../store";
 import { Zap } from "lucide-react";
 
-export const MobileStickyCta: React.FC = () => {
+interface MobileStickyCtaProps {
+  onNavigateRequest?: () => void;
+}
+
+export const MobileStickyCta: React.FC<MobileStickyCtaProps> = ({ onNavigateRequest }) => {
   const [visible, setVisible] = useState(false);
   const { dict } = useSelector((state: RootState) => state.language);
   const { activeOrderId } = useSelector((state: RootState) => state.order);
@@ -25,6 +29,10 @@ export const MobileStickyCta: React.FC = () => {
   if (!visible || activeOrderId) return null;
 
   const scrollToGenerator = () => {
+    if (onNavigateRequest) {
+      onNavigateRequest();
+      return;
+    }
     const el = document.getElementById("generador");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });

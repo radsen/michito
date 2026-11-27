@@ -46,12 +46,20 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const resolveCanonicalPath = (p: string): string => {
+    if (p === "/rastrear" || p === "/track") return "/track";
+    if (p === "/terminos" || p === "/terms") return "/terms";
+    if (p === "/solicitar" || p === "/request") return "/request";
+    return p;
+  };
+
   const [currentPath, setCurrentPath] = useState<string>(() => {
     try {
       const p = window.location.pathname;
-      if (p === "/rastrear" || p === "/terminos" || p === "/solicitar") return p;
+      const canonical = resolveCanonicalPath(p);
+      if (canonical === "/track" || canonical === "/terms" || canonical === "/request") return canonical;
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("order_id") || urlParams.get("quote") || urlParams.get("approval")) return "/rastrear";
+      if (urlParams.get("order_id") || urlParams.get("quote") || urlParams.get("approval")) return "/track";
     } catch {
       // fallback
     }
@@ -60,7 +68,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const onPopState = () => {
-      setCurrentPath(window.location.pathname || "/");
+      setCurrentPath(resolveCanonicalPath(window.location.pathname || "/"));
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -82,8 +90,9 @@ export const App: React.FC = () => {
       return;
     }
 
-    window.history.pushState({}, "", path);
-    setCurrentPath(path);
+    const canonical = resolveCanonicalPath(path);
+    window.history.pushState({}, "", canonical);
+    setCurrentPath(canonical);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -144,43 +153,35 @@ export const App: React.FC = () => {
       <Navbar onNavigate={navigate} currentPath={currentPath} />
 
       <main>
-        {currentPath === "/rastrear" ? (
+        {currentPath === "/track" ? (
           <TrackOrderPage
             onBack={() => navigate("/")}
             initialOrderId={queryOrderId}
           />
-        ) : currentPath === "/terminos" ? (
+        ) : currentPath === "/terms" ? (
           <TermsPage onBack={() => navigate("/")} />
-        ) : currentPath === "/solicitar" ? (
+        ) : currentPath === "/request" ? (
           <div style={{ minHeight: "80vh", paddingTop: 32, paddingBottom: 64 }}>
             <ErrorBoundary fallbackTitle="Error al inicializar el Asistente de Prospección">
               <BatchRequestWizard
                 onBack={() => navigate("/")}
-                onNavigateTrack={(orderId) => navigate(`/rastrear?order_id=${orderId}`)}
+                onNavigateTrack={(orderId) => navigate(`/track?order_id=${orderId}`)}
               />
             </ErrorBoundary>
           </div>
         ) : (
           <>
-            <Hero />
+            <Hero onNavigateRequest={() => navigate("/request")} />
             <HowItWorks />
             <ComparisonTable />
-            <DeliverablesStandards onNavigateTerms={() => navigate("/terminos")} />
-            <PricingMatrix />
-            <section id="generador" style={{ padding: "40px 0" }}>
-              <ErrorBoundary fallbackTitle="Error al inicializar el Asistente de Prospección">
-                <BatchRequestWizard
-                  onBack={() => navigate("/")}
-                  onNavigateTrack={(orderId) => navigate(`/rastrear?order_id=${orderId}`)}
-                />
-              </ErrorBoundary>
-            </section>
+            <DeliverablesStandards onNavigateTerms={() => navigate("/terms")} />
+            <PricingMatrix onNavigateRequest={() => navigate("/request")} />
           </>
         )}
       </main>
 
       <Footer onNavigate={navigate} />
-      {currentPath === "/" && <MobileStickyCta />}
+      {currentPath === "/" && <MobileStickyCta onNavigateRequest={() => navigate("/request")} />}
       <WompiCheckoutModal />
     </div>
   );

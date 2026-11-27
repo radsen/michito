@@ -113,7 +113,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
 
             <button
               type="button"
-              onClick={() => handleNavClick("generador")}
+              onClick={() => {
+                dispatch(setMobileNavOpen(false));
+                if (onNavigate) {
+                  onNavigate("/request");
+                } else {
+                  handleNavClick("generador");
+                }
+              }}
               className="nav-cta-btn"
             >
               <span>{dict.nav.cta}</span>
@@ -148,7 +155,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPath = "/" })
             <span>{dict.nav.pricing}</span>
           </button>
 
-          <button onClick={() => handleNavClick("generador")} className="mobile-drawer-cta">
+          <button
+            onClick={() => {
+              dispatch(setMobileNavOpen(false));
+              if (onNavigate) {
+                onNavigate("/request");
+              } else {
+                handleNavClick("generador");
+              }
+            }}
+            className="mobile-drawer-cta"
+          >
             {dict.nav.cta}
           </button>
         </div>

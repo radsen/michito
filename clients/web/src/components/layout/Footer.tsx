@@ -80,8 +80,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul>
               <li>
                 <a
-                  href="/rastrear"
-                  onClick={(e) => handleNavigate("/rastrear", e)}
+                  href="/track"
+                  onClick={(e) => handleNavigate("/track", e)}
                   className="footer-link footer-link-highlight"
                 >
                   <Search className="w-3.5 h-3.5" />
@@ -90,8 +90,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <a
-                  href="/terminos#garantia"
-                  onClick={(e) => handleNavigate("/terminos", e)}
+                  href="/terms#garantia"
+                  onClick={(e) => handleNavigate("/terms", e)}
                   className="footer-link"
                 >
                   {f.linkWarranty}
@@ -99,8 +99,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <a
-                  href="/terminos#habeas-data"
-                  onClick={(e) => handleNavigate("/terminos", e)}
+                  href="/terms#habeas-data"
+                  onClick={(e) => handleNavigate("/terms", e)}
                   className="footer-link"
                 >
                   {f.linkPrivacy}
@@ -122,8 +122,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <a
-                  href="/terminos#arco"
-                  onClick={(e) => handleNavigate("/terminos", e)}
+                  href="/terms#arco"
+                  onClick={(e) => handleNavigate("/terms", e)}
                   className="footer-link text-xs text-sky-400 hover:text-sky-300"
                 >
                   {f.linkOptOut}

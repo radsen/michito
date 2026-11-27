@@ -7,7 +7,11 @@ import { CurrencySwitcher } from "../common/CurrencySwitcher";
 import { SUPPORTED_CURRENCIES, formatCurrencyAmount } from "../../config/currencies";
 import { Check, Star, ShieldAlert, Sparkles, Calculator, ArrowRight } from "lucide-react";
 
-export const PricingMatrix: React.FC = () => {
+interface PricingMatrixProps {
+  onNavigateRequest?: () => void;
+}
+
+export const PricingMatrix: React.FC<PricingMatrixProps> = ({ onNavigateRequest }) => {
   const dispatch = useDispatch();
   const { dict } = useSelector((state: RootState) => state.language);
   const {
@@ -80,6 +84,10 @@ export const PricingMatrix: React.FC = () => {
   };
 
   const handleScrollToOrder = () => {
+    if (onNavigateRequest) {
+      onNavigateRequest();
+      return;
+    }
     const el = document.getElementById("generador");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });

@@ -65,7 +65,7 @@ export const LiveStatusTracker: React.FC<LiveStatusTrackerProps> = ({ onAdjustPa
   const getShareableApprovalUrl = () => {
     if (!activeOrderId) return "";
     const origin = window.location.origin;
-    return `${origin}/rastrear?order_id=${activeOrderId}`;
+    return `${origin}/track?order_id=${activeOrderId}`;
   };
 
   const handleCopyApprovalLink = () => {
