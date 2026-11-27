@@ -259,7 +259,7 @@ class SecopHarvesterAdapter:
             else:
                 params["municipio"] = city
 
-        data = self._query_soda(params)
+        data = self._execute_soda_request(params)
         if isinstance(data, list) and len(data) > 0:
             val = data[0].get("count") or data[0].get("count_1") or data[0].get("count_all") or 0
             return int(val)

@@ -563,10 +563,10 @@ def probe_prospecting_depth(payload: ProbeDepthRequest, request: Request):
 
     if target_country == "CO":
         try:
-            from src.adapters.registries.colombia.supersociedades_soda_adapter import SuperSociedadesSodaAdapter
+            from src.adapters.registries.colombia.supersociedades_soda_adapter import SupersociedadesSodaAdapter
             from src.adapters.registries.colombia.secop_harvester_adapter import SecopHarvesterAdapter
 
-            soda_adapter = SuperSociedadesSodaAdapter()
+            soda_adapter = SupersociedadesSodaAdapter()
             secop_adapter = SecopHarvesterAdapter()
 
             soda_count = soda_adapter.count_candidates(city=target_city, ciiu_codes=ciiu_codes, include_keywords=keywords)
@@ -979,12 +979,12 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
             resolved_city = "Nacional"
 
         # Sanitize single long raw prompt in keywords_include if passed by web wizard
-        if resolved_keywords and len(str(resolved_keywords[0])) > 60:
+        if resolved_keywords and len(resolved_keywords[0]) > 60:
             try:
                 from src.application.services.brief_parser_service import BriefParserService
                 bp = BriefParserService(sql_adapter=sql_adapter)
                 parsed_intent = bp.parse_brief(
-                    str(resolved_keywords[0]),
+                    resolved_keywords[0],
                     explicit_directionality=payload.request.directionality,
                 )
                 if parsed_intent.get("keywords_include"):
