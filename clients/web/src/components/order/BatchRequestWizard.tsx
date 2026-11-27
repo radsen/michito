@@ -814,6 +814,11 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                   <p style={{ fontSize: "0.85rem", color: "#cbd5e1", margin: "4px 0 0 0", lineHeight: 1.4 }}>
                     {probeResult.advice_message}
                   </p>
+                  {probeResult.business_understanding && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.25)", fontSize: "0.8rem", color: "#e2e8f0", lineHeight: 1.4 }}>
+                      <strong style={{ color: "#38bdf8" }}>Perfil B2B detectado:</strong> {probeResult.business_understanding}
+                    </div>
+                  )}
                   {probeResult.ciiu_codes && probeResult.ciiu_codes.length > 0 && (
                     <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <span style={{ fontSize: "0.72rem", color: "#64748b" }}>CIIU vinculados:</span>

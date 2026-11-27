@@ -200,6 +200,7 @@ export interface ProbeDepthResponse {
   ciiu_codes: string[];
   keywords: string[];
   detected_concept: string;
+  business_understanding?: string;
 }
 
 export interface ParseBriefResponse {

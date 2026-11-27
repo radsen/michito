@@ -620,7 +620,8 @@ def probe_prospecting_depth(payload: ProbeDepthRequest, request: Request):
         "modality_label": modality_label,
         "ciiu_codes": ciiu_codes,
         "keywords": keywords,
-        "detected_concept": parsed.get("offer_description") or clean_prompt[:60],
+        "detected_concept": parsed.get("business_understanding") or parsed.get("offer_description") or clean_prompt[:60],
+        "business_understanding": parsed.get("business_understanding") or "",
     }
 
 

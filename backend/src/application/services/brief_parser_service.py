@@ -371,6 +371,7 @@ class BriefParserService:
             (r"\b(?:pinturas?|murales?|recubrimientos?)\b", "pinturas"),
             (r"\b(?:artes?\s+gr[aá]ficas?|litograf[ií]a|tipograf[ií]a|impresi[oó]n)\b", "artes graficas"),
             (r"\b(?:hebi|hebisend|hebisend\.com|env[ií]os?\s+e-?commerce|paqueter[ií]a|fulfillment|mensajer[ií]a\s+e-?commerce)\b", "logistica ecommerce"),
+            (r"\b(?:planoteca|planos|georreferencia|cajet[ií]n|dwg|phimap|contech|bim|interferencia\s+drenaje|visor\s+pdf\s+y\s+dwg)\b", "contech software"),
             (r"\b(?:terreno\s+industrial|lote\s+industrial|vender\s+(?:un\s+)?terreno|concesi[oó]n\s+de\s+aguas?|parque\s+industrial|bodegas?\s+log[ií]sticas?)\b", "desarrollo industrial"),
             (r"\bobras?\s+civiles?\b", "obras civiles"),
             (r"\bgestion\s+(?:de\s+)?cartera\b", "gestion de cartera"),
@@ -400,6 +401,13 @@ class BriefParserService:
             if not explicit_directionality:
                 directionality = "vendor_to_clients"
             roles = ["Gerente de E-commerce", "Director de Logística", "Líder de Operaciones", "Gerente General"]
+        if "contech software" in compound_kws:
+            contech_ciius = ["4111", "4112", "4290", "7110", "6810"]
+            domain_ciius = contech_ciius + [c for c in domain_ciius if c not in ("7410", "1811", "7310", "3299", "2022") and c not in contech_ciius]
+            if not explicit_directionality:
+                directionality = "vendor_to_clients"
+            roles = ["Director de Obra", "Gerente de Proyectos", "BIM Manager", "Director de Construcción", "Gerente Técnico", "Ingeniero Residente"]
+            sectors = ["construccion_obras_civiles", "arquitectura_ingenieria_consultoria"]
         if "desarrollo industrial" in compound_kws:
             for c in ("4111", "6810", "5210", "6820"):
                 if c not in ciiu_codes and c not in domain_ciius:
@@ -421,9 +429,11 @@ class BriefParserService:
                 words.append(norm_w)
         keywords_include = words[:6]
 
-        # Exclusions (e.g. "sin colegios publicos", "no intermediarios")
+        # Exclusions: Only match explicit negative intent commands, NEVER marketing benefits like "sin construirlo" or "sin instalaciones complejas"
         keywords_exclude = []
-        exclude_match = re.search(r"(?:sin|no incluir|excluir|excepto)\s+([a-záéíóúñ\s,]+)", lower)
+        exclude_match = re.search(r"(?:no incluir|excluir|excepto|sin incluir|no quiero|omitir)\s+([a-záéíóúñ\s,]+)", lower)
+        if not exclude_match:
+            exclude_match = re.search(r"\bsin\s+(intermediarios|terceros|comisionistas|personas\s+naturales|colegios?\s+p[uú]blicos?|entidades?\s+p[uú]blicas?|gobierno)\b", lower)
         if exclude_match:
             ex_terms = [t.strip() for t in exclude_match.group(1).split(",") if len(t.strip()) > 3]
             keywords_exclude.extend(ex_terms[:4])
@@ -438,8 +448,17 @@ class BriefParserService:
         ) or any(loc.get("city") in ("Colombia", "Nacional", "all") for loc in location_allocations)
         geographic_scope = "national" if is_national else "metro_area"
 
+        concept = "Prospección de clientes B2B" if directionality == "vendor_to_clients" else "Homologación y cotización con proveedores"
+        if "contech software" in compound_kws:
+            concept = "Software ConTech / Planoteca y Obras. Perfil objetivo: Constructoras de edificaciones, obras civiles y consultoría de ingeniería."
+        elif "logistica ecommerce" in compound_kws:
+            concept = "Plataforma logística e-commerce. Perfil objetivo: Comercios electrónicos, retail de moda y tiendas online."
+        elif "desarrollo industrial" in compound_kws:
+            concept = "Desarrollo de predios y parques industriales. Perfil objetivo: Constructoras, promotores y operadores logísticos."
+
         return {
             "directionality": directionality,
+            "business_understanding": concept,
             "sectors": sectors[:3],
             "ciiu_codes": ciiu_codes,
             "roles": roles[:5],
@@ -468,24 +487,26 @@ class BriefParserService:
         Tries latest production Gemini Flash models with graceful fallback.
         """
         system_instruction = (
-            "You are Michito AI, an expert B2B prospecting & procurement briefing engine "
-            "for Colombia 🇨🇴, Dominican Republic 🇩🇴, and Ecuador 🇪🇨.\n"
-            "Analyze the user's natural language request and output a strictly valid JSON object matching the schema:\n"
+            "You are Michito AI, an expert B2B Search Architect and Query Compiler for official corporate registries "
+            "in Colombia 🇨🇴, Dominican Republic 🇩🇴, and Ecuador 🇪🇨.\n"
+            "Analyze pitches, marketing brochures, complex requests, or unstructured text, and compile an exact B2B Target Specification (ICP).\n"
+            "Output a strictly valid JSON object matching this schema:\n"
             "{\n"
-            '  "directionality": "vendor_to_clients" (if selling) or "client_to_vendors" (if buying/procuring/RFQ),\n'
+            '  "directionality": "vendor_to_clients" (if offering/selling a product, SaaS, service, or pitch) or "client_to_vendors" (if buying/procuring/RFQ),\n'
+            '  "business_understanding": "A concise 1-2 sentence Spanish explanation of what is being offered and exactly who the target B2B buyer profile (ICP) is.",\n'
             '  "sectors": ["slug_sector_name"],\n'
-            '  "ciiu_codes": ["4-digit ISIC/CIIU codes matching the niche product/domain precisely (e.g. food wholesale: 4631, 4632; restaurant supplies: 5611)"],\n'
-            '  "roles": ["Target executive titles"],\n'
+            '  "ciiu_codes": ["3 to 6 official 4-digit ISIC/CIIU codes of the TARGET COMPANIES (e.g. if selling ConTech/blueprints: construction companies 4111, 4112, civil works 4290, engineering/architecture firms 7110; if selling e-commerce logistics: online retail stores 4791, 4771)"],\n'
+            '  "roles": ["Target executive decision-maker titles (e.g. Director de Obra, Gerente de Proyectos, BIM Manager)"],\n'
             '  "locations": [{"country": "CO"|"DO"|"EC", "region": "Department/State", "city": "City name", "allocated_leads": 15}],\n'
             '  "limit": integer total volume (default 25),\n'
             '  "tier": 1 (directory) | 2 (decision maker email+phone) | 3 (financial EBITDA / litigation audit, ONLY if all locations are in CO),\n'
             '  "rfq_specifications": "tender requirements or null",\n'
-            '  "keywords_include": ["SPECIFIC product, service, or niche substantive terms or compound phrases only (e.g. alimentos, restaurantes, desarrollo de software, servicios cloud). NEVER include solitary generic words like desarrollo, distribuidora, empresa, mayorista, proveedor, fabricante, soluciones, servicios."],\n'
-            '  "keywords_exclude": ["terms to exclude"],\n'
-            '  "confidence_score": float between 0.0 and 1.0\n'
+            '  "keywords_include": ["3 to 5 substantive nouns that appear in legal corporate objects in registries (e.g. constructora, obras civiles, edificaciones, ingenieria civil). Never include generic marketing slogans or features like planoteca, visor, offline, conecta."],\n'
+            '  "keywords_exclude": ["true negative exclusion filters requested by the user (e.g. intermediarios, agencias). NEVER include benefits or marketing terms (e.g. do NOT exclude construir)."],\n'
+            '  "confidence_score": float between 0.85 and 0.99\n'
             "}\n"
             "CRITICAL RULES:\n"
-            "1. 'keywords_include' MUST ONLY contain specific industry/product nouns or compound phrases (e.g. 'desarrollo de software', 'servicios cloud', 'alimentos', 'carnicos'). NEVER output solitary generic words like 'desarrollo', 'distribuidora', 'empresa', 'proveedor', 'mayorista', 'fabricante', 'soluciones', or 'servicios'.\n"
+            "1. 'keywords_include' MUST ONLY contain specific industry/product nouns or compound phrases (e.g. 'constructora', 'obras civiles', 'edificaciones', 'alimentos'). NEVER output solitary generic words like 'desarrollo', 'distribuidora', 'empresa', 'proveedor', 'mayorista', 'fabricante', 'soluciones', or 'servicios'.\n"
             "2. If the user allocates specific counts per city (e.g. 'Cali unas 50 y Barranquilla 40 y en todo Colombia 10'), allocate exact numbers in 'allocated_leads' for each location.\n"
             "3. Tier 3 is strictly restricted to orders where 100% of locations are in Colombia ('CO'). If locations include 'DO', 'EC', or are mixed, tier MUST be 2 or 1."
         )
@@ -499,7 +520,7 @@ class BriefParserService:
             },
         }
 
-        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = ["gemini-3-flash-preview", "gemini-3.8-flash", "gemini-flash-latest"]
         last_error = None
         usage_data = {}
         chosen_model = None
@@ -507,7 +528,7 @@ class BriefParserService:
         for model_name in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
             try:
-                with httpx.Client(timeout=2.5) as client:
+                with httpx.Client(timeout=4.0) as client:
                     resp = client.post(url, json=body)
                     resp.raise_for_status()
                     data = resp.json()
