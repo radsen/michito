@@ -53,6 +53,8 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 }) => {
   const dispatch = useDispatch();
   const { currentLanguage, dict } = useSelector((state: RootState) => state.language);
+  const w = dict.wizard;
+  const isEn = currentLanguage === "en_US";
   const { currency, trmRates } = useSelector((state: RootState) => state.pricing);
   const partner = useSelector((state: RootState) => state.partner);
   const { buyerName: reduxBuyerName, buyerEmail: reduxBuyerEmail, buyerPhone: reduxBuyerPhone } = useSelector((state: RootState) => state.order);
@@ -62,17 +64,20 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   // Step 1: Goal & Intent
   const [directionality, setDirectionality] = useState<"vendor_to_clients" | "client_to_vendors">("vendor_to_clients");
   const [searchMode, setSearchMode] = useState<"natural" | "guided">("natural");
-  const [naturalBrief, setNaturalBrief] = useState<string>("Empresas de tecnología, desarrollo de software y servicios cloud en Bogotá");
+  const [naturalBrief, setNaturalBrief] = useState<string>("");
+  const [step1Error, setStep1Error] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string>("CO");
   const [selectedCity, setSelectedCity] = useState<string>("Bogotá");
-  const [selectedSectorName, setSelectedSectorName] = useState<string>("Tecnología, Software y Cloud");
+  const [selectedSectorName, setSelectedSectorName] = useState<string>(
+    isEn ? "Technology, Software & Cloud" : "Tecnología, Software y Cloud"
+  );
 
   // Step 2: Batch Size, Tier & Geo-scope
   const [selectedVolume, setSelectedVolume] = useState<number>(100);
   const [selectedTier, setSelectedTier] = useState<number>(2);
   const [geoScope, setGeoScope] = useState<string>("metro_area");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
-  const [targetRolesText, setTargetRolesText] = useState<string>("Gerente General, Director Comercial, Representante Legal");
+  const [targetRolesText, setTargetRolesText] = useState<string>(w.step2.targetRolesDefault);
   const [negativeExclusionsText, setNegativeExclusionsText] = useState<string>("");
 
   // Step 3: Contact Info
@@ -108,23 +113,23 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   };
 
   const industriesList = [
-    { name: "Tecnología, Software y Cloud", ciiu: "6201" },
-    { name: "Manufactura Textil, Confección y Calzado", ciiu: "1410" },
-    { name: "Distribución Mayorista de Alimentos", ciiu: "4631" },
-    { name: "Construcción y Obras Civiles", ciiu: "4111" },
-    { name: "Salud, Insumos Médicos y Clínicas", ciiu: "8610" },
-    { name: "Seguridad Privada y Vigilancia", ciiu: "8010" },
-    { name: "Logística, Carga y Transporte", ciiu: "4923" },
-    { name: "Servicios B2B y Consultoría", ciiu: "7020" },
+    { name: isEn ? "Technology, Software & Cloud" : "Tecnología, Software y Cloud", ciiu: "6201" },
+    { name: isEn ? "Textile Manufacturing, Apparel & Footwear" : "Manufactura Textil, Confección y Calzado", ciiu: "1410" },
+    { name: isEn ? "Wholesale Food Distribution" : "Distribución Mayorista de Alimentos", ciiu: "4631" },
+    { name: isEn ? "Construction & Civil Engineering" : "Construcción y Obras Civiles", ciiu: "4111" },
+    { name: isEn ? "Healthcare, Medical Supplies & Clinics" : "Salud, Insumos Médicos y Clínicas", ciiu: "8610" },
+    { name: isEn ? "Private Security & Surveillance" : "Seguridad Privada y Vigilancia", ciiu: "8010" },
+    { name: isEn ? "Logistics, Freight & Transport" : "Logística, Carga y Transporte", ciiu: "4923" },
+    { name: isEn ? "B2B Services & Consulting" : "Servicios B2B y Consultoría", ciiu: "7020" },
   ];
 
   // Quick suggestion pills for natural brief
   const suggestionPills = [
-    { label: "Software en Bogotá 🇨🇴", text: "Empresas de tecnología, desarrollo de software y servicios cloud en Bogotá", country: "CO", city: "Bogotá" },
-    { label: "Textil en Medellín 🇨🇴", text: "Empresas de manufactura textil, confección y calzado en Medellín", country: "CO", city: "Medellín" },
-    { label: "Alimentos en Cali 🇨🇴", text: "Empresas distribuidoras de alimentos al por mayor e insumos para restaurantes en Cali", country: "CO", city: "Cali" },
-    { label: "Construcción en Santo Domingo 🇩🇴", text: "Empresas constructoras y contratistas de obras civiles en Santo Domingo", country: "DO", city: "Santo Domingo" },
-    { label: "Seguridad en Guayaquil 🇪🇨", text: "Empresas de seguridad privada y vigilancia física en Guayaquil", country: "EC", city: "Guayaquil" },
+    { label: w.step1.suggestions.softwareLabel, text: w.step1.suggestions.softwareText, country: "CO", city: "Bogotá" },
+    { label: w.step1.suggestions.textileLabel, text: w.step1.suggestions.textileText, country: "CO", city: "Medellín" },
+    { label: w.step1.suggestions.foodLabel, text: w.step1.suggestions.foodText, country: "CO", city: "Cali" },
+    { label: w.step1.suggestions.constructionLabel, text: w.step1.suggestions.constructionText, country: "DO", city: "Santo Domingo" },
+    { label: w.step1.suggestions.securityLabel, text: w.step1.suggestions.securityText, country: "EC", city: "Guayaquil" },
   ];
 
   // Price calculations based on pricing catalog or baseline fallbacks
@@ -152,15 +157,15 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   const validateContactInfo = (): boolean => {
     const errors: { name?: string; email?: string; phone?: string } = {};
     if (!buyerName.trim() || buyerName.trim().length < 2) {
-      errors.name = "Por favor ingresa tu nombre o el de tu empresa (mínimo 2 caracteres).";
+      errors.name = w.step3.errName;
     }
     const emailPattern = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
     if (!buyerEmail.trim() || !emailPattern.test(buyerEmail.trim())) {
-      errors.email = "Por favor ingresa un correo corporativo válido.";
+      errors.email = w.step3.errEmail;
     }
     const digits = buyerPhone.replace(/\D/g, "");
     if (!buyerPhone.trim() || digits.length < 7) {
-      errors.phone = "Por favor ingresa un número de celular o WhatsApp válido (mínimo 7 dígitos).";
+      errors.phone = w.step3.errPhone;
     }
     setClientErrors(errors);
     return Object.keys(errors).length === 0;
@@ -168,7 +173,12 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
   // Step 1 Submission
   const handleProceedFromStep1 = () => {
-    if (searchMode === "natural" && naturalBrief.trim()) {
+    if (searchMode === "natural") {
+      if (!naturalBrief.trim()) {
+        setStep1Error(w.step1.errBrief);
+        return;
+      }
+      setStep1Error(null);
       // Fast heuristic extraction
       const lower = naturalBrief.toLowerCase();
       if (lower.includes("dominicana") || lower.includes("santo domingo")) {
@@ -190,6 +200,8 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         setSelectedCountry("CO");
         setSelectedCity("Bogotá");
       }
+    } else {
+      setStep1Error(null);
     }
     dispatch(selectCity(selectedCity));
     setCurrentStep(2);
@@ -277,9 +289,9 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
       {/* Step Header Indicator */}
       <div className="wizard-progress-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, position: "relative" }}>
         {[
-          { num: 1, label: "1. ¿Qué buscas?" },
-          { num: 2, label: "2. Tamaño y Nivel" },
-          { num: 3, label: "3. Datos de Notificación" },
+          { num: 1, label: w.steps.step1 },
+          { num: 2, label: w.steps.step2 },
+          { num: 3, label: w.steps.step3 },
         ].map((s) => (
           <div
             key={s.num}
@@ -318,20 +330,20 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         <div className="wizard-card" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "32px 24px" }}>
           <div style={{ marginBottom: 24 }}>
             <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: 1, color: "#38bdf8", fontWeight: 700 }}>
-              PASO 1 DE 3
+              {w.step1.kicker}
             </span>
             <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f8fafc", marginTop: 4, marginBottom: 8 }}>
-              ¿Qué tipo de empresas necesitas encontrar?
+              {w.step1.title}
             </h2>
             <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-              Michito auditará en tiempo real los registros mercantiles oficiales y validará buzones institucionales sin rebote.
+              {w.step1.subtitle}
             </p>
           </div>
 
           {/* Goal Toggle (Quiero Vender vs Quiero Comprar) */}
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 8 }}>
-              ¿Cuál es tu objetivo principal?
+              {w.step1.objectiveLabel}
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <button
@@ -352,8 +364,8 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               >
                 <Briefcase style={{ width: 22, height: 22, color: "#38bdf8", flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Quiero Conseguir Clientes</div>
-                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Empresas compradoras y decisores C-Level</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>{w.step1.vendorTitle}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{w.step1.vendorDesc}</div>
                 </div>
               </button>
 
@@ -375,8 +387,8 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               >
                 <ShoppingBag style={{ width: 22, height: 22, color: "#34d399", flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Quiero Conseguir Proveedores</div>
-                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Fabricantes, talleres y contratistas (Reverse RFQ)</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>{w.step1.buyerTitle}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{w.step1.buyerDesc}</div>
                 </div>
               </button>
             </div>
@@ -386,14 +398,14 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1" }}>
-                Describe qué empresas buscas (o usa los ejemplos):
+                {w.step1.briefLabel}
               </label>
               <button
                 type="button"
                 onClick={() => setSearchMode(searchMode === "natural" ? "guided" : "natural")}
                 style={{ background: "none", border: "none", color: "#38bdf8", fontSize: "0.78rem", cursor: "pointer", textDecoration: "underline" }}
               >
-                {searchMode === "natural" ? "Prefiero elegir con menús desplegables" : "Prefiero escribir en lenguaje natural"}
+                {searchMode === "natural" ? w.step1.switchToGuided : w.step1.switchToNatural}
               </button>
             </div>
 
@@ -402,24 +414,32 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 <textarea
                   rows={3}
                   value={naturalBrief}
-                  onChange={(e) => setNaturalBrief(e.target.value)}
-                  placeholder="Ejemplo: Empresas de manufactura textil, confección y calzado en Medellín"
+                  onChange={(e) => {
+                    setNaturalBrief(e.target.value);
+                    if (step1Error) setStep1Error(null);
+                  }}
+                  placeholder={w.step1.briefPlaceholder}
                   style={{
                     width: "100%",
                     padding: "12px 16px",
                     borderRadius: 12,
                     background: "#020617",
-                    border: "1px solid #334155",
+                    border: step1Error ? "1px solid #f43f5e" : "1px solid #334155",
                     color: "#f8fafc",
                     fontSize: "0.95rem",
                     resize: "vertical",
                   }}
                 />
+                {step1Error && (
+                  <span style={{ fontSize: "0.75rem", color: "#f43f5e", marginTop: 4, display: "block" }}>
+                    {step1Error}
+                  </span>
+                )}
 
                 {/* Quick suggestions */}
                 <div style={{ marginTop: 12 }}>
                   <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginBottom: 6 }}>
-                    Ejemplos populares para probar en 1 clic:
+                    {w.step1.popularExamples}
                   </span>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {suggestionPills.map((p, idx) => (
@@ -430,6 +450,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                           setNaturalBrief(p.text);
                           setSelectedCountry(p.country);
                           setSelectedCity(p.city);
+                          if (step1Error) setStep1Error(null);
                         }}
                         style={{
                           background: "#1e293b",
@@ -452,7 +473,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               /* Guided Dropdowns */
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>País</label>
+                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>{w.step1.countryLabel}</label>
                   <select
                     value={selectedCountry}
                     onChange={(e) => {
@@ -469,7 +490,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>Ciudad</label>
+                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>{w.step1.cityLabel}</label>
                   <select
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
@@ -482,7 +503,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>Sector</label>
+                  <label style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>{w.step1.sectorLabel}</label>
                   <select
                     value={selectedSectorName}
                     onChange={(e) => setSelectedSectorName(e.target.value)}
@@ -501,9 +522,15 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           <div style={{ background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.25)", borderRadius: 12, padding: "12px 16px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12 }}>
             <Sparkles style={{ width: 20, height: 20, color: "#38bdf8", flexShrink: 0 }} />
             <div style={{ fontSize: "0.825rem", color: "#e2e8f0" }}>
-              <strong>Auditoría en Tiempo Real:</strong> Michito conectará con los registros oficiales de{" "}
-              {selectedCountry === "DO" ? "República Dominicana 🇩🇴" : selectedCountry === "EC" ? "Ecuador 🇪🇨" : "Colombia 🇨🇴"}{" "}
-              sin costo por adelantado ($0 anticipo).
+              <strong>{w.step1.auditBannerBold}</strong>{" "}
+              {w.step1.auditBannerTemplate.replace(
+                "{country}",
+                selectedCountry === "DO"
+                  ? w.step1.countryNames.DO
+                  : selectedCountry === "EC"
+                  ? w.step1.countryNames.EC
+                  : w.step1.countryNames.CO
+              )}
             </div>
           </div>
 
@@ -516,7 +543,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem" }}
               >
                 <ArrowLeft style={{ width: 16, height: 16 }} />
-                <span>Volver al Inicio</span>
+                <span>{w.step1.backToHome}</span>
               </button>
             ) : <div />}
 
@@ -537,7 +564,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 gap: 8,
               }}
             >
-              <span>Continuar a Tamaño del Lote</span>
+              <span>{w.step1.continueBtn}</span>
               <ArrowRight style={{ width: 18, height: 18 }} />
             </button>
           </div>
@@ -549,24 +576,24 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         <div className="wizard-card" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "32px 24px" }}>
           <div style={{ marginBottom: 24 }}>
             <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: 1, color: "#38bdf8", fontWeight: 700 }}>
-              PASO 2 DE 3
+              {w.step2.kicker}
             </span>
             <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f8fafc", marginTop: 4, marginBottom: 8 }}>
-              ¿Cuántas cuentas verificadas necesitas?
+              {w.step2.title}
             </h2>
             <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-              Entre mayor sea el lote, mayor es el descuento por volumen. Solo pagas tras la auditoría sobre cuentas que pasen el 100% de los filtros.
+              {w.step2.subtitle}
             </p>
           </div>
 
           {/* Volume Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 28 }}>
             {[
-              { vol: 50, label: "50 cuentas", badge: "0% OFF", sub: "Prueba Inicial" },
-              { vol: 100, label: "100 cuentas", badge: "10% OFF", sub: "⭐ Más Popular" },
-              { vol: 250, label: "250 cuentas", badge: "18% OFF", sub: "Equipo Comercial" },
-              { vol: 500, label: "500 cuentas", badge: "25% OFF", sub: "Cobertura Regional" },
-              { vol: 1000, label: "1.000 cuentas", badge: "32% OFF", sub: "Lote Nacional" },
+              { vol: 50, label: `50 ${w.step2.accounts}`, badge: w.step2.volumes.v50.badge, sub: w.step2.volumes.v50.sub },
+              { vol: 100, label: `100 ${w.step2.accounts}`, badge: w.step2.volumes.v100.badge, sub: w.step2.volumes.v100.sub },
+              { vol: 250, label: `250 ${w.step2.accounts}`, badge: w.step2.volumes.v250.badge, sub: w.step2.volumes.v250.sub },
+              { vol: 500, label: `500 ${w.step2.accounts}`, badge: w.step2.volumes.v500.badge, sub: w.step2.volumes.v500.sub },
+              { vol: 1000, label: `${isEn ? "1,000" : "1.000"} ${w.step2.accounts}`, badge: w.step2.volumes.v1000.badge, sub: w.step2.volumes.v1000.sub },
             ].map((v) => (
               <button
                 key={v.vol}
@@ -598,13 +625,13 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           {/* Tier Selection */}
           <div style={{ marginBottom: 28 }}>
             <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>
-              Nivel de Inteligencia de los Contactos:
+              {w.step2.tierLabel}
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               {[
-                { tier: 1, title: "Tier 1: Directorio Base", desc: "Mailbox verificado corporativo, Representante Legal estatutario y NIT/RUC.", rate: "$1.500 COP" },
-                { tier: 2, title: "Tier 2: Decisor C-Level ⭐", desc: "Tomador de decisión verificado con celular directo, correo 0-rebotes y LinkedIn.", rate: "$6.200 COP" },
-                { tier: 3, title: "Tier 3: Auditoría Financiera", desc: "Dossier con balances NIIF, cálculo de EBITDA, márgenes y scoring judicial.", rate: "$15.000 COP" },
+                { tier: 1, title: w.step2.tiers.t1.title, desc: w.step2.tiers.t1.desc, rate: w.step2.tiers.t1.rate },
+                { tier: 2, title: w.step2.tiers.t2.title, desc: w.step2.tiers.t2.desc, rate: w.step2.tiers.t2.rate },
+                { tier: 3, title: w.step2.tiers.t3.title, desc: w.step2.tiers.t3.desc, rate: w.step2.tiers.t3.rate },
               ].map((t) => (
                 <button
                   key={t.tier}
@@ -627,7 +654,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                     {t.desc}
                   </div>
                   <div style={{ fontSize: "0.825rem", color: "#38bdf8", fontWeight: 700, marginTop: 10 }}>
-                    Desde {t.rate} / cuenta
+                    {w.step2.startingAt} {t.rate} {w.step2.perAccount}
                   </div>
                 </button>
               ))}
@@ -655,7 +682,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Sliders style={{ width: 16, height: 16, color: "#38bdf8" }} />
-                <span>Filtros Avanzados (Opcional para Equipos Comerciales)</span>
+                <span>{w.step2.advancedFiltersToggle}</span>
               </div>
               {showAdvancedFilters ? <ChevronUp style={{ width: 18, height: 18 }} /> : <ChevronDown style={{ width: 18, height: 18 }} />}
             </button>
@@ -664,7 +691,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               <div style={{ padding: "0 16px 16px 16px", borderTop: "1px solid #1e293b", marginTop: 8 }}>
                 <div style={{ marginBottom: 12, paddingTop: 12 }}>
                   <label style={{ fontSize: "0.78rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>
-                    Cargos directivos deseados (separados por coma):
+                    {w.step2.targetRolesLabel}
                   </label>
                   <input
                     type="text"
@@ -676,13 +703,13 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
                 <div>
                   <label style={{ fontSize: "0.78rem", color: "#94a3b8", display: "block", marginBottom: 4 }}>
-                    Exclusiones de clientes actuales o competidores (NITs o dominios):
+                    {w.step2.exclusionsLabel}
                   </label>
                   <input
                     type="text"
                     value={negativeExclusionsText}
                     onChange={(e) => setNegativeExclusionsText(e.target.value)}
-                    placeholder="Ejemplo: 900123456, competidor.com"
+                    placeholder={w.step2.exclusionsPlaceholder}
                     style={{ width: "100%", padding: "8px 12px", borderRadius: 8, background: "#0f172a", border: "1px solid #334155", color: "#fff", fontSize: "0.85rem" }}
                   />
                 </div>
@@ -693,16 +720,16 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           {/* Pricing Recap Pill */}
           <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: 12, padding: "14px 18px", marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Inversión Estimada Post-Auditoría:</div>
+              <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{w.step2.recapTitle}</div>
               <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#10b981" }}>
-                ${estimatedSubtotalCop.toLocaleString("es-CO")} COP{" "}
+                ${estimatedSubtotalCop.toLocaleString(isEn ? "en-US" : "es-CO")} COP{" "}
                 <span style={{ fontSize: "0.8rem", fontWeight: 400, color: "#94a3b8" }}>
-                  ({discountPct}% de descuento aplicado)
+                  ({discountPct}% {w.step2.discountApplied})
                 </span>
               </div>
             </div>
             <div style={{ textAlign: "right", fontSize: "0.75rem", color: "#64748b" }}>
-              $0 anticipo • Factura con IVA al aprobar
+              {w.step2.recapNote}
             </div>
           </div>
 
@@ -714,7 +741,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem" }}
             >
               <ArrowLeft style={{ width: 16, height: 16 }} />
-              <span>Atrás</span>
+              <span>{w.step2.back}</span>
             </button>
 
             <button
@@ -734,7 +761,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                 gap: 8,
               }}
             >
-              <span>Continuar a Datos de Contacto</span>
+              <span>{w.step2.continueBtn}</span>
               <ArrowRight style={{ width: 18, height: 18 }} />
             </button>
           </div>
@@ -746,13 +773,13 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         <div className="wizard-card" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "32px 24px" }}>
           <div style={{ marginBottom: 24 }}>
             <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: 1, color: "#38bdf8", fontWeight: 700 }}>
-              PASO 3 DE 3
+              {w.step3.kicker}
             </span>
             <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f8fafc", marginTop: 4, marginBottom: 8 }}>
-              ¿A dónde te notificamos cuando tu lote esté verificado?
+              {w.step3.title}
             </h2>
             <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-              Te enviaremos el reporte de auditoría y la cotización ajustada por correo y WhatsApp. No necesitas esperar en la web.
+              {w.step3.subtitle}
             </p>
           </div>
 
@@ -769,7 +796,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 28 }}>
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>
-                Tu Nombre o Razón Social
+                {w.step3.nameLabel}
               </label>
               <div style={{ position: "relative" }}>
                 <input
@@ -779,7 +806,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                     setBuyerName(e.target.value);
                     if (clientErrors.name) setClientErrors({ ...clientErrors, name: undefined });
                   }}
-                  placeholder="Ejemplo: Andrés Solano / Inversiones Alfa"
+                  placeholder={w.step3.namePlaceholder}
                   autoComplete="name"
                   style={{
                     width: "100%",
@@ -800,7 +827,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>
-                Correo Electrónico Corporativo (Para recibir el resumen y cotización)
+                {w.step3.emailLabel}
               </label>
               <div style={{ position: "relative" }}>
                 <input
@@ -810,7 +837,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                     setBuyerEmail(e.target.value);
                     if (clientErrors.email) setClientErrors({ ...clientErrors, email: undefined });
                   }}
-                  placeholder="andres@empresa.com"
+                  placeholder={w.step3.emailPlaceholder}
                   autoComplete="email"
                   style={{
                     width: "100%",
@@ -831,7 +858,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
             <div>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1", marginBottom: 6 }}>
-                Celular o WhatsApp (Para notificarte cuando el lote esté listo)
+                {w.step3.phoneLabel}
               </label>
               <div style={{ position: "relative" }}>
                 <input
@@ -841,7 +868,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                     setBuyerPhone(e.target.value);
                     if (clientErrors.phone) setClientErrors({ ...clientErrors, phone: undefined });
                   }}
-                  placeholder="+57 300 123 4567"
+                  placeholder={w.step3.phonePlaceholder}
                   autoComplete="tel"
                   style={{
                     width: "100%",
@@ -870,7 +897,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem" }}
             >
               <ArrowLeft style={{ width: 16, height: 16 }} />
-              <span>Atrás</span>
+              <span>{w.step3.back}</span>
             </button>
 
             <button
@@ -895,12 +922,12 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} />
-                  <span>Registrando solicitud...</span>
+                  <span>{w.step3.submitting}</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck style={{ width: 20, height: 20 }} />
-                  <span>Solicitar Auditoría y Cotización ($0 Anticipo)</span>
+                  <span>{w.step3.submitBtn}</span>
                 </>
               )}
             </button>
@@ -916,20 +943,20 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
           </div>
 
           <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: 1, color: "#10b981", fontWeight: 700 }}>
-            SOLICITUD RECIBIDA CON ÉXITO
+            {w.step4.badge}
           </span>
           <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f8fafc", marginTop: 6, marginBottom: 12 }}>
-            ¡Tu auditoría B2B está en marcha!
+            {w.step4.title}
           </h2>
 
           <div style={{ display: "inline-block", background: "#1e293b", padding: "6px 14px", borderRadius: 20, fontSize: "0.85rem", color: "#38bdf8", fontWeight: 600, marginBottom: 20 }}>
-            Orden #{submittedOrderId || "ord_en_proceso"}
+            {w.step4.orderPrefix}{submittedOrderId || w.step4.orderFallback}
           </div>
 
           <p style={{ color: "#cbd5e1", fontSize: "0.95rem", lineHeight: 1.6, maxWidth: 560, margin: "0 auto 28px auto" }}>
-            Nuestro motor está auditando empresas activas en los registros oficiales de <strong>{selectedCity}</strong> y verificando buzones en servidores MX sin rebote.
+            {w.step4.descP1} <strong>{selectedCity}</strong> {w.step4.descP2}
             <br /><br />
-            <strong>No necesitas quedarte esperando en esta página.</strong> Te notificaremos a <strong>{buyerEmail}</strong> y a tu WhatsApp cuando tu lote esté verificado con tu cotización justa.
+            <strong>{w.step4.descP3}</strong> {w.step4.descP4} <strong>{buyerEmail}</strong> {w.step4.descP5}
           </p>
 
           {/* Action Buttons */}
@@ -952,7 +979,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                   gap: 8,
                 }}
               >
-                <span>Ver Rastreo en Vivo de la Orden</span>
+                <span>{w.step4.viewTracking}</span>
                 <ExternalLink style={{ width: 16, height: 16 }} />
               </button>
             )}
@@ -975,7 +1002,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               }}
             >
               <RotateCcw style={{ width: 16, height: 16 }} />
-              <span>Solicitar Otro Lote</span>
+              <span>{w.step4.orderAnother}</span>
             </button>
 
             {onBack && (
@@ -992,7 +1019,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                   cursor: "pointer",
                 }}
               >
-                Volver al Inicio
+                {w.step4.backHome}
               </button>
             )}
           </div>

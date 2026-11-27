@@ -81,7 +81,7 @@ if [ -f "${ENV_OVERRIDE_FILE}" ]; then
         clean_key=$(echo "$key" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
         clean_val=$(echo "$val" | sed -e 's/[[:space:]]*#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
         case "$clean_key" in
-            SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_PASSWORD|SMTP_FROM|SMTP_USE_TLS|SMTP_USE_SSL|FRONTEND_URL|DEV_DELIVERY_EMAIL|SECOP_APP_TOKEN|DGCP_API_KEY)
+            SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_PASSWORD|SMTP_FROM|SMTP_USE_TLS|SMTP_USE_SSL|FRONTEND_URL|DEV_DELIVERY_EMAIL|SECOP_APP_TOKEN|DGCP_API_KEY|ADMIN_API_KEY|STREAM_SECRET_KEY|SLACK_SIGNING_SECRET)
                 if [ -n "$clean_val" ]; then
                     EXTRA_ENV_VARS="${EXTRA_ENV_VARS},${clean_key}=${clean_val}"
                 fi

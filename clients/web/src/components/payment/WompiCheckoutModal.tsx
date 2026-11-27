@@ -144,10 +144,10 @@ export const WompiCheckoutModal: React.FC = () => {
         handleSimulatedDirectPayment();
       }
     } catch (err: any) {
-      console.error("[Wompi] Error opening widget:", err);
+      console.error("[Payment] Error opening widget:", err);
       setErrorMsg(
         (dict.checkout as any).errWidgetInit ||
-        "No se pudo iniciar el widget de Wompi. Puedes usar la confirmación directa de prueba."
+        "No se pudo iniciar la pasarela de pago. Puedes usar la confirmación directa de prueba."
       );
     }
   };
@@ -230,7 +230,7 @@ export const WompiCheckoutModal: React.FC = () => {
             <span>{dict.checkout.environment}</span>
             <span className={WOMPI_PUBLIC_KEY.startsWith("pub_prod") ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
               {WOMPI_PUBLIC_KEY.startsWith("pub_prod")
-                ? ((dict.checkout as any).productionBadge || "Wompi Live (Production)")
+                ? ((dict.checkout as any).productionBadge || "Pasarela Segura (Producción)")
                 : dict.checkout.sandboxBadge}
             </span>
           </div>

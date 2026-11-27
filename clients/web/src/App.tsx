@@ -22,6 +22,7 @@ import { MobileStickyCta } from "./components/layout/MobileStickyCta";
 
 export const App: React.FC = () => {
   const dispatch = useDispatch();
+  const { dict } = useSelector((state: RootState) => state.language);
   const partner = useSelector((state: RootState) => state.partner);
   const [triggerGetPartner] = useLazyGetPartnerQuery();
   const { data: trmData } = useGetTrmRatesQuery();
@@ -140,11 +141,11 @@ export const App: React.FC = () => {
     <div className="app-root">
       {partner.isAffiliate && (
         <div className="partner-banner" data-testid="partner-banner">
-          <span className="partner-banner-badge">ALIANZA OFICIAL</span>
+          <span className="partner-banner-badge">{dict.common.officialAlliance || "ALIANZA OFICIAL"}</span>
           <span className="partner-banner-text">{partner.badgeText || partner.name}</span>
           {partner.discountRate > 0 && (
             <span className="partner-banner-discount">
-              • {(partner.discountRate * 100).toFixed(0)}% OFF APLICADO
+              • {(partner.discountRate * 100).toFixed(0)}% {dict.common.offApplied || "OFF APLICADO"}
             </span>
           )}
         </div>
