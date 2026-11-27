@@ -107,6 +107,8 @@ class IsicIndex:
             (r"inmobiliari|bienes raices|propiedad horizontal|arrendamiento", "6810", "ALL"),
             (r"logist|transport|carga|aduan|fletes|almacen", "4923", "ALL"),
             (r"medical|salud|ips|clinic|farmaceut|biomed|odontol|dispositiv", "3250", "ALL"),
+            (r"hebi|hebisend|envios e-commerce|paqueteria e-commerce|fulfillment|ultima milla para tiendas", "4791", "ALL"),
+            (r"terreno industrial|lote industrial|parque industrial|zona franca|bodegas industriales", "6810", "ALL"),
             (r"software|analyt|data|tech|digital|sistemas|program|cloud|\bia\b|\bai\b|ciber", "6201", "ALL"),
             (r"videoconferencia|audiovisual|logitech|teleconferencia|pantallas interactivas|camaras de conferencia", "4652", "ALL"),
             (r"diseno publicitario|diseno grafico|branding|brandid|agencia de diseno|artes graficas", "7410", "ALL"),

@@ -545,6 +545,51 @@ class SqlOrderAdapter:
             session.commit()
             return True
 
+    def count_cached_fresh_leads(
+        self,
+        city: str,
+        country: str = "CO",
+        ciiu_codes: Optional[List[str]] = None,
+        keywords: Optional[List[str]] = None,
+        sectors: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Fast sub-millisecond count of cached verified leads in the Lakehouse database.
+        """
+        now = datetime.now(timezone.utc)
+        threshold_date = now - timedelta(days=365)
+
+        with self._get_session() as session:
+            conditions = [
+                LeadModel.country == country.upper(),
+                or_(LeadModel.verified_at >= threshold_date, LeadModel.verified_at.is_(None)),
+            ]
+            if city and city.lower() not in ("all", "nacional", "todo"):
+                conditions.append(LeadModel.city.ilike(f"%{city}%"))
+
+            if ciiu_codes:
+                clean_codes = [c.strip() for c in ciiu_codes if c and c.strip()]
+                if clean_codes:
+                    conditions.append(or_(*[
+                        LeadModel.ciiu_code.startswith(code[:2]) for code in clean_codes
+                    ]))
+
+            if keywords:
+                clean_kws = [k.strip() for k in keywords if k and len(k.strip()) >= 3]
+                if clean_kws:
+                    content_clauses = []
+                    for kw in clean_kws:
+                        content_clauses.append(LeadModel.company_name.ilike(f"%{kw}%"))
+                        content_clauses.append(LeadModel.activity_description.ilike(f"%{kw}%"))
+                        content_clauses.append(LeadModel.sector_macro.ilike(f"%{kw}%"))
+                    conditions.append(or_(*content_clauses))
+
+            stmt = select(func.count(LeadModel.id)).where(and_(*conditions))
+            try:
+                return session.scalar(stmt) or 0
+            except Exception:
+                return 0
+
     def get_cached_fresh_leads(
         self,
         city: str,

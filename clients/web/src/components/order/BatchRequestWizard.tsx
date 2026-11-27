@@ -13,6 +13,8 @@ import { selectCity } from "../../store/slices/campaignSlice";
 import {
   useCreateOrderMutation,
   useProfileIntentMutation,
+  useProbeDepthMutation,
+  ProbeDepthResponse,
   useGetPricingCatalogQuery,
   useGetTrmRatesQuery,
 } from "../../store/api/michitoApi";
@@ -94,6 +96,8 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   // RTK Query
   const [createOrderMutation, { isLoading: isSubmitting }] = useCreateOrderMutation();
   const [profileIntentMutation, { isLoading: isProfiling }] = useProfileIntentMutation();
+  const [probeDepthMutation, { isLoading: isProbingDepth }] = useProbeDepthMutation();
+  const [probeResult, setProbeResult] = useState<ProbeDepthResponse | null>(null);
   const { data: pricingCatalog } = useGetPricingCatalogQuery(currency || "COP");
 
   // Auto-populate phone prefix based on country
@@ -177,9 +181,10 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   };
 
   // Step 1 Submission
-  const handleProceedFromStep1 = () => {
+  const handleProceedFromStep1 = async () => {
     let resolvedCity = selectedCity;
     let resolvedScope = geoScope;
+    let resolvedCountry = selectedCountry;
 
     if (searchMode === "natural") {
       if (!naturalBrief.trim()) {
@@ -192,56 +197,68 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
       // 1. Geography & Scope Detection
       if (/(toda rep[uú]blica dominicana|todo dominicana|toda dominicana|nivel nacional dominicana)/i.test(lower)) {
+        resolvedCountry = "DO";
         setSelectedCountry("DO");
         resolvedCity = "Cobertura Nacional (República Dominicana)";
         resolvedScope = "national";
         setSelectedCity(resolvedCity);
         setGeoScope(resolvedScope);
       } else if (lower.includes("dominicana") || lower.includes("santo domingo")) {
+        resolvedCountry = "DO";
         setSelectedCountry("DO");
         resolvedCity = lower.includes("santiago") ? "Santiago de los Caballeros" : "Santo Domingo";
         setSelectedCity(resolvedCity);
       } else if (/(todo ecuador|toda ecuador|nivel nacional ecuador|cobertura nacional ecuador)/i.test(lower)) {
+        resolvedCountry = "EC";
         setSelectedCountry("EC");
         resolvedCity = "Cobertura Nacional (Ecuador)";
         resolvedScope = "national";
         setSelectedCity(resolvedCity);
         setGeoScope(resolvedScope);
       } else if (lower.includes("ecuador") || lower.includes("quito") || lower.includes("guayaquil")) {
+        resolvedCountry = "EC";
         setSelectedCountry("EC");
         resolvedCity = lower.includes("guayaquil") ? "Guayaquil" : "Quito";
         setSelectedCity(resolvedCity);
       } else if (/(toda colombia|todo colombia|todo el pa[ií]s|toda la rep[uú]blica|nivel nacional|cobertura nacional)/i.test(lower)) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Cobertura Nacional (Colombia)";
         resolvedScope = "national";
         setSelectedCity(resolvedCity);
         setGeoScope(resolvedScope);
       } else if (lower.includes("medellin") || lower.includes("medellín")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Medellín";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("cali")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Cali";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("barranquilla")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Barranquilla";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("cartagena")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Cartagena";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("bucaramanga")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Bucaramanga";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("pereira")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Pereira";
         setSelectedCity(resolvedCity);
       } else if (lower.includes("bogota") || lower.includes("bogotá")) {
+        resolvedCountry = "CO";
         setSelectedCountry("CO");
         resolvedCity = "Bogotá";
         setSelectedCity(resolvedCity);
@@ -273,6 +290,24 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         setSelectedTier(2);
       } else if (/directorio|masivo|tier 1|base b[aá]sica|b[aá]sico|pbx/i.test(lower)) {
         setSelectedTier(1);
+      }
+
+      // 4. Pre-flight Live Universe Market Probe
+      try {
+        const probe = await probeDepthMutation({
+          prompt: naturalBrief.trim(),
+          country: resolvedCountry,
+          city: resolvedCity,
+          explicit_directionality: directionality,
+        }).unwrap();
+        if (probe && probe.status === "success") {
+          setProbeResult(probe);
+          if (probe.recommended_max && selectedVolume > probe.recommended_max && !resolvedCity.toLowerCase().includes("nacional")) {
+            setSelectedVolume(probe.recommended_max);
+          }
+        }
+      } catch (err) {
+        console.warn("Probe depth non-blocking notice:", err);
       }
     } else {
       setStep1Error(null);
@@ -702,23 +737,34 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
             <button
               type="button"
+              disabled={isProbingDepth}
               onClick={handleProceedFromStep1}
               style={{
-                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                background: isProbingDepth ? "#334155" : "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
                 border: "none",
                 borderRadius: 12,
                 padding: "12px 24px",
                 color: "#ffffff",
                 fontWeight: 600,
                 fontSize: "0.95rem",
-                cursor: "pointer",
+                cursor: isProbingDepth ? "wait" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
+                opacity: isProbingDepth ? 0.8 : 1,
               }}
             >
-              <span>{w.step1.continueBtn}</span>
-              <ArrowRight style={{ width: 18, height: 18 }} />
+              {isProbingDepth ? (
+                <>
+                  <Loader2 className="animate-spin" style={{ width: 18, height: 18 }} />
+                  <span>Consultando universo real en vivo...</span>
+                </>
+              ) : (
+                <>
+                  <span>{w.step1.continueBtn}</span>
+                  <ArrowRight style={{ width: 18, height: 18 }} />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -727,7 +773,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
       {/* STEP 2: VOLUME & TIER */}
       {currentStep === 2 && (
         <div className="wizard-card" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "32px 24px" }}>
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 20 }}>
             <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: 1, color: "#38bdf8", fontWeight: 700 }}>
               {w.step2.kicker}
             </span>
@@ -739,6 +785,113 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
             </p>
           </div>
 
+          {/* Real-time Universe Market Sample Size Card */}
+          {probeResult && (
+            <div
+              style={{
+                marginBottom: 24,
+                padding: "16px 20px",
+                borderRadius: 14,
+                background: probeResult.is_sample_limited
+                  ? "rgba(245, 158, 11, 0.08)"
+                  : "rgba(16, 185, 129, 0.08)",
+                border: probeResult.is_sample_limited
+                  ? "1px solid rgba(245, 158, 11, 0.35)"
+                  : "1px solid rgba(16, 185, 129, 0.35)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ maxWidth: 540 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <Sparkles style={{ width: 18, height: 18, color: probeResult.is_sample_limited ? "#f59e0b" : "#10b981", flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#f8fafc" }}>
+                      Universo Real Detectado en Registros Oficiales
+                    </span>
+                    <span style={{ fontSize: "0.72rem", padding: "2px 8px", borderRadius: 12, background: "#1e293b", color: "#94a3b8", border: "1px solid #334155" }}>
+                      {probeResult.target_city}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "0.85rem", color: "#cbd5e1", margin: "4px 0 0 0", lineHeight: 1.4 }}>
+                    {probeResult.advice_message}
+                  </p>
+                  {probeResult.ciiu_codes && probeResult.ciiu_codes.length > 0 && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.72rem", color: "#64748b" }}>CIIU vinculados:</span>
+                      {probeResult.ciiu_codes.map((c) => (
+                        <span key={c} style={{ fontSize: "0.72rem", padding: "1px 6px", borderRadius: 4, background: "#1e293b", color: "#38bdf8", border: "1px solid #334155" }}>
+                          CIIU {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Empresas en {probeResult.target_city}</div>
+                    <div style={{ fontSize: "1.35rem", fontWeight: 800, color: probeResult.is_sample_limited ? "#f59e0b" : "#10b981" }}>
+                      ~{probeResult.sample_size.toLocaleString()}
+                    </div>
+                  </div>
+                  {probeResult.national_sample_size > probeResult.sample_size && (
+                    <div style={{ textAlign: "right", borderLeft: "1px solid #334155", paddingLeft: 16 }}>
+                      <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Universo Nacional 🇨🇴</div>
+                      <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "#38bdf8" }}>
+                        ~{probeResult.national_sample_size.toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {probeResult.is_sample_limited && !selectedCity.toLowerCase().includes("nacional") && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(245, 158, 11, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ fontSize: "0.8rem", color: "#fcd34d" }}>
+                    Para obtener 250, 500 o 1.000 leads en este nicho específico sin perder calidad, amplía a cobertura nacional.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const natCity = selectedCountry === "CO"
+                        ? "Cobertura Nacional (Colombia)"
+                        : selectedCountry === "EC"
+                        ? "Cobertura Nacional (Ecuador)"
+                        : "Cobertura Nacional (República Dominicana)";
+                      setSelectedCity(natCity);
+                      setGeoScope("national");
+                      dispatch(selectCity(natCity));
+                      if (probeResult) {
+                        setProbeResult({
+                          ...probeResult,
+                          target_city: natCity,
+                          sample_size: probeResult.national_sample_size,
+                          is_sample_limited: false,
+                          recommended_max: 1000,
+                          advice_message: `Cobertura Nacional activada. Universo de ~${probeResult.national_sample_size.toLocaleString()} empresas disponible.`
+                        });
+                      }
+                    }}
+                    style={{
+                      background: "#f59e0b",
+                      color: "#0f172a",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>Ampliar a Cobertura Nacional 🇨🇴</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Volume Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 28 }}>
             {[
@@ -747,32 +900,48 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
               { vol: 250, label: `250 ${w.step2.accounts}`, badge: w.step2.volumes.v250.badge, sub: w.step2.volumes.v250.sub },
               { vol: 500, label: `500 ${w.step2.accounts}`, badge: w.step2.volumes.v500.badge, sub: w.step2.volumes.v500.sub },
               { vol: 1000, label: `${isEn ? "1,000" : "1.000"} ${w.step2.accounts}`, badge: w.step2.volumes.v1000.badge, sub: w.step2.volumes.v1000.sub },
-            ].map((v) => (
-              <button
-                key={v.vol}
-                type="button"
-                onClick={() => setSelectedVolume(v.vol)}
-                style={{
-                  padding: "16px 12px",
-                  borderRadius: 12,
-                  border: selectedVolume === v.vol ? "2px solid #38bdf8" : "1px solid #334155",
-                  background: selectedVolume === v.vol ? "rgba(56, 189, 248, 0.15)" : "#1e293b",
-                  color: "#f8fafc",
-                  cursor: "pointer",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: "1.1rem", color: selectedVolume === v.vol ? "#38bdf8" : "#f8fafc" }}>
-                  {v.label}
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "#10b981", fontWeight: 700, marginTop: 4 }}>
-                  {v.badge}
-                </div>
-                <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 4 }}>
-                  {v.sub}
-                </div>
-              </button>
-            ))}
+            ].map((v) => {
+              const isNationalSelected = selectedCity.toLowerCase().includes("nacional") || geoScope === "national";
+              const isExceeded = Boolean(!isNationalSelected && probeResult?.is_sample_limited && v.vol > (probeResult.recommended_max || 100));
+
+              return (
+                <button
+                  key={v.vol}
+                  type="button"
+                  disabled={isExceeded}
+                  onClick={() => {
+                    if (!isExceeded) setSelectedVolume(v.vol);
+                  }}
+                  style={{
+                    padding: "16px 12px",
+                    borderRadius: 12,
+                    border: selectedVolume === v.vol ? "2px solid #38bdf8" : "1px solid #334155",
+                    background: selectedVolume === v.vol ? "rgba(56, 189, 248, 0.15)" : "#1e293b",
+                    color: "#f8fafc",
+                    cursor: isExceeded ? "not-allowed" : "pointer",
+                    textAlign: "center",
+                    opacity: isExceeded ? 0.45 : 1,
+                    position: "relative",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: "1.1rem", color: selectedVolume === v.vol ? "#38bdf8" : "#f8fafc" }}>
+                    {v.label}
+                  </div>
+                  {isExceeded ? (
+                    <div style={{ fontSize: "0.68rem", color: "#f59e0b", fontWeight: 700, marginTop: 4 }}>
+                      Requiere Nacional
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.7rem", color: "#10b981", fontWeight: 700, marginTop: 4 }}>
+                      {v.badge}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 4 }}>
+                    {v.sub}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Tier Selection */}

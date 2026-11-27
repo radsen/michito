@@ -370,6 +370,8 @@ class BriefParserService:
             (r"\b(?:regalos?\s+corporativos?|material\s+promocional|merchandising|art[ií]culos?\s+promocionales?)\b", "regalos corporativos"),
             (r"\b(?:pinturas?|murales?|recubrimientos?)\b", "pinturas"),
             (r"\b(?:artes?\s+gr[aá]ficas?|litograf[ií]a|tipograf[ií]a|impresi[oó]n)\b", "artes graficas"),
+            (r"\b(?:hebi|hebisend|hebisend\.com|env[ií]os?\s+e-?commerce|paqueter[ií]a|fulfillment|mensajer[ií]a\s+e-?commerce)\b", "logistica ecommerce"),
+            (r"\b(?:terreno\s+industrial|lote\s+industrial|vender\s+(?:un\s+)?terreno|concesi[oó]n\s+de\s+aguas?|parque\s+industrial|bodegas?\s+log[ií]sticas?)\b", "desarrollo industrial"),
             (r"\bobras?\s+civiles?\b", "obras civiles"),
             (r"\bgestion\s+(?:de\s+)?cartera\b", "gestion de cartera"),
             (r"\bseguridad\s+privada\b", "seguridad privada"),
@@ -391,6 +393,20 @@ class BriefParserService:
             for c in ("7410", "1811", "7310", "3299", "2022"):
                 if c not in ciiu_codes and c not in domain_ciius:
                     domain_ciius.append(c)
+        if "logistica ecommerce" in compound_kws:
+            for c in ("4791", "4771", "4772", "4641"):
+                if c not in ciiu_codes and c not in domain_ciius:
+                    domain_ciius.append(c)
+            if not explicit_directionality:
+                directionality = "vendor_to_clients"
+            roles = ["Gerente de E-commerce", "Director de Logística", "Líder de Operaciones", "Gerente General"]
+        if "desarrollo industrial" in compound_kws:
+            for c in ("4111", "6810", "5210", "6820"):
+                if c not in ciiu_codes and c not in domain_ciius:
+                    domain_ciius.append(c)
+            if not explicit_directionality:
+                directionality = "vendor_to_clients"
+            roles = ["Director de Nuevos Negocios", "Gerente de Proyectos", "Director de Expansión", "Gerente General"]
 
         if domain_ciius:
             ciiu_codes = domain_ciius + ciiu_codes

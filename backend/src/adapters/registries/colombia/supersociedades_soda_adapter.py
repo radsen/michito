@@ -384,6 +384,74 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
             "amortization": 0,
         }
 
+    def count_candidates(
+        self,
+        city: str = "Medellín",
+        ciiu_codes: Optional[List[str]] = None,
+        include_keywords: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Fast non-blocking sample size estimation via SODA $select=count(*).
+        Responds in ~300ms directly from official SuperSociedades datasets.
+        """
+        clean_city = (city or "Medellín").strip()
+        where_clauses: List[str] = []
+        city_clean_escaped = clean_city.replace("'", "''").lower()
+        is_national = (
+            city_clean_escaped in ("all", "nacional", "colombia", "toda colombia", "todo colombia", "todo el pais", "todo el país", "cobertura nacional")
+            or "cobertura nacional" in city_clean_escaped
+            or "nacional" in city_clean_escaped
+        )
+        if not is_national:
+            where_clauses.append(
+                f"(lower(municipio) like '%{city_clean_escaped}%' or lower(domicilio) like '%{city_clean_escaped}%')"
+            )
+
+        if ciiu_codes:
+            clean_codes = [c.strip() for c in ciiu_codes if c.strip()]
+            if clean_codes:
+                ciiu_in_list = ", ".join(f"'{c}'" for c in clean_codes[:10])
+                where_clauses.append(f"ciiu in ({ciiu_in_list})")
+
+        query_params: Dict[str, str] = {
+            "$select": "count(*)",
+        }
+        if where_clauses:
+            query_params["$where"] = " and ".join(where_clauses)
+
+        if include_keywords and not ciiu_codes:
+            clean_stems: List[str] = []
+            try:
+                from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+            except ImportError:
+                QUERY_STOP_WORDS = set()
+            for kw in include_keywords:
+                tokens = [w for w in re.split(r"[^\wáéíóúñ]+", kw.lower()) if len(w) >= 4 and w not in QUERY_STOP_WORDS]
+                for t in tokens:
+                    if t not in clean_stems:
+                        clean_stems.append(t)
+            if clean_stems:
+                query_params["$q"] = clean_stems[0]
+
+        app_token = os.getenv("SODA_APP_TOKEN")
+        headers = {"Accept": "application/json", "User-Agent": "Michito-Intelligence/2.0"}
+        if app_token:
+            headers["X-App-Token"] = app_token
+
+        encoded_params = urllib.parse.urlencode(query_params)
+        full_url = f"{self.soda_top10k_url}?{encoded_params}"
+        req = urllib.request.Request(full_url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(req, timeout=3, context=self._get_ssl_context()) as resp:
+                data = json.loads(resp.read().decode())
+                if isinstance(data, list) and len(data) > 0:
+                    val = data[0].get("count") or data[0].get("count_1") or data[0].get("count_all") or 0
+                    return int(val)
+        except Exception as e:
+            logger.debug(f"SODA count probe encountered: {e}")
+        return 0
+
     def fetch_candidates(
         self,
         city: str = "Medellín",

@@ -179,6 +179,29 @@ export interface ParseBriefPayload {
   force_fallback?: boolean;
 }
 
+export interface ProbeDepthPayload {
+  prompt: string;
+  country?: string;
+  city?: string;
+  explicit_directionality?: string;
+}
+
+export interface ProbeDepthResponse {
+  status: string;
+  target_city: string;
+  country: string;
+  sample_size: number;
+  national_sample_size: number;
+  recommended_max: number;
+  is_sample_limited: boolean;
+  advice_message: string;
+  directionality: string;
+  modality_label: string;
+  ciiu_codes: string[];
+  keywords: string[];
+  detected_concept: string;
+}
+
 export interface ParseBriefResponse {
   status: string;
   data: {
@@ -304,6 +327,13 @@ export const michitoApi = createApi({
         body,
       }),
     }),
+    probeDepth: builder.mutation<ProbeDepthResponse, ProbeDepthPayload>({
+      query: (body) => ({
+        url: "/prospecting/probe-depth",
+        method: "POST",
+        body,
+      }),
+    }),
     createOrder: builder.mutation<CreateOrderResponse, CreateOrderPayload>({
       query: (body) => ({
         url: "/orders",
@@ -421,6 +451,7 @@ export const {
   useLazyGetPartnerQuery,
   useProfileIntentMutation,
   useParseBriefMutation,
+  useProbeDepthMutation,
   useCreateOrderMutation,
   useGetOrderQuery,
   useGetOrderQuoteQuery,

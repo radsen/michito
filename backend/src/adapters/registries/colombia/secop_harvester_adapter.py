@@ -209,6 +209,62 @@ class SecopHarvesterAdapter:
         except Exception:
             return []
 
+    def count_candidates(
+        self,
+        city: str = "Medellín",
+        ciiu_codes: Optional[List[str]] = None,
+        include_keywords: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Fast non-blocking sample size estimation from SECOP II datasets.
+        """
+        clean_stems: List[str] = []
+        if include_keywords:
+            try:
+                from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+            except ImportError:
+                QUERY_STOP_WORDS = set()
+            for kw in include_keywords:
+                tokens = [w for w in re.split(r"[^\wáéíóúñ]+", kw.lower()) if len(w) >= 4 and w not in QUERY_STOP_WORDS]
+                for t in tokens:
+                    if t not in clean_stems:
+                        clean_stems.append(t)
+
+        valid_kw = clean_stems if clean_stems else [
+            k.strip() for k in (include_keywords or []) if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())
+        ]
+        params: Dict[str, str] = {
+            "esta_activa": "Si",
+            "$select": "count(*)",
+        }
+        if valid_kw:
+            params["$q"] = valid_kw[0]
+
+        norm_loc = (city or "Medellín").strip().lower()
+        clean_loc = re.sub(r"[^\w\s]", "", norm_loc).strip()
+        is_national_query = (
+            norm_loc in ("all", "nacional", "toda colombia", "todo colombia", "colombia", "todo el pais", "todo el país", "cobertura nacional")
+            or "cobertura nacional" in norm_loc
+            or norm_loc.endswith("nacional")
+        )
+        if not is_national_query:
+            if norm_loc in ("bogotá", "bogota", "bogota d.c.", "bogotá d.c.") or clean_loc in ("bogota", "bogota dc", "distrito capital"):
+                params["departamento"] = "Distrito Capital de Bogotá"
+            elif norm_loc in ("cali", "santiago de cali"):
+                params["departamento"] = "Valle del Cauca"
+            elif norm_loc in self.COLOMBIA_DEPARTAMENTOS:
+                params["departamento"] = self.COLOMBIA_DEPARTAMENTOS[norm_loc]
+            elif clean_loc in self.COLOMBIA_DEPARTAMENTOS:
+                params["departamento"] = self.COLOMBIA_DEPARTAMENTOS[clean_loc]
+            else:
+                params["municipio"] = city
+
+        data = self._query_soda(params)
+        if isinstance(data, list) and len(data) > 0:
+            val = data[0].get("count") or data[0].get("count_1") or data[0].get("count_all") or 0
+            return int(val)
+        return 0
+
     def fetch_candidates(
         self,
         city: str = "Medellín",
