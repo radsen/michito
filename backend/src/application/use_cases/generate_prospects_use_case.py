@@ -4,9 +4,12 @@ import csv
 import json
 import re
 import time
+import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Set
 import dns.resolver
+
+logger = logging.getLogger(__name__)
 
 from src.domain.value_objects.company_segment import (
     SEGMENTS,
