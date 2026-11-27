@@ -147,6 +147,8 @@ def resolve_sector_taxonomy_rules(
             primary_sector_id = "legal_financial_services"
         elif any(c.startswith(("13", "14", "15", "4641", "4771", "4772")) for c in ciiu_clean):
             primary_sector_id = "fashion_apparel_textiles"
+        elif any(c.startswith(("31", "25", "28", "20", "22")) for c in ciiu_clean):
+            primary_sector_id = "manufacturing_industrial"
 
         if primary_sector_id and primary_sector_id in taxonomy_map:
             sec_info = taxonomy_map[primary_sector_id]
@@ -168,7 +170,7 @@ def resolve_sector_taxonomy_rules(
             primary_sector_id = "construction_infrastructure"
         elif any(term in kw_blob for term in ("textil", "confeccion", "ropa", "moda", "calzado", "cuero", "hilander", "marroquiner")):
             primary_sector_id = "fashion_apparel_textiles"
-        elif any(term in kw_blob for term in ("mueble", "siller", "tapicer", "ebanister")):
+        elif any(term in kw_blob for term in ("mueble", "siller", "tapicer", "ebanister", "locker", "casillero", "estanteria")):
             primary_sector_id = "manufacturing_industrial"
 
         if primary_sector_id and primary_sector_id in taxonomy_map:

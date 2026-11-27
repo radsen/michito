@@ -786,13 +786,14 @@ SECTOR_SEEDS: List[Dict[str, Any]] = [
         "sector_id": "manufacturing_industrial",
         "sector_name": "Manufactura, Empaques & Químicos",
         "country_code": "ALL",
-        "ciiu_codes": ["C1311", "C1701", "C1702", "C2011", "C2021", "C2029", "C2220", "C2511", "C2819"],
+        "ciiu_codes": ["C1311", "C1701", "C1702", "C2011", "C2021", "C2029", "C2220", "C2511", "C2819", "C3100"],
         "keywords_include": [
             "manufactura", "empaques", "carton", "plastico", "quimicos", "polimeros", "resinas",
-            "metalmecanica", "maquinaria industrial", "transformacion", "materia prima", "textiles"
+            "metalmecanica", "maquinaria industrial", "transformacion", "materia prima", "textiles",
+            "lockers", "casilleros", "muebles", "estanteria", "metalicos"
         ],
         "keywords_exclude_defaults": ["taller artesanal", "manualidades", "costura domiciliaria"],
-        "allowed_isic_divisions": ["13", "14", "15", "17", "20", "22", "24", "25", "28", "46", "47"],
+        "allowed_isic_divisions": ["13", "14", "15", "17", "20", "22", "24", "25", "28", "31", "46", "47"],
         "forbidden_isic_divisions": ["62", "63", "85", "86", "56", "79"],
         "usage_count": 130,
         "is_active": True,

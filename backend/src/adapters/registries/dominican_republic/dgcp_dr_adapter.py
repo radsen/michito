@@ -25,7 +25,8 @@ class DgcpDrAdapter:
         "62": ["software", "tecnologia", "sistemas", "informática", "desarrollo"],
         "63": ["hosting", "datos", "servidores", "cloud"],
         "85": ["educacion", "capacitacion", "colegio", "escuela", "carnet"],
-        "31": ["muebles", "sillas", "silleria", "mobiliario"],
+        "31": ["muebles", "sillas", "silleria", "mobiliario", "lockers", "casilleros", "estanteria", "gabinetes", "archivos"],
+        "25": ["lockers", "casilleros", "estanteria", "metalicos", "estructuras metalicas", "gabinetes"],
         "95": ["reparacion", "mantenimiento", "tapiceria"],
         "81": ["limpieza", "facility", "mantenimiento locativo", "seguridad"],
         "49": ["transporte", "carga", "fletes", "camiones"],
@@ -33,6 +34,7 @@ class DgcpDrAdapter:
         "69": ["legal", "abogados", "juridico", "contabilidad", "auditoria"],
         "70": ["consultoria", "gestion empresarial", "estrategia"],
         "41": ["construccion", "obras civiles", "edificaciones"],
+        "46": ["distribucion", "suministro", "mayorista", "mobiliario", "equipos"],
     }
 
     def __init__(self, api_key: Optional[str] = None, timeout: int = 10):
@@ -46,6 +48,7 @@ class DgcpDrAdapter:
             self.headers["Authorization"] = f"Bearer {self.api_key}"
             self.headers["api-key"] = self.api_key
             self.headers["X-API-KEY"] = self.api_key
+        self._provider_cache: Dict[str, Optional[Dict[str, Any]]] = {}
 
     def _query_api(self, endpoint: str, params: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         query_str = f"?{urllib.parse.urlencode(params)}" if params else ""
@@ -61,11 +64,16 @@ class DgcpDrAdapter:
         """
         Retrieves detailed corporate and representative registration for an RPE.
         """
-        data = self._query_api("proveedores", {"rpe": str(rpe)})
+        rpe_str = str(rpe)
+        if hasattr(self, "_provider_cache") and rpe_str in self._provider_cache:
+            return self._provider_cache[rpe_str]
+
+        data = self._query_api("proveedores", {"rpe": rpe_str})
         content = data.get("payload", {}).get("content", [])
-        if content:
-            return content[0]
-        return None
+        prov = content[0] if content else None
+        if hasattr(self, "_provider_cache"):
+            self._provider_cache[rpe_str] = prov
+        return prov
 
     def fetch_candidates(
         self,
@@ -107,7 +115,7 @@ class DgcpDrAdapter:
             )[:limit]
 
         # Scale scan depth: Scan more pages if specific keywords are requested
-        max_pages = max(4, (limit // 10) + 4) if expanded_keywords else max(1, (limit // 30) + 1)
+        max_pages = min(5, max(3, (limit // 10) + 3) if expanded_keywords else max(1, (limit // 30) + 1))
 
         for page in range(1, max_pages + 1):
             if len(candidates) >= limit:
@@ -118,9 +126,10 @@ class DgcpDrAdapter:
             if not raw_contracts:
                 break
             total_raw_contracts += len(raw_contracts)
+            page_rpe_lookups = 0
 
             for c in raw_contracts:
-                if len(candidates) >= limit:
+                if len(candidates) >= limit or page_rpe_lookups >= 20:
                     break
                 if c.get("estado_contrato") != "Activo":
                     continue
@@ -148,6 +157,7 @@ class DgcpDrAdapter:
                         continue
 
                 seen_rpes.add(rpe)
+                page_rpe_lookups += 1
 
                 # Fetch contact and legal registration
                 prov = self.fetch_proveedor_by_rpe(rpe)
@@ -293,10 +303,10 @@ class DgcpDrAdapter:
 
         is_furniture = bool(
             (include_keywords and any(
-                re.search(r"mueble|siller|tapicer|mantenimiento|ebanister|escritorio|mobiliario", kw.lower())
+                re.search(r"mueble|siller|tapicer|mantenimiento|ebanister|escritorio|mobiliario|locker|casillero|estanteria|metalic", kw.lower())
                 for kw in include_keywords
             ))
-            or (ciiu_codes and any(c.startswith(("31", "9524", "8110")) for c in ciiu_codes))
+            or (ciiu_codes and any(c.startswith(("31", "25", "9524", "8110")) for c in ciiu_codes))
         )
 
         if is_educational:

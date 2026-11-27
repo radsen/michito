@@ -377,6 +377,7 @@ class BriefParserService:
             (r"\bgestion\s+(?:de\s+)?cartera\b", "gestion de cartera"),
             (r"\bseguridad\s+privada\b", "seguridad privada"),
             (r"\bmantenimiento\s+locativo\b", "mantenimiento"),
+            (r"\b(?:lockers?|casilleros?|muebles?\s+met[aá]licos?|estanter[ií]as?\s+met[aá]licas?)\b", "lockers mobiliario"),
         ]
         compound_kws = []
         for pat, canonical in compound_patterns:
@@ -415,6 +416,13 @@ class BriefParserService:
             if not explicit_directionality:
                 directionality = "vendor_to_clients"
             roles = ["Director de Nuevos Negocios", "Gerente de Proyectos", "Director de Expansión", "Gerente General"]
+        if "lockers mobiliario" in compound_kws:
+            lockers_ciius = ["3100", "3110", "2599", "4644", "4663"]
+            domain_ciius = lockers_ciius + [c for c in domain_ciius if c not in lockers_ciius]
+            if not explicit_directionality:
+                directionality = "client_to_vendors"
+            roles = ["Gerente de Ventas", "Director Comercial", "Gerente General", "Ejecutivo de Cuentas"]
+            sectors = ["manufacturing_industrial", "muebles_oficina_lockers"]
 
         if domain_ciius:
             ciiu_codes = domain_ciius + ciiu_codes
@@ -455,6 +463,8 @@ class BriefParserService:
             concept = "Plataforma logística e-commerce. Perfil objetivo: Comercios electrónicos, retail de moda y tiendas online."
         elif "desarrollo industrial" in compound_kws:
             concept = "Desarrollo de predios y parques industriales. Perfil objetivo: Constructoras, promotores y operadores logísticos."
+        elif "lockers mobiliario" in compound_kws:
+            concept = "Fabricación y suministro de casilleros / lockers metálicos y mobiliario. Perfil objetivo: Fabricantes y distribuidores mayoristas de muebles metálicos."
 
         return {
             "directionality": directionality,
@@ -528,7 +538,7 @@ class BriefParserService:
         for model_name in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
             try:
-                with httpx.Client(timeout=4.0) as client:
+                with httpx.Client(timeout=6.0) as client:
                     resp = client.post(url, json=body)
                     resp.raise_for_status()
                     data = resp.json()
