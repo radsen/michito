@@ -320,7 +320,17 @@ class OrderWorkerDaemon:
                 exec_kwargs["directionality"] = req.get("directionality")
             if req.get("rfq_specifications"):
                 exec_kwargs["rfq_specifications"] = req.get("rfq_specifications")
-            if req.get("geographic_scope"):
+            
+            # Geographic scope detection and national elevation
+            req_city = (req.get("city") or "").lower()
+            req_desc = (req.get("offer_description") or "").lower()
+            if (
+                req.get("geographic_scope") == "national"
+                or any(k in req_city for k in ("nacional", "colombia", "todo el pais", "todo el país"))
+                or any(k in req_desc for k in ("toda colombia", "todo colombia", "todo el pais", "todo el país", "cobertura nacional", "nivel nacional"))
+            ):
+                exec_kwargs["geographic_scope"] = "national"
+            elif req.get("geographic_scope"):
                 exec_kwargs["geographic_scope"] = req.get("geographic_scope")
 
             job_result = self.use_case.execute(**exec_kwargs)

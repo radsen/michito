@@ -282,7 +282,13 @@ class SecopHarvesterAdapter:
 
         norm_loc = city.strip().lower()
         clean_loc = re.sub(r"[^\w\s]", "", norm_loc).strip()
-        if norm_loc in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país") or clean_loc in ("all", "nacional", "toda colombia", "colombia", "todo el pais", "todo el país"):
+        is_national_query = (
+            norm_loc in ("all", "nacional", "toda colombia", "todo colombia", "colombia", "todo el pais", "todo el país", "cobertura nacional")
+            or clean_loc in ("all", "nacional", "toda colombia", "todo colombia", "colombia", "todo el pais", "todo el país", "cobertura nacional")
+            or "cobertura nacional" in norm_loc
+            or norm_loc.endswith("nacional")
+        )
+        if is_national_query:
             pass
         elif norm_loc in ("bogotá", "bogota", "bogota d.c.", "bogotá d.c.") or clean_loc in ("bogota", "bogota dc", "bogota d c", "distrito capital"):
             params["departamento"] = "Distrito Capital de Bogotá"

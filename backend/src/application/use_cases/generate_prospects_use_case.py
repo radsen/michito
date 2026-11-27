@@ -1172,8 +1172,38 @@ class GenerateProspectsUseCase:
                     print(f"   [Exclusion Gate] Skipping excluded account: {company_name} ({c_tax_type}: {nit})")
                     continue
 
-                email = item["email"]
-                phone = item["phone"]
+                email = (item.get("email") or "").strip()
+                phone = (item.get("phone") or "").strip()
+
+                # Pre-audit Website Contact Extraction & Enrichment Gate
+                # If phone is missing or email lacks MX, but candidate has a registered portal or corporate domain, scrape contact points
+                candidate_url = item.get("website") or item.get("website_url") or ""
+                digits_phone = re.sub(r"\D", "", phone or "")
+                is_missing_contact = len(digits_phone) < 7 or not email or "@" not in email
+
+                if not candidate_url and email and "@" in email and not any(pub in email.lower() for pub in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com")):
+                    candidate_domain = email.split("@")[1].strip().lower()
+                    candidate_url = f"https://www.{candidate_domain}"
+
+                if is_missing_contact and candidate_url:
+                    try:
+                        audit_res = web_auditor.audit(candidate_url, company_name)
+                        extracted = getattr(web_auditor, "last_extracted_contacts", {})
+                        if isinstance(extracted, dict):
+                            ok_site = audit_res[0] if isinstance(audit_res, (list, tuple)) and len(audit_res) >= 1 else False
+                            if ok_site:
+                                p_phone = extracted.get("primary_phone")
+                                if isinstance(p_phone, str) and len(digits_phone) < 7:
+                                    phone = p_phone
+                                    item["phone"] = phone
+                                    item["phone_type"] = "CORPORATE_WHATSAPP" if extracted.get("whatsapp") else "WEBSITE_SCRAPED"
+                                    digits_phone = re.sub(r"\D", "", phone)
+                                p_email = extracted.get("primary_email")
+                                if isinstance(p_email, str) and (not email or "@" not in email):
+                                    email = p_email
+                                    item["email"] = email
+                    except Exception:
+                        pass
 
                 # Phone Gate: Tier-adaptive validation and line classification
                 phone_info = classify_phone(phone, country=c_code)
@@ -1216,7 +1246,6 @@ class GenerateProspectsUseCase:
                 )
 
                 # Website Resolution & Quality Audit Gate
-                candidate_url = item.get("website") or ""
                 if not candidate_url and is_corporate_domain:
                     candidate_domain = email.split("@")[1].strip().lower()
                     candidate_url = f"https://www.{candidate_domain}"
@@ -1228,7 +1257,24 @@ class GenerateProspectsUseCase:
                 elif item.get("website_audit_status") == "ONLINE_ACTIVE_HTTP200" and candidate_url:
                     is_active_web, audited_url, audit_note = True, candidate_url, "Sitio Web Auditado y Activo HTTP 200"
                 else:
-                    is_active_web, audited_url, audit_note = web_auditor.audit(candidate_url, company_name)
+                    audit_res = web_auditor.audit(candidate_url, company_name)
+                    if isinstance(audit_res, (list, tuple)) and len(audit_res) >= 3:
+                        is_active_web, audited_url, audit_note = audit_res[0], audit_res[1], audit_res[2]
+                    else:
+                        is_active_web, audited_url, audit_note = False, candidate_url, "Auditoría no concluyente"
+
+                    extracted_contacts = getattr(web_auditor, "last_extracted_contacts", {})
+                    if is_active_web and isinstance(extracted_contacts, dict):
+                        wa_val = extracted_contacts.get("whatsapp")
+                        if isinstance(wa_val, str) and wa_val and not item.get("whatsapp"):
+                            item["whatsapp"] = wa_val
+                            item["phone_type"] = "CORPORATE_WHATSAPP"
+                        p_phone = extracted_contacts.get("primary_phone")
+                        if isinstance(p_phone, str) and (not phone or len(digits_phone) < 7):
+                            phone = p_phone
+                            item["phone"] = phone
+                            digits_phone = re.sub(r"\D", "", phone)
+
                     if not is_active_web:
                         if tier == 3:
                             continue

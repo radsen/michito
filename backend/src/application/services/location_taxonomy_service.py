@@ -69,6 +69,21 @@ class LocationHierarchy:
         rings.sort(key=lambda x: x[0])
         if not rings and self.city_name:
             rings.append((0, [self.city_name]))
+
+        # Dynamic National Expansion Ring: When scope is national, ensure non-local national economic hubs are accessible
+        if scope == "national":
+            existing_cities = {c.lower() for _, r_cities in rings for c in r_cities}
+            country_hubs: Dict[str, List[str]] = {
+                "CO": ["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Cartagena", "Pereira", "Manizales", "Cúcuta", "Ibagué"],
+                "DO": ["Santo Domingo", "Santiago de los Caballeros", "Punta Cana", "La Romana", "San Cristóbal"],
+                "EC": ["Quito", "Guayaquil", "Cuenca", "Ambato", "Manta", "Machala"],
+                "CL": ["Santiago", "Valparaíso", "Concepción", "Antofagasta", "La Serena"],
+            }
+            extra_national = [h for h in country_hubs.get(self.country_code, []) if h.lower() not in existing_cities]
+            if extra_national:
+                next_ring_idx = (rings[-1][0] + 1) if rings else 3
+                rings.append((next_ring_idx, extra_national))
+
         return rings
 
 
@@ -109,6 +124,8 @@ class LocationTaxonomyService:
         """
         c_code = (country or "CO").strip().upper()
         norm_city = normalize_geo_text(city or "Medellín")
+        if norm_city in ("nacional", "colombia", "toda colombia", "todo colombia", "todo el pais", "cobertura nacional", "all", "ecuador", "todo ecuador", "republica dominicana", "dominicana") or "cobertura nacional" in norm_city or "nacional" in norm_city:
+            norm_city = "nacional"
         cache_key = f"{c_code}:{norm_city}"
 
         now = time.time()

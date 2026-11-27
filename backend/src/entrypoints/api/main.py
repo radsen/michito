@@ -849,6 +849,35 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
         elif isinstance(raw_sector, str):
             resolved_sector = raw_sector
 
+        resolved_ciius = payload.request.target_ciiu_codes or []
+        resolved_keywords = payload.request.keywords_include or []
+        resolved_scope = payload.request.geographic_scope or "metro_area"
+        req_city_lower = (payload.request.city or "").lower()
+        req_desc_lower = (payload.request.offer_description or "").lower()
+
+        # National scope elevation
+        if (
+            resolved_scope == "national"
+            or any(k in req_city_lower for k in ("nacional", "colombia", "todo el pais", "todo el país"))
+            or any(k in req_desc_lower for k in ("toda colombia", "todo colombia", "todo el pais", "todo el país", "cobertura nacional", "nivel nacional"))
+        ):
+            resolved_scope = "national"
+
+        resolved_city = payload.request.city or "Medellín"
+        if "cobertura nacional" in resolved_city.lower():
+            resolved_city = "Nacional"
+
+        # Sanitize single long raw prompt in keywords_include if passed by web wizard
+        if resolved_keywords and len(str(resolved_keywords[0])) > 60:
+            try:
+                from src.application.services.brief_parser_service import BriefParserService
+                bp = BriefParserService(sql_adapter=sql_adapter)
+                parsed_intent = bp.parse_brief(str(resolved_keywords[0]))
+                if parsed_intent.get("keywords_include"):
+                    resolved_keywords = parsed_intent["keywords_include"]
+            except Exception as e_bp:
+                logger.warning(f"Keywords brief auto-cleansing skipped: {e_bp}")
+
         order = sql_adapter.create_order(
             client_name=payload.client.name,
             client_email=payload.client.email,
@@ -856,23 +885,23 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
             client_channel=payload.client.channel or "web_portal",
             referral_partner=payload.client.referral_partner or "direct",
             campaign_id=payload.request.campaign_id or "universal_prospecting",
-            city=payload.request.city or "Medellín",
+            city=resolved_city,
             limit=limit,
             country=payload.request.country or "CO",
             currency=currency,
             segment=payload.request.segment,
             sector=resolved_sector,
-            keywords_include=payload.request.keywords_include,
+            keywords_include=resolved_keywords or None,
             keywords_exclude=merged_exclusions or None,
             tier=target_tier,
             country_allocations=payload.request.country_allocations,
             offer_description=payload.request.offer_description,
             target_roles=payload.request.target_roles,
-            target_ciiu_codes=payload.request.target_ciiu_codes,
+            target_ciiu_codes=resolved_ciius,
             location_allocations=normalized_locations,
             directionality=payload.request.directionality or "vendor_to_clients",
             rfq_specifications=payload.request.rfq_specifications,
-            geographic_scope=payload.request.geographic_scope or "metro_area",
+            geographic_scope=resolved_scope,
             status="intake_submitted",
             verified_yield=0,
             payment_amount_in_cents=total_price_cents,

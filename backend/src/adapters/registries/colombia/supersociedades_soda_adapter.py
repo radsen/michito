@@ -412,11 +412,13 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
                 # Build SODA $where filters
                 where_clauses: List[str] = []
                 
-                # City filter (matches municipio or domicilio)
-                city_clean_escaped = clean_city.replace("'", "''")
-                where_clauses.append(
-                    f"(lower(municipio) like '%{city_clean_escaped.lower()}%' or lower(domicilio) like '%{city_clean_escaped.lower()}%')"
-                )
+                # City filter (matches municipio or domicilio, omitted for nationwide queries)
+                city_clean_escaped = clean_city.replace("'", "''").lower()
+                is_national = city_clean_escaped in ("all", "nacional", "colombia", "toda colombia", "todo colombia", "todo el pais", "todo el país", "cobertura nacional") or "cobertura nacional" in city_clean_escaped or "nacional" in city_clean_escaped
+                if not is_national:
+                    where_clauses.append(
+                        f"(lower(municipio) like '%{city_clean_escaped}%' or lower(domicilio) like '%{city_clean_escaped}%')"
+                    )
 
                 # CIIU activity code filter
                 if ciiu_codes:

@@ -107,9 +107,9 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
   // Pre-set cities per country
   const countryCities: Record<string, string[]> = {
-    CO: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Pereira", "Manizales"],
-    DO: ["Santo Domingo", "Santiago de los Caballeros", "Punta Cana"],
-    EC: ["Quito", "Guayaquil", "Cuenca", "Ambato", "Manta"],
+    CO: ["Cobertura Nacional (Colombia)", "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Pereira", "Manizales"],
+    DO: ["Cobertura Nacional (República Dominicana)", "Santo Domingo", "Santiago de los Caballeros", "Punta Cana"],
+    EC: ["Cobertura Nacional (Ecuador)", "Quito", "Guayaquil", "Cuenca", "Ambato", "Manta"],
   };
 
   const industriesList = [
@@ -173,6 +173,9 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
 
   // Step 1 Submission
   const handleProceedFromStep1 = () => {
+    let resolvedCity = selectedCity;
+    let resolvedScope = geoScope;
+
     if (searchMode === "natural") {
       if (!naturalBrief.trim()) {
         setStep1Error(w.step1.errBrief);
@@ -181,29 +184,95 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
       setStep1Error(null);
       // Fast heuristic extraction
       const lower = naturalBrief.toLowerCase();
-      if (lower.includes("dominicana") || lower.includes("santo domingo")) {
+
+      // 1. Geography & Scope Detection
+      if (/(toda rep[uú]blica dominicana|todo dominicana|toda dominicana|nivel nacional dominicana)/i.test(lower)) {
         setSelectedCountry("DO");
-        setSelectedCity("Santo Domingo");
+        resolvedCity = "Cobertura Nacional (República Dominicana)";
+        resolvedScope = "national";
+        setSelectedCity(resolvedCity);
+        setGeoScope(resolvedScope);
+      } else if (lower.includes("dominicana") || lower.includes("santo domingo")) {
+        setSelectedCountry("DO");
+        resolvedCity = lower.includes("santiago") ? "Santiago de los Caballeros" : "Santo Domingo";
+        setSelectedCity(resolvedCity);
+      } else if (/(todo ecuador|toda ecuador|nivel nacional ecuador|cobertura nacional ecuador)/i.test(lower)) {
+        setSelectedCountry("EC");
+        resolvedCity = "Cobertura Nacional (Ecuador)";
+        resolvedScope = "national";
+        setSelectedCity(resolvedCity);
+        setGeoScope(resolvedScope);
       } else if (lower.includes("ecuador") || lower.includes("quito") || lower.includes("guayaquil")) {
         setSelectedCountry("EC");
-        setSelectedCity(lower.includes("guayaquil") ? "Guayaquil" : "Quito");
+        resolvedCity = lower.includes("guayaquil") ? "Guayaquil" : "Quito";
+        setSelectedCity(resolvedCity);
+      } else if (/(toda colombia|todo colombia|todo el pa[ií]s|toda la rep[uú]blica|nivel nacional|cobertura nacional)/i.test(lower)) {
+        setSelectedCountry("CO");
+        resolvedCity = "Cobertura Nacional (Colombia)";
+        resolvedScope = "national";
+        setSelectedCity(resolvedCity);
+        setGeoScope(resolvedScope);
       } else if (lower.includes("medellin") || lower.includes("medellín")) {
         setSelectedCountry("CO");
-        setSelectedCity("Medellín");
+        resolvedCity = "Medellín";
+        setSelectedCity(resolvedCity);
       } else if (lower.includes("cali")) {
         setSelectedCountry("CO");
-        setSelectedCity("Cali");
+        resolvedCity = "Cali";
+        setSelectedCity(resolvedCity);
       } else if (lower.includes("barranquilla")) {
         setSelectedCountry("CO");
-        setSelectedCity("Barranquilla");
+        resolvedCity = "Barranquilla";
+        setSelectedCity(resolvedCity);
+      } else if (lower.includes("cartagena")) {
+        setSelectedCountry("CO");
+        resolvedCity = "Cartagena";
+        setSelectedCity(resolvedCity);
+      } else if (lower.includes("bucaramanga")) {
+        setSelectedCountry("CO");
+        resolvedCity = "Bucaramanga";
+        setSelectedCity(resolvedCity);
+      } else if (lower.includes("pereira")) {
+        setSelectedCountry("CO");
+        resolvedCity = "Pereira";
+        setSelectedCity(resolvedCity);
       } else if (lower.includes("bogota") || lower.includes("bogotá")) {
         setSelectedCountry("CO");
-        setSelectedCity("Bogotá");
+        resolvedCity = "Bogotá";
+        setSelectedCity(resolvedCity);
+      }
+
+      // 2. Volume Detection
+      const volMatch = lower.match(/\b(1000|500|250|100|50)\b/) || lower.match(/\b(\d{2,4})\s*(?:leads|contactos|clientes|empresas|cuentas|proveedores)\b/);
+      if (volMatch) {
+        const parsedVol = parseInt(volMatch[1], 10);
+        if ([50, 100, 250, 500, 1000].includes(parsedVol)) {
+          setSelectedVolume(parsedVol);
+        } else if (parsedVol >= 750) {
+          setSelectedVolume(1000);
+        } else if (parsedVol >= 350) {
+          setSelectedVolume(500);
+        } else if (parsedVol >= 175) {
+          setSelectedVolume(250);
+        } else if (parsedVol >= 75) {
+          setSelectedVolume(100);
+        } else if (parsedVol >= 25) {
+          setSelectedVolume(50);
+        }
+      }
+
+      // 3. Tier Detection
+      if (/ebitda|balance|financiero|solvencia|litigio|demanda|deuda|superintendencia|debida diligencia/i.test(lower)) {
+        setSelectedTier(3);
+      } else if (/whatsapp|correo|celular|m[oó]vil|directo|persona|contactarme/i.test(lower)) {
+        setSelectedTier(2);
+      } else if (/directorio|masivo|tier 1|base b[aá]sica|b[aá]sico|pbx/i.test(lower)) {
+        setSelectedTier(1);
       }
     } else {
       setStep1Error(null);
     }
-    dispatch(selectCity(selectedCity));
+    dispatch(selectCity(resolvedCity));
     setCurrentStep(2);
   };
 
@@ -224,6 +293,10 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
 
+    const isNationalScope = selectedCity.toLowerCase().includes("nacional") || geoScope === "national";
+    const effectiveScope = isNationalScope ? "national" : geoScope;
+    const effectiveCity = selectedCity.includes("Cobertura Nacional") ? "Nacional" : selectedCity;
+
     const payload = {
       client: {
         name: buyerName.trim(),
@@ -235,7 +308,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
       request: {
         campaign_id: "universal_prospecting",
         country: selectedCountry,
-        city: selectedCity,
+        city: effectiveCity,
         limit: selectedVolume,
         tier: selectedTier,
         currency: selectedCountry === "EC" ? "USD" : selectedCountry === "DO" ? "DOP" : "COP",
@@ -246,7 +319,7 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
         keywords_exclude: exclusionsList,
         directionality: directionality,
         rfq_specifications: directionality === "client_to_vendors" ? naturalBrief : undefined,
-        geographic_scope: geoScope,
+        geographic_scope: effectiveScope,
       },
     };
 

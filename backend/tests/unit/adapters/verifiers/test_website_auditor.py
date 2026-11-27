@@ -42,6 +42,32 @@ class TestWebsiteAuditor(unittest.TestCase):
         self.assertEqual(display_url, "Presencia en LinkedIn Corporativo")
         self.assertIn("no alineado", note)
 
+    def test_extract_contacts_from_html(self):
+        sample_html = """
+        <html>
+        <head><title>Pinturas y Diseños S.A.S.</title></head>
+        <body>
+            <header>
+                <a href="https://wa.me/573105551234">Escríbenos al WhatsApp</a>
+                <a href="mailto:ventas@pinturasydisenos.com">ventas@pinturasydisenos.com</a>
+                <img src="/assets/logo.png" alt="logo" />
+            </header>
+            <footer>
+                <p>Teléfono: +57 320 987 6543 | PBX: 601 7654321</p>
+                <p>Email soporte: info@pinturasydisenos.com</p>
+                <p>Email dummy: test@example.com</p>
+            </footer>
+        </body>
+        </html>
+        """
+        contacts = WebsiteAuditor.extract_contacts_from_html(sample_html, target_domain="pinturasydisenos.com")
+        self.assertEqual(contacts["whatsapp"], "+573105551234")
+        self.assertIn("ventas@pinturasydisenos.com", contacts["emails"])
+        self.assertIn("info@pinturasydisenos.com", contacts["emails"])
+        self.assertNotIn("test@example.com", contacts["emails"])
+        self.assertEqual(contacts["primary_email"], "ventas@pinturasydisenos.com")
+        self.assertTrue(any("320" in p or "310" in p for p in contacts["phones"]))
+
 if __name__ == "__main__":
     unittest.main()
 

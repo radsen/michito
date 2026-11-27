@@ -380,12 +380,18 @@ class BriefParserService:
         if directionality == "client_to_vendors":
             rfq_specifications = prompt.strip()
 
+        is_national = any(
+            k in lower for k in ("toda colombia", "todo colombia", "todo el pais", "todo el país", "cobertura nacional", "nivel nacional", "toda republica dominicana", "todo ecuador")
+        ) or any(loc.get("city") in ("Colombia", "Nacional", "all") for loc in location_allocations)
+        geographic_scope = "national" if is_national else "metro_area"
+
         return {
             "directionality": directionality,
             "sectors": sectors[:3],
             "ciiu_codes": ciiu_codes,
             "roles": roles[:5],
             "locations": location_allocations,
+            "geographic_scope": geographic_scope,
             "limit": limit,
             "tier": tier,
             "tier_notice": tier_notice,

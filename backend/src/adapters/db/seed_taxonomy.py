@@ -28,6 +28,26 @@ from src.adapters.db.models import (
 LOCATION_SEEDS: List[Dict[str, Any]] = [
     # --- 🇨🇴 COLOMBIA ---
     {
+        "location_id": "co_nacional",
+        "country_code": "CO",
+        "country_name": "Colombia",
+        "region_name": "Nacional",
+        "city_name": "Nacional",
+        "aliases": ["Colombia", "Toda Colombia", "Todo el país", "Todo el pais", "Nacional", "Cobertura Nacional", "Cobertura Nacional (Colombia)", "all"],
+        "concentric_rings": {
+            "ring_0": ["Bogotá", "Medellín", "Cali"],
+            "ring_1": ["Barranquilla", "Bucaramanga", "Cartagena", "Pereira", "Manizales"],
+            "ring_2": ["Cúcuta", "Ibagué", "Santa Marta", "Villavicencio", "Pasto", "Armenia", "Neiva", "Valledupar", "Montería"],
+        },
+        "expansion_rules": {
+            "default_scope": "national",
+            "max_allowed_ring": 2,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["secop", "supersociedades", "rues", "dian"],
+        "is_active": True,
+    },
+    {
         "location_id": "co_bogota_dc",
         "country_code": "CO",
         "country_name": "Colombia",
@@ -247,6 +267,25 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
 
     # --- 🇩🇴 DOMINICAN REPUBLIC ---
     {
+        "location_id": "do_nacional",
+        "country_code": "DO",
+        "country_name": "República Dominicana",
+        "region_name": "Nacional",
+        "city_name": "Nacional",
+        "aliases": ["República Dominicana", "Republica Dominicana", "Dominicana", "Toda Dominicana", "Toda República Dominicana", "Nacional", "Cobertura Nacional", "Cobertura Nacional (República Dominicana)", "all"],
+        "concentric_rings": {
+            "ring_0": ["Santo Domingo", "Santiago de los Caballeros"],
+            "ring_1": ["Punta Cana", "La Romana", "San Cristóbal", "Puerto Plata", "Higüey"],
+        },
+        "expansion_rules": {
+            "default_scope": "national",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["dgcp", "dgii", "onapi"],
+        "is_active": True,
+    },
+    {
         "location_id": "do_distrito_nacional",
         "country_code": "DO",
         "country_name": "República Dominicana",
@@ -345,6 +384,25 @@ LOCATION_SEEDS: List[Dict[str, Any]] = [
     },
 
     # --- 🇪🇨 ECUADOR ---
+    {
+        "location_id": "ec_nacional",
+        "country_code": "EC",
+        "country_name": "Ecuador",
+        "region_name": "Nacional",
+        "city_name": "Nacional",
+        "aliases": ["Ecuador", "Todo Ecuador", "Nacional", "Cobertura Nacional", "Cobertura Nacional (Ecuador)", "all"],
+        "concentric_rings": {
+            "ring_0": ["Quito", "Guayaquil", "Cuenca"],
+            "ring_1": ["Ambato", "Manta", "Machala", "Portoviejo", "Loja", "Santo Domingo"],
+        },
+        "expansion_rules": {
+            "default_scope": "national",
+            "max_allowed_ring": 1,
+            "min_quota_threshold_percent": 100,
+        },
+        "registry_sources": ["sercop", "supercias", "sri"],
+        "is_active": True,
+    },
     {
         "location_id": "ec_pichincha_quito",
         "country_code": "EC",
