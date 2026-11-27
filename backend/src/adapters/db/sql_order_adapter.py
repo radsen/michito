@@ -1153,24 +1153,30 @@ class SqlOrderAdapter:
                 role.verified_at = now
                 role.updated_at = now
 
-            # 4. Upsert Contact Channels (Email & Phone)
-            if raw_email and "@" in raw_email:
-                channel_email_id = f"CH_EMAIL_{raw_email}"
+            # 4. Upsert Contact Channels (All distinct Emails & Phones)
+            emails_to_persist = set()
+            for k in ("email", "representative_email", "general_email", "verified_email"):
+                v = (lead.get(k) or "").strip().lower()
+                if v and "@" in v and len(v) >= 5:
+                    emails_to_persist.add(v)
+
+            for e_val in emails_to_persist:
+                channel_email_id = f"CH_EMAIL_{e_val}"
                 if len(channel_email_id) > 64:
-                    channel_email_id = f"CH_EM_{hashlib.md5(raw_email.encode()).hexdigest()}"
+                    channel_email_id = f"CH_EM_{hashlib.md5(e_val.encode()).hexdigest()}"
                 ch_email = session.get(ContactChannelModel, channel_email_id)
                 if not ch_email:
-                    ch_email = session.query(ContactChannelModel).filter_by(normalized_value=raw_email).first()
+                    ch_email = session.query(ContactChannelModel).filter_by(normalized_value=e_val).first()
 
-                is_corp = not any(p in raw_email for p in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com"))
+                is_corp = not any(p in e_val for p in ("@gmail.com", "@hotmail.com", "@yahoo.com", "@outlook.com"))
                 ch_type = "corporate_email" if is_corp else "statutory_email"
 
                 if not ch_email:
                     ch_email = ContactChannelModel(
                         channel_id=channel_email_id,
                         channel_type=ch_type,
-                        normalized_value=raw_email,
-                        raw_value=raw_email,
+                        normalized_value=e_val,
+                        raw_value=e_val,
                         verification_state="mx_valid" if lead.get("mx_host") else "unverified",
                         mx_host=lead.get("mx_host"),
                         network_footprint_count=1,
@@ -1191,7 +1197,7 @@ class SqlOrderAdapter:
                             role.role_category = "external_counsel"
 
                 # Link email to individual and company
-                is_shared_proxy = (ch_email.network_footprint_count and ch_email.network_footprint_count >= 5) or any(d in raw_email for d in LAW_OR_AUDIT_DOMAINS)
+                is_shared_proxy = (ch_email.network_footprint_count and ch_email.network_footprint_count >= 5) or any(d in e_val for d in LAW_OR_AUDIT_DOMAINS)
                 email_ownership = "law_firm_shared_channel" if is_shared_proxy else ("direct_executive_email" if is_corp else "external_firm_email")
 
                 link_ind_email_id = f"LNK_IND_{individual_id}_{channel_email_id}"
@@ -1219,9 +1225,14 @@ class SqlOrderAdapter:
                         created_at=now,
                     ))
 
-            raw_phone = (lead.get("phone") or "").strip()
-            digits_phone = re.sub(r"\D", "", raw_phone)
-            if digits_phone and len(digits_phone) >= 7:
+            phones_to_persist = set()
+            for k in ("phone", "representative_phone", "whatsapp", "direct_mobile_phone"):
+                v = (lead.get(k) or "").strip()
+                d = re.sub(r"\D", "", v)
+                if d and len(d) >= 7:
+                    phones_to_persist.add((d, v, k == "whatsapp"))
+
+            for digits_phone, raw_phone, is_wa in phones_to_persist:
                 channel_phone_id = f"CH_PHONE_{country}_{digits_phone}"
                 if len(channel_phone_id) > 64:
                     channel_phone_id = f"CH_PH_{hashlib.md5(channel_phone_id.encode()).hexdigest()}"
@@ -1230,8 +1241,8 @@ class SqlOrderAdapter:
                     ch_phone = session.query(ContactChannelModel).filter_by(normalized_value=digits_phone).first()
 
                 clean_digits = digits_phone[2:] if (digits_phone.startswith("57") and len(digits_phone) == 12) else digits_phone
-                is_mobile = clean_digits.startswith("3") and len(clean_digits) == 10 if country == "CO" else False
-                p_type = "mobile_phone" if is_mobile else "landline_pbx"
+                is_mobile = clean_digits.startswith("3") and len(clean_digits) == 10 if country == "CO" else is_wa
+                p_type = "whatsapp_channel" if is_wa else ("mobile_phone" if is_mobile else "landline_pbx")
 
                 if not ch_phone:
                     ch_phone = ContactChannelModel(
@@ -1239,7 +1250,7 @@ class SqlOrderAdapter:
                         channel_type=p_type,
                         normalized_value=digits_phone,
                         raw_value=raw_phone,
-                        verification_state="whatsapp_active" if is_mobile else "unverified",
+                        verification_state="whatsapp_active" if (is_mobile or is_wa) else "unverified",
                         network_footprint_count=1,
                         verified_at=now,
                         created_at=now,
@@ -1261,7 +1272,7 @@ class SqlOrderAdapter:
                         link_id=link_ind_phone_id,
                         individual_id=individual_id,
                         channel_id=channel_phone_id,
-                        channel_ownership="direct_mobile" if is_mobile else "headquarters_pbx",
+                        channel_ownership="whatsapp_direct" if is_wa else ("direct_mobile" if is_mobile else "headquarters_pbx"),
                         created_at=now,
                     ))
 
@@ -1273,8 +1284,8 @@ class SqlOrderAdapter:
                         link_id=link_co_phone_id,
                         company_id=company_id,
                         channel_id=channel_phone_id,
-                        channel_usage="plant_switchboard" if not is_mobile else "direct_contact",
-                        is_primary_switchboard=not is_mobile,
+                        channel_usage="commercial_whatsapp" if is_wa else ("plant_switchboard" if not is_mobile else "direct_contact"),
+                        is_primary_switchboard=not (is_mobile or is_wa),
                         created_at=now,
                     ))
 

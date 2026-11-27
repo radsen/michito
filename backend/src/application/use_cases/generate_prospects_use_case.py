@@ -1115,6 +1115,18 @@ class GenerateProspectsUseCase:
                         if len(raw_candidates) >= t_quota * raw_multiplier:
                             break
 
+            # Asymmetric Ingestion: Persist 100% of discovered raw candidates to the Lakehouse
+            # Turns every search into a permanent, multi-contact compounding data asset in PostgreSQL
+            if self.order_repository and hasattr(self.order_repository, "persist_normalized_leads") and raw_candidates:
+                try:
+                    self.order_repository.persist_normalized_leads(
+                        raw_candidates,
+                        country=c_code,
+                        fallback_city=target_city,
+                    )
+                except Exception as p_err:
+                    print(f"[GenerateProspects] Asymmetric candidate persistence note: {p_err}")
+
             # 3. STATUTORY_CORPORATE_LEADS is STRICTLY disabled in live operations.
             # Never inject mock/hardcoded leads into paid customer deliverables.
             # Only used in synthetic unit/e2e test harnesses when explicitly requested via env flags.
@@ -1233,10 +1245,12 @@ class GenerateProspectsUseCase:
                 # Phone Gate: Tier-adaptive validation and line classification
                 phone_info = classify_phone(phone, country=c_code)
                 digits_phone = re.sub(r"\D", "", phone or "")
-                if len(digits_phone) < 7:
-                    continue
 
+                # Tier 2 and Tier 3 strictly require verified direct phone numbers.
+                # Tier 1 (Directory) allows verified email/website directory entries if phone is pending.
                 if tier >= 2:
+                    if len(digits_phone) < 7:
+                        continue
                     if c_code == "DO":
                         clean_do = digits_phone[1:] if digits_phone.startswith("1") and len(digits_phone) == 11 else digits_phone
                         if len(clean_do) < 7:
