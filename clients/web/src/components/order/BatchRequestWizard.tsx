@@ -133,6 +133,11 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
   ];
 
   // Price calculations based on pricing catalog or baseline fallbacks
+  const briefLower = naturalBrief.toLowerCase();
+  const hasClientTerm = /\bclientes?\b/i.test(briefLower);
+  const hasProviderTerm = /\b(?:proveedores?|que\s+(?:vendan|hagan|distribuyan|suministren|presten|comercialicen)|donde\s+comprar|cotizar|comprar)\b/i.test(briefLower);
+  const isAmbiguousIntent = searchMode === "natural" && hasClientTerm && hasProviderTerm;
+
   const getUnitRateCop = (tier: number) => {
     if (tier === 1) return 1500;
     if (tier === 2) return 6200;
@@ -488,8 +493,13 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                   rows={3}
                   value={naturalBrief}
                   onChange={(e) => {
-                    setNaturalBrief(e.target.value);
+                    const val = e.target.value;
+                    setNaturalBrief(val);
                     if (step1Error) setStep1Error(null);
+                    const vLower = val.toLowerCase();
+                    if (/\b(?:proveedor|que\s+(?:vendan|hagan|distribuyan|suministren|presten)|donde\s+comprar|cotizar|comprar)\b/i.test(vLower) && !/\bclientes?\b/i.test(vLower)) {
+                      setDirectionality("client_to_vendors");
+                    }
                   }}
                   placeholder={w.step1.briefPlaceholder}
                   style={{
@@ -507,6 +517,76 @@ export const BatchRequestWizard: React.FC<BatchRequestWizardProps> = ({
                   <span style={{ fontSize: "0.75rem", color: "#f43f5e", marginTop: 4, display: "block" }}>
                     {step1Error}
                   </span>
+                )}
+
+                {/* Intent Ambiguity Disambiguation Card */}
+                {isAmbiguousIntent && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: "12px 14px",
+                      borderRadius: 10,
+                      background: "rgba(56, 189, 248, 0.08)",
+                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <HelpCircle style={{ width: 16, height: 16, color: "#38bdf8", flexShrink: 0 }} />
+                      <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#e2e8f0" }}>
+                        Tu búsqueda menciona clientes y proveedores a la vez: ¿Cuál es tu objetivo?
+                      </span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <label
+                        onClick={() => setDirectionality("client_to_vendors")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          background: directionality === "client_to_vendors" ? "rgba(16, 185, 129, 0.2)" : "#0f172a",
+                          border: directionality === "client_to_vendors" ? "1px solid #10b981" : "1px solid #334155",
+                          fontSize: "0.78rem",
+                          color: "#f8fafc",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="intent_directionality"
+                          checked={directionality === "client_to_vendors"}
+                          onChange={() => setDirectionality("client_to_vendors")}
+                          style={{ accentColor: "#10b981" }}
+                        />
+                        <span><strong>Busco Proveedores</strong> (Quiero comprarles / cotizarles)</span>
+                      </label>
+                      <label
+                        onClick={() => setDirectionality("vendor_to_clients")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          background: directionality === "vendor_to_clients" ? "rgba(56, 189, 248, 0.2)" : "#0f172a",
+                          border: directionality === "vendor_to_clients" ? "1px solid #38bdf8" : "1px solid #334155",
+                          fontSize: "0.78rem",
+                          color: "#f8fafc",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="intent_directionality"
+                          checked={directionality === "vendor_to_clients"}
+                          onChange={() => setDirectionality("vendor_to_clients")}
+                          style={{ accentColor: "#38bdf8" }}
+                        />
+                        <span><strong>Busco Clientes</strong> (Quiero venderles mis productos)</span>
+                      </label>
+                    </div>
+                  </div>
                 )}
 
                 {/* Quick suggestions */}

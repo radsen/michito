@@ -162,7 +162,7 @@ class OrderWorkerDaemon:
                 "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
             }
 
-            models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash"]
+            models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
             batch_success = False
 
             for model_name in models_to_try:
@@ -204,8 +204,20 @@ class OrderWorkerDaemon:
                     continue
 
             if not batch_success:
-                # Circuit Breaker: fallback to deterministic CIIU validation rather than unvalidated pass-through
-                qualified.extend(chunk)
+                # Deterministic fallback gate: drop candidates with cross-sector contradictions
+                for c in chunk:
+                    c_name = str(c.get("company_name") or "").lower()
+                    c_act = str(c.get("economic_activity") or c.get("sector") or "").lower()
+                    c_full = f"{c_name} {c_act}"
+                    if any(tech_kw in query.lower() for tech_kw in ("videoconferencia", "hardware", "computo", "audiovisual")):
+                        if any(neg in c_full for neg in ("construccion", "concreto", "transporte de carga", "vigilancia")):
+                            total_discarded += 1
+                            continue
+                    if any(des_kw in query.lower() for des_kw in ("diseño", "branding", "regalos corporativos", "pinturas")):
+                        if any(neg in c_full for neg in ("construccion", "concreto", "vigilancia", "transporte")):
+                            total_discarded += 1
+                            continue
+                    qualified.append(c)
 
         cost_cop = round(((total_prompt_tokens * 0.075 / 1_000_000) + (total_cand_tokens * 0.30 / 1_000_000)) * 4100, 4)
         stats = {

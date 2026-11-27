@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from src.application.ports.delivery_port import DeliveryPort
 
@@ -113,11 +113,9 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
         full_pdf_url = f"{base_url.rstrip('/')}{pdf_url}" if pdf_url.startswith("/") else pdf_url
 
         # Order metadata
-        campaign_id = (
-            order.get("request", {}).get("campaign_id")
-            or order.get("campaign_id")
-            or "inteligencia_b2b"
-        )
+        search_summary, modality_label = self._resolve_display_summary(order)
+        display_campaign = f"{search_summary} • {modality_label}"
+        campaign_id = display_campaign
         city = order.get("request", {}).get("city") or order.get("city") or "Colombia"
         country = order.get("request", {}).get("country") or order.get("country") or "CO"
         tier = order.get("request", {}).get("tier") or order.get("tier") or 2
@@ -210,6 +208,45 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
 
         return True
 
+    def _resolve_display_summary(self, order: Dict[str, Any]) -> Tuple[str, str]:
+        """
+        Extracts human-readable (search_label, modality_label) from order payload.
+        Never shows raw technical IDs like 'universal_prospecting'.
+        """
+        req = order.get("request", {}) if isinstance(order.get("request"), dict) else {}
+        desc = (
+            order.get("offer_description")
+            or req.get("offer_description")
+            or ""
+        ).strip()
+        directionality = (
+            order.get("directionality")
+            or req.get("directionality")
+            or "vendor_to_clients"
+        )
+        modality = (
+            "Homologación de Proveedores (RFQ)"
+            if directionality in ("client_to_vendors", "procurement", "sourcing")
+            else "Prospección Comercial (Clientes)"
+        )
+
+        if desc and len(desc) > 3:
+            clean = desc
+            if len(clean) > 85:
+                clean = clean[:82].rstrip() + "..."
+            return clean, modality
+
+        campaign = (
+            order.get("campaign_id")
+            or req.get("campaign_id")
+            or order.get("sector")
+            or req.get("sector")
+            or "Inteligencia B2B"
+        )
+        if campaign == "universal_prospecting":
+            campaign = "Inteligencia y Prospección B2B"
+        return campaign.replace("_", " ").title(), modality
+
     def send_order_received_notification(self, order: Dict[str, Any]) -> bool:
         """
         Dispatches an immediate, crisp acknowledgment email confirming order intake
@@ -225,7 +262,8 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
             return False
 
         req = order.get("request", {})
-        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        search_summary, modality_label = self._resolve_display_summary(order)
+        campaign_id = f"{search_summary} • {modality_label}"
         city = req.get("city") or order.get("city") or "Colombia"
 
         base_url = (
@@ -274,7 +312,7 @@ class OmnichannelDeliveryAdapter(DeliveryPort):
       </p>
       <div class="card">
         <div class="card-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
-        <div class="card-row"><span class="label">Campaña / Segmento:</span> <span class="value">{campaign_id}</span></div>
+        <div class="card-row"><span class="label">Requerimiento:</span> <span class="value">{campaign_id}</span></div>
         <div class="card-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
       </div>
       <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">
@@ -348,7 +386,8 @@ Equipo Michito Intent Engine
             return False
 
         req = order.get("request", {})
-        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        search_summary, modality_label = self._resolve_display_summary(order)
+        campaign_id = f"{search_summary} • {modality_label}"
         city = req.get("city") or order.get("city") or "Colombia"
         requested_limit = order.get("requested_limit") or req.get("limit") or 10
         verified_yield = order.get("verified_yield") if order.get("verified_yield") is not None else order.get("delivery", {}).get("total_qualified", 1)
@@ -405,7 +444,7 @@ Equipo Michito Intent Engine
       </div>
       <div class="card">
         <div class="card-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
-        <div class="card-row"><span class="label">Campaña / Segmento:</span> <span class="value">{campaign_id}</span></div>
+        <div class="card-row"><span class="label">Requerimiento:</span> <span class="value">{campaign_id}</span></div>
         <div class="card-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
         <div class="card-row"><span class="label">Cuentas Solicitadas:</span> <span class="value">{requested_limit}</span></div>
         <div class="card-row"><span class="label">Cuentas Verificadas:</span> <span class="value" style="color:#34d399;">{verified_yield} empresas</span></div>
@@ -489,7 +528,8 @@ Equipo Michito Intent Engine
         buyer_phone = (client_data.get("phone") or order.get("customer_phone") or "").strip()
 
         req = order.get("request", {})
-        campaign_id = req.get("campaign_id") or order.get("campaign_id") or "inteligencia_b2b"
+        search_summary, modality_label = self._resolve_display_summary(order)
+        campaign_id = f"{search_summary} • {modality_label}"
         city = req.get("city") or order.get("city") or "Colombia"
         country = req.get("country") or order.get("country") or "CO"
         requested_limit = order.get("requested_limit") or req.get("limit") or 10
@@ -654,7 +694,7 @@ Equipo Michito Intent Engine
       </div>
       <div class="order-card">
         <div class="order-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
-        <div class="order-row"><span class="label">Campaña:</span> <span class="value">{campaign_id}</span></div>
+        <div class="order-row"><span class="label">Requerimiento:</span> <span class="value">{campaign_id}</span></div>
         <div class="order-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
         <div class="order-row"><span class="label">Cuentas Solicitadas:</span> <span class="value">{requested_limit}</span></div>
         <div class="order-row"><span class="label">Cuentas Verificadas:</span> <span class="value" style="color:#38bdf8;">{verified_yield} empresas</span></div>
@@ -846,7 +886,7 @@ Chiketto B2B Operations
       </div>
       <div class="order-card">
         <div class="order-row"><span class="label">ID de Orden:</span> <span class="value">{order_id}</span></div>
-        <div class="order-row"><span class="label">Campaña:</span> <span class="value">{campaign_id}</span></div>
+        <div class="order-row"><span class="label">Requerimiento:</span> <span class="value">{campaign_id}</span></div>
         <div class="order-row"><span class="label">Cobertura:</span> <span class="value">{city}</span></div>
         <div class="order-row"><span class="label">Cuentas Calificadas:</span> <span class="value">{total_qualified} empresas</span></div>
         <div class="order-row"><span class="label">Nivel de Inteligencia:</span> <span class="value">Tier {tier}</span></div>

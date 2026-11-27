@@ -241,14 +241,30 @@ class SecopHarvesterAdapter:
             "$limit": str(max(limit * 4, 150)),
         }
 
-        valid_kw = []
+        clean_stems: List[str] = []
         if include_keywords:
-            valid_kw = [k.strip() for k in include_keywords if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())]
+            try:
+                from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+            except ImportError:
+                QUERY_STOP_WORDS = set()
+            for kw in include_keywords:
+                tokens = [w for w in re.split(r"[^\wáéíóúñ]+", kw.lower()) if len(w) >= 4 and w not in QUERY_STOP_WORDS]
+                for t in tokens:
+                    if t not in clean_stems:
+                        clean_stems.append(t)
+
+        valid_kw = clean_stems if clean_stems else [
+            k.strip() for k in (include_keywords or []) if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())
+        ]
 
         if not valid_kw and ciiu_codes:
             for c in ciiu_codes:
                 clean_c = c.strip().lstrip("JCFHQLNDMPK")
-                if clean_c.startswith(("9524", "31")):
+                if clean_c.startswith(("465", "263", "61")):
+                    valid_kw.extend(["videoconferencia", "audiovisuales", "telecomunicaciones", "computadores"])
+                elif clean_c.startswith(("741", "731", "181", "329", "202")):
+                    valid_kw.extend(["diseno", "branding", "publicidad", "regalos", "pinturas"])
+                elif clean_c.startswith(("9524", "31")):
                     valid_kw.extend(["muebles", "sillas", "tapiceria"])
                 elif clean_c.startswith(("52", "4923")):
                     valid_kw.extend(["bodegas", "almacenamiento", "transporte"])

@@ -54,6 +54,11 @@ QUERY_STOP_WORDS = {
     "email", "emails", "cargo", "cargos", "directivo", "directivos", "celular",
     "celulares", "direccion", "direcciones", "dirección", "pbx",
     "whatsapp", "nombre", "nombres", "apellido", "apellidos", "nit", "ruc", "rnc",
+    # Target contact & search intent meta-words
+    "mercado", "mercados", "nicho", "nichos", "rubro", "rubros",
+    "persona", "personas", "person", "alguien", "encargado", "encargados", "responsable", "responsables",
+    "tipo", "clase", "marca", "marcas", "similar", "similares", "contactarme", "contactar", "contacto",
+    "donde", "pueda", "toda", "todo", "todos", "todas", "pais", "país",
     # Geography meta-words
     "colombia", "ecuador", "dominicana", "medellin", "medellín", "bogota",
     "bogotá", "cali", "barranquilla", "quito", "guayaquil", "santo", "domingo",
@@ -125,6 +130,9 @@ BUYER_DIRECTIONALITY_TRIGGERS = [
     "mantenimiento", "mantenimiento de", "suministro", "suministro de",
     "licitacion", "licitación", "rfq", "pliego", "contratar", "solicitar cotizacion",
     "solicitar cotización", "quiero comprar", "buscamos quien nos haga",
+    "que vendan", "que hagan", "que distribuyan", "que suministren", "que presten",
+    "que comercialicen", "donde comprar", "donde adquirir", "donde conseguir",
+    "donde pueda contactarme con", "distribuidores de", "fabricantes de", "tiendas de",
 ]
 
 VENDOR_DIRECTIONALITY_TRIGGERS = [
@@ -160,6 +168,7 @@ class BriefParserService:
         client_id: Optional[str] = None,
         session_id: Optional[str] = None,
         force_fallback: bool = False,
+        explicit_directionality: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Translates raw text into a validated Super Query configuration.
@@ -175,11 +184,14 @@ class BriefParserService:
                 parsed["source"] = "gemini-flash"
             except Exception as e:
                 logger.warning(f"Gemini Flash parsing failed ({e}). Falling back to local BM25 index.")
-                parsed = self._parse_with_local_index(clean_prompt)
+                parsed = self._parse_with_local_index(clean_prompt, explicit_directionality=explicit_directionality)
                 parsed["source"] = "local-bm25-fallback"
         else:
-            parsed = self._parse_with_local_index(clean_prompt)
+            parsed = self._parse_with_local_index(clean_prompt, explicit_directionality=explicit_directionality)
             parsed["source"] = "local-bm25-fallback"
+
+        if explicit_directionality in ("client_to_vendors", "vendor_to_clients"):
+            parsed["directionality"] = explicit_directionality
 
         # Cross-validate CIIU codes with official catalog
         validated_codes = []
@@ -213,22 +225,25 @@ class BriefParserService:
         parsed["query_id"] = query_id or f"qry_{os.urandom(4).hex()}"
         return parsed
 
-    def _parse_with_local_index(self, prompt: str) -> Dict[str, Any]:
+    def _parse_with_local_index(self, prompt: str, explicit_directionality: Optional[str] = None) -> Dict[str, Any]:
         """
         Sub-millisecond local BM25 + regex deterministic parser ($0 cost, 100% offline).
         """
         lower = prompt.lower()
 
         # 1. Directionality
-        buyer_score = sum(1 for kw in BUYER_DIRECTIONALITY_TRIGGERS if kw in lower)
-        vendor_score = sum(1 for kw in VENDOR_DIRECTIONALITY_TRIGGERS if kw in lower)
-
-        if buyer_score > vendor_score:
-            directionality = "client_to_vendors"
-        elif vendor_score > buyer_score:
-            directionality = "vendor_to_clients"
+        if explicit_directionality in ("client_to_vendors", "vendor_to_clients"):
+            directionality = explicit_directionality
         else:
-            directionality = "vendor_to_clients"  # Default
+            buyer_score = sum(1 for kw in BUYER_DIRECTIONALITY_TRIGGERS if kw in lower)
+            vendor_score = sum(1 for kw in VENDOR_DIRECTIONALITY_TRIGGERS if kw in lower)
+
+            if buyer_score > vendor_score:
+                directionality = "client_to_vendors"
+            elif vendor_score > buyer_score:
+                directionality = "vendor_to_clients"
+            else:
+                directionality = "vendor_to_clients"  # Default
 
         # 2. Geography Detection
         detected_locations = []
@@ -347,6 +362,14 @@ class BriefParserService:
             (r"\bdesarrollo\s+web\b", "desarrollo web"),
             (r"\bservicios?\s+cloud\b", "cloud"),
             (r"\binfraestructura\s+ti\b", "infraestructura ti"),
+            (r"\b(?:videoconferencia|conferencia|logitech|equipos?\s+de\s+(?:audio|video|c[oó]mputo))\b", "videoconferencia"),
+            (r"\baudiovisual(?:es)?\b", "audiovisuales"),
+            (r"\btelecomunicaciones\b", "telecomunicaciones"),
+            (r"\b(?:dise[ñn]o|dise[ñn]o\s+gr[aá]fico|dise[ñn]o\s+publicitario)\b", "diseño"),
+            (r"\b(?:branding|brandid|identidad\s+visual)\b", "branding"),
+            (r"\b(?:regalos?\s+corporativos?|material\s+promocional|merchandising|art[ií]culos?\s+promocionales?)\b", "regalos corporativos"),
+            (r"\b(?:pinturas?|murales?|recubrimientos?)\b", "pinturas"),
+            (r"\b(?:artes?\s+gr[aá]ficas?|litograf[ií]a|tipograf[ií]a|impresi[oó]n)\b", "artes graficas"),
             (r"\bobras?\s+civiles?\b", "obras civiles"),
             (r"\bgestion\s+(?:de\s+)?cartera\b", "gestion de cartera"),
             (r"\bseguridad\s+privada\b", "seguridad privada"),
@@ -357,6 +380,20 @@ class BriefParserService:
             if re.search(pat, lower):
                 if canonical not in compound_kws:
                     compound_kws.append(canonical)
+
+        # Domain-driven authoritative CIIU enrichment
+        domain_ciius: List[str] = []
+        if any(k in compound_kws for k in ("videoconferencia", "audiovisuales", "telecomunicaciones")):
+            for c in ("4652", "4651", "2630"):
+                if c not in ciiu_codes and c not in domain_ciius:
+                    domain_ciius.append(c)
+        if any(k in compound_kws for k in ("diseño", "branding", "regalos corporativos", "pinturas", "artes graficas")):
+            for c in ("7410", "1811", "7310", "3299", "2022"):
+                if c not in ciiu_codes and c not in domain_ciius:
+                    domain_ciius.append(c)
+
+        if domain_ciius:
+            ciiu_codes = domain_ciius + ciiu_codes
 
         # Remove prompt meta-words and Spanish stopwords
         raw_words = [w for w in re.findall(r"\b[a-záéíóúñ]{4,}\b", lower) if w not in QUERY_STOP_WORDS]

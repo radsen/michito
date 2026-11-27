@@ -854,6 +854,21 @@ class GenerateProspectsUseCase:
         effective_sectors: List[str] = target_sectors or (target_cfg.get("sectors") or [])
         effective_ciius: List[str] = target_ciiu_codes or (target_cfg.get("ciiu_codes") or [])
         kw_include = target_cfg.get("keywords_include") or keywords_include
+
+        # If effective_ciius is empty, infer authoritative multi-CIIU codes from offer_description and keywords
+        # ONLY if neither explicit CIIU codes NOR explicit sector filters were provided.
+        if not effective_ciius and not effective_sectors and (offer_description or kw_include):
+            try:
+                from src.application.services.brief_parser_service import BriefParserService
+                bp = BriefParserService()
+                inferred_prompt = " ".join(filter(None, [offer_description] + (kw_include or [])))
+                parsed_brief = bp.parse_brief(inferred_prompt, force_fallback=True)
+                if parsed_brief.get("ciiu_codes"):
+                    effective_ciius = parsed_brief["ciiu_codes"]
+                    target_cfg["ciiu_codes"] = effective_ciius
+            except Exception as e_ciiu:
+                logger.warning(f"Could not infer CIIU codes for prospecting job: {e_ciiu}")
+
         if not kw_include:
             extracted_kws = []
             from src.application.services.brief_parser_service import QUERY_STOP_WORDS
@@ -1100,10 +1115,15 @@ class GenerateProspectsUseCase:
                         if len(raw_candidates) >= t_quota * raw_multiplier:
                             break
 
-            # 3. If still under quota, check authentic statutory corporate baseline
-            # (Skipped if a unit test explicitly injected a MagicMock to verify zero-lead handling)
-            is_mock_harvester = hasattr(harvester, "assert_called") or hasattr(harvester, "assert_called_with")
-            if len(raw_candidates) < t_quota and not is_mock_harvester:
+            # 3. STATUTORY_CORPORATE_LEADS is STRICTLY disabled in live operations.
+            # Never inject mock/hardcoded leads into paid customer deliverables.
+            # Only used in synthetic unit/e2e test harnesses when explicitly requested via env flags.
+            allow_synthetic_fallback = (
+                os.environ.get("TESTING") == "1"
+                and os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true"
+                and not is_mock_harvester
+            )
+            if allow_synthetic_fallback and len(raw_candidates) < t_quota:
                 try:
                     from src.adapters.db.seed_statutory_leads import STATUTORY_CORPORATE_LEADS
                     allowed_city_names = {c.lower() for _, cities in allowed_rings for c in cities}
@@ -1113,6 +1133,11 @@ class GenerateProspectsUseCase:
                             s_lead_city = (s_lead.get("city") or "").lower()
                             if target_city and target_city.lower() not in ("all", "nacional", "todo"):
                                 if not any(ac in s_lead_city or s_lead_city in ac for ac in allowed_city_names):
+                                    continue
+                            # Enforce sector/CIIU intent alignment even in test fallback
+                            lead_ciiu = str(s_lead.get("ciiu_code") or "")
+                            if target_ciiu_codes:
+                                if not any(lead_ciiu.startswith(str(c)[:2]) for c in target_ciiu_codes):
                                     continue
                             lead_tax_id = s_lead.get("tax_id")
                             if lead_tax_id and not any(r.get("nit") == lead_tax_id for r in raw_candidates):
@@ -1337,6 +1362,34 @@ class GenerateProspectsUseCase:
                     if has_contradiction:
                         has_positive_food = any(f_term in company_raw_text for f_term in ("alimento", "restauran", "viveres", "abarrote", "gastronom", "comida", "lacteo", "carnic", "bebida"))
                         if not has_positive_food:
+                            continue
+
+                is_hardware_or_av = bool(
+                    effective_ciius and any(c.startswith(("465", "263", "61")) for c in effective_ciius)
+                )
+                if is_hardware_or_av:
+                    cand_raw_text = f"{company_name} {item.get('sector', '')} {ciiu_obj.description}".lower()
+                    hw_contradictions = (
+                        "construccion", "construcción", "obras civiles", "concreto", "cemento", "edificios",
+                        "transporte de carga", "camiones", "vigilancia privada", "seguridad armada", "aseo y limpieza",
+                        "confeccion", "ropa", "calzado", "alimentos", "restaurante", "ganaderia"
+                    )
+                    if any(c_term in cand_raw_text for c_term in hw_contradictions):
+                        if not any(pos in cand_raw_text for pos in ("computo", "cómputo", "audio", "video", "videoconferencia", "redes", "telecom", "electroni", "electróni", "hardware", "tecnolog")):
+                            continue
+
+                is_design_or_branding = bool(
+                    effective_ciius and any(c.startswith(("741", "731", "181", "329", "202")) for c in effective_ciius)
+                )
+                if is_design_or_branding:
+                    cand_raw_text = f"{company_name} {item.get('sector', '')} {ciiu_obj.description}".lower()
+                    ds_contradictions = (
+                        "construccion", "construcción", "obras civiles", "concreto", "cemento",
+                        "transporte de carga", "vigilancia privada", "seguridad privada", "clinica", "hospital",
+                        "software", "desarrollo de sistemas", "programacion", "banco", "financiera"
+                    )
+                    if any(c_term in cand_raw_text for c_term in ds_contradictions):
+                        if not any(pos in cand_raw_text for pos in ("diseno", "diseño", "branding", "publicidad", "regalo", "promocional", "pintura", "mural", "grafic", "gráfico", "impresion", "impresión")):
                             continue
 
                 # CIIU Specific Filtering if requested

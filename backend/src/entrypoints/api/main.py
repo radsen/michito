@@ -711,7 +711,10 @@ def run_fast_radar_scan(
 
     # 3. Statutory Corporate Baseline Pool ONLY if allowed by environment (e.g. testing)
     # In live operation, never invent mock leads if the official registry is inaccessible or returns 0
-    allow_baseline = os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true"
+    allow_baseline = (
+        os.environ.get("TESTING") == "1"
+        and os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true"
+    )
     if allow_baseline and len(samples) < limit:
         try:
             from src.adapters.db.seed_statutory_leads import STATUTORY_CORPORATE_LEADS
@@ -872,9 +875,16 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
             try:
                 from src.application.services.brief_parser_service import BriefParserService
                 bp = BriefParserService(sql_adapter=sql_adapter)
-                parsed_intent = bp.parse_brief(str(resolved_keywords[0]))
+                parsed_intent = bp.parse_brief(
+                    str(resolved_keywords[0]),
+                    explicit_directionality=payload.request.directionality,
+                )
                 if parsed_intent.get("keywords_include"):
                     resolved_keywords = parsed_intent["keywords_include"]
+                if not resolved_ciius and parsed_intent.get("ciiu_codes"):
+                    resolved_ciius = parsed_intent["ciiu_codes"]
+                if not payload.request.directionality and parsed_intent.get("directionality"):
+                    payload.request.directionality = parsed_intent["directionality"]
             except Exception as e_bp:
                 logger.warning(f"Keywords brief auto-cleansing skipped: {e_bp}")
 

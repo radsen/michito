@@ -436,10 +436,19 @@ class SupersociedadesSodaAdapter(CountryRegistryProvider, FinancialStatementsPor
                 if where_expr:
                     query_params["$where"] = where_expr
 
-                if include_keywords:
-                    valid_kw = [k.strip() for k in include_keywords if len(k.strip()) >= 3 and not re.match(r"^[\d\W]+$", k.strip())]
-                    if valid_kw:
-                        query_params["$q"] = valid_kw[0]
+                if include_keywords and not ciiu_codes:
+                    clean_stems: List[str] = []
+                    try:
+                        from src.application.services.brief_parser_service import QUERY_STOP_WORDS
+                    except ImportError:
+                        QUERY_STOP_WORDS = set()
+                    for kw in include_keywords:
+                        tokens = [w for w in re.split(r"[^\wáéíóúñ]+", kw.lower()) if len(w) >= 4 and w not in QUERY_STOP_WORDS]
+                        for t in tokens:
+                            if t not in clean_stems:
+                                clean_stems.append(t)
+                    if clean_stems:
+                        query_params["$q"] = clean_stems[0]
 
                 app_token = os.getenv("SODA_APP_TOKEN")
                 headers = {"Accept": "application/json", "User-Agent": "Michito-Intelligence/2.0"}

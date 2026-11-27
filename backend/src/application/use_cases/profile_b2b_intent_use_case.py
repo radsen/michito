@@ -5,6 +5,7 @@ verifies authentic corporate lead inventory dynamically via Zero-Knowledge maski
 and guarantees 100% truth in advertising with $0 compute cost.
 """
 
+import os
 import re
 import hashlib
 import logging
@@ -216,8 +217,12 @@ class ProfileB2BIntentUseCase:
             except Exception as e:
                 logger.warning(f"Error querying SQL inventory for preview: {e}")
 
-        # If database inventory had no matches, check statutory baseline registry
-        if not matching_leads:
+        # If database inventory had no matches, check statutory baseline registry ONLY if allowed for testing fixtures
+        allow_baseline = (
+            os.environ.get("TESTING") == "1"
+            and os.environ.get("ALLOW_STATUTORY_FALLBACK", "").lower() == "true"
+        )
+        if allow_baseline and not matching_leads:
             try:
                 from src.adapters.db.seed_statutory_leads import STATUTORY_CORPORATE_LEADS
                 geo_tokens = {

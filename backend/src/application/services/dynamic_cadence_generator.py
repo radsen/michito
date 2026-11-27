@@ -22,8 +22,33 @@ def generate_dynamic_touches(
     Uses placeholders {salutation}, {clean_name}, {city}, and {contact_title}
     for per-lead interpolation.
     """
-    clean_offer = (offer_description or "").strip()
-    if not clean_offer:
+    raw_offer = (offer_description or "").strip()
+    clean_offer = raw_offer
+    if clean_offer:
+        # Strip leading commands: "Dame 1000", "Quiero 500", "Busco", "Proveedores de que vendan", "Empresas que"
+        clean_offer = re.sub(
+            r"^(?:dame|busca|busco|quiero|necesito|solicito|trae|arma|genera|generar)\s+(?:\d+\s+)?(?:clientes|empresas|leads|contactos|proveedores)?\s*(?:del?\s+mercado\s+(?:de\s+)?)?",
+            "",
+            clean_offer,
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_offer = re.sub(
+            r"^(?:proveedores\s+de\s+(?:que\s+vendan\s+)?|empresas\s+(?:que\s+vendan|que\s+hagan|de)?\s*)",
+            "",
+            clean_offer,
+            flags=re.IGNORECASE,
+        ).strip()
+        # Strip trailing search constraints: "que tengan whatsapp y correo", "donde pueda contactarme...", "dame 500", "en medellin"
+        clean_offer = re.sub(
+            r"(?:,\s*)?(?:que\s+tengan\s+whatsapp.*|donde\s+pueda\s+contactarme.*|quiero\s+que\s+sean.*|dame\s+\d+.*)$",
+            "",
+            clean_offer,
+            flags=re.IGNORECASE,
+        ).strip()
+        if clean_offer:
+            clean_offer = clean_offer[0].upper() + clean_offer[1:]
+
+    if not clean_offer or len(clean_offer) < 4:
         clean_offer = "soluciones estratégicas orientadas a optimizar costos operativos y acelerar la productividad comercial"
 
     # Truncate or summarize offer for conversational flow if too verbose
