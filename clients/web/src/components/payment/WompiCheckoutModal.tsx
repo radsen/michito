@@ -50,8 +50,10 @@ export const WompiCheckoutModal: React.FC = () => {
     orderData?.amount_in_cents_cop ||
     (orderData?.total_price_cop ? Math.round(orderData.total_price_cop * 100) : null) ||
     (totalCop > 0 ? Math.round(totalCop * 100) : orderData?.amount_in_cents || totalAmountInCents);
-  const WOMPI_PUBLIC_KEY = "pub_test_IcBzwUvqUDy85sD7i3snlgxvMLj4A1eL";
-  const WOMPI_INTEGRITY_SECRET = "test_integrity_r5SIpk6PnYywRaCxQlOXgySj28wNNlmj";
+  const WOMPI_PUBLIC_KEY =
+    (orderData as any)?.payment?.wompi_public_key ||
+    (import.meta as any).env?.VITE_WOMPI_PUBLIC_KEY ||
+    "pub_test_IcBzwUvqUDy85sD7i3snlgxvMLj4A1eL";
 
   const handleOpenWompiWidget = async () => {
     setErrorMsg(null);
@@ -62,10 +64,20 @@ export const WompiCheckoutModal: React.FC = () => {
 
     try {
       if (typeof window.WidgetCheckout === "function") {
-        // Compute SHA-256 integrity signature
-        // Form: reference + amount_in_cents + currency + integrity_secret
-        const rawString = `${activeOrderId}${resolvedAmountInCents}COP${WOMPI_INTEGRITY_SECRET}`;
-        const integritySignature = await sha256(rawString);
+        // Retrieve server-generated cryptographic integrity signature
+        // The secret stays securely on the server; the frontend only receives the pre-signed HMAC/SHA-256
+        let integritySignature =
+          (orderData as any)?.payment?.integrity_signature ||
+          (orderData as any)?.integrity_signature;
+
+        if (!integritySignature) {
+          // Offline / development fallback only if server signature is omitted
+          const fallbackSecret =
+            (import.meta as any).env?.VITE_WOMPI_INTEGRITY_SECRET ||
+            "test_integrity_r5SIpk6PnYywRaCxQlOXgySj28wNNlmj";
+          const rawString = `${activeOrderId}${resolvedAmountInCents}COP${fallbackSecret}`;
+          integritySignature = await sha256(rawString);
+        }
 
         const checkoutConfig: any = {
           currency: "COP",

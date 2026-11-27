@@ -79,6 +79,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Standard HTTP Defensive Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
 def _find_templates_dir() -> str:
     candidates = [
         os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../templates")),
@@ -366,10 +376,39 @@ def get_partner_profile(partner_id: str):
     }
 
 @app.get("/api/v1/partners/{partner_id}/statement")
-def get_partner_settlement_statement(partner_id: str):
+def get_partner_settlement_statement(partner_id: str, request: Request):
     """
     Returns consolidated partner commission statement for monthly payouts.
+    Protected: Requires valid partner token (?token= or X-Partner-Token) or internal admin key in non-dev environments.
     """
+    import sys
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_dev_or_test = (
+        env not in ("production", "prod", "staging")
+        and (
+            "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("TESTING") == "1"
+            or env in ("local", "dev", "test")
+        )
+    )
+    if not is_dev_or_test:
+        admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
+        auth_header = request.headers.get("Authorization", "").strip()
+        bearer = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
+        provided_token = request.query_params.get("token") or request.headers.get("X-Partner-Token") or request.headers.get("X-Admin-Key") or bearer
+        partner_secret = os.environ.get(f"PARTNER_TOKEN_{partner_id.upper()}", "").strip()
+
+        authorized = False
+        if admin_key and provided_token == admin_key:
+            authorized = True
+        elif partner_secret and provided_token == partner_secret:
+            authorized = True
+        
+        if not authorized:
+            logger.warning(f"[Security] Unauthorized attempt to access financial statement for partner '{partner_id}'")
+            raise HTTPException(status_code=403, detail="Unauthorized: A valid partner token or admin key is required to view financial statements.")
+
     statement = sql_adapter.get_partner_statement(partner_id)
     return {
         "status": "success",
@@ -471,8 +510,10 @@ def parse_prospecting_brief(payload: ParseBriefRequest, request: Request):
         ai_agent_rate_limiter.set_cached_response(cache_key, res_obj)
         return res_obj
     except Exception as e:
-        logger.error(f"Error parsing prospecting brief: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to parse brief: {str(e)}")
+        logger.error(f"Error parsing prospecting brief: {e}", exc_info=True)
+        env = os.environ.get("ENVIRONMENT", "local").lower()
+        detail = f"Failed to parse brief: {str(e)}" if env in ("local", "dev", "test") else "No fue posible procesar el requerimiento. Por favor intenta de nuevo."
+        raise HTTPException(status_code=500, detail=detail)
 
 
 from src.entrypoints.workers.order_worker_daemon import calculate_lead_pricing
@@ -480,7 +521,12 @@ from src.entrypoints.workers.order_worker_daemon import calculate_lead_pricing
 
 def generate_order_stream_token(order_id: str, client_email: str) -> str:
     """Generates a cryptographic HMAC-SHA256 token for authorized SSE connection."""
-    secret = os.environ.get("STREAM_SECRET_KEY") or os.environ.get("ADMIN_API_KEY") or "michito_stream_token_key_2026"
+    secret = (
+        os.environ.get("STREAM_SECRET_KEY")
+        or os.environ.get("ADMIN_API_KEY")
+        or os.environ.get("WOMPI_INTEGRITY_SECRET")
+        or "michito_stream_token_key_2026"
+    )
     raw = f"{order_id}:{client_email.strip().lower()}:{secret}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -884,6 +930,15 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
             total_price_cop,
         )
 
+        # Server-side Wompi integrity signature generation (safe: secret never exposed to client)
+        wompi_integrity_secret = os.environ.get("WOMPI_INTEGRITY_SECRET", "").strip()
+        integrity_signature = ""
+        if wompi_integrity_secret and amount_in_cents_cop > 0:
+            raw_sig = f"{order['order_id']}{amount_in_cents_cop}{currency}{wompi_integrity_secret}"
+            integrity_signature = hashlib.sha256(raw_sig.encode("utf-8")).hexdigest()
+            if "payment" in order:
+                order["payment"]["integrity_signature"] = integrity_signature
+
         return {
             "status": "success",
             "order_id": order["order_id"],
@@ -898,6 +953,7 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
             "exchange_rate": fx_conversion.get("rate_used", 1.0),
             "sample_teaser": masked_samples,
             "sample_leads": masked_samples,
+            "integrity_signature": integrity_signature,
             "estimated_processing_seconds": 60,
             "message": "Solicitud recibida. Auditando registros oficiales y validando buzones institucionales...",
             "order": order,
@@ -905,8 +961,10 @@ def create_prospecting_order(payload: CreateOrderRequest, request: Request, back
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating prospecting order: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error creating prospecting order: {e}", exc_info=True)
+        env = os.environ.get("ENVIRONMENT", "local").lower()
+        detail = str(e) if env in ("local", "dev", "test") else "Internal processing error. Incident logged."
+        raise HTTPException(status_code=500, detail=detail)
 
 @app.get("/api/v1/orders/{order_id}")
 def get_prospecting_order(order_id: str):
@@ -953,6 +1011,27 @@ def get_prospecting_order(order_id: str):
 
     client_email = order.get("client", {}).get("email") or ""
     order["stream_token"] = generate_order_stream_token(order_id, client_email)
+    wompi_pk = os.environ.get("WOMPI_PUBLIC_KEY")
+    wompi_integrity_secret = os.environ.get("WOMPI_INTEGRITY_SECRET", "").strip()
+
+    if "payment" not in order:
+        order["payment"] = {}
+    if wompi_pk:
+        order["payment"]["wompi_public_key"] = wompi_pk
+
+    # Pre-compute cryptographic integrity signature so frontend never holds the secret
+    amount_in_cents = (
+        order.get("payment", {}).get("amount_in_cents")
+        or order.get("amount_in_cents_cop")
+        or order.get("amount_in_cents")
+        or 0
+    )
+    currency = order.get("payment", {}).get("currency") or order.get("payment_currency") or order.get("currency") or "COP"
+    if wompi_integrity_secret and amount_in_cents > 0:
+        raw_sig = f"{order_id}{amount_in_cents}{currency}{wompi_integrity_secret}"
+        sig = hashlib.sha256(raw_sig.encode("utf-8")).hexdigest()
+        order["payment"]["integrity_signature"] = sig
+        order["integrity_signature"] = sig
     return order
 
 
@@ -1164,10 +1243,13 @@ def pay_prospecting_order(order_id: str, request: Request):
     import sys
     env = os.environ.get("ENVIRONMENT", "local").lower()
     is_dev_or_test = (
-        "pytest" in sys.modules
-        or "PYTEST_CURRENT_TEST" in os.environ
-        or os.environ.get("TESTING") == "1"
-        or env in ("local", "dev", "test")
+        env not in ("production", "prod", "staging")
+        and (
+            "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("TESTING") == "1"
+            or env in ("local", "dev", "test")
+        )
     )
     admin_key = os.environ.get("ADMIN_API_KEY", "").strip()
     provided_key = request.headers.get("X-Admin-Key", "").strip()
@@ -1716,7 +1798,9 @@ def trigger_order_processing(order_id: str, request: Request, background_tasks: 
             }
         except Exception as e:
             logger.error(f"[ManualTrigger] Error executing order {order_id}: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            env = os.environ.get("ENVIRONMENT", "local").lower()
+            detail = str(e) if env in ("local", "dev", "test") else "Order execution encountered an internal error. Incident logged."
+            raise HTTPException(status_code=500, detail=detail)
     else:
         def _execute_order():
             try:
@@ -1733,10 +1817,45 @@ async def handle_slack_command(request: Request, background_tasks: BackgroundTas
     """
     Inbound Slack Slash Command handler (e.g. `/michito rerun ord_20261117_cd80b8`).
     Allows operations and growth teams to re-trigger order pipelines directly from Slack.
+    Protected: Validates Slack HMAC-SHA256 signature (X-Slack-Signature) in non-dev environments.
     """
+    import sys
     import urllib.parse
+    env = os.environ.get("ENVIRONMENT", "local").lower()
+    is_dev_or_test = (
+        env not in ("production", "prod", "staging")
+        and (
+            "pytest" in sys.modules
+            or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("TESTING") == "1"
+            or env in ("local", "dev", "test")
+        )
+    )
+
     body_bytes = await request.body()
     body_str = body_bytes.decode("utf-8", errors="ignore")
+
+    # Cryptographic signature validation for Slack Webhook in non-development environments
+    if not is_dev_or_test:
+        slack_secret = os.environ.get("SLACK_SIGNING_SECRET", "").strip()
+        timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+        signature = request.headers.get("X-Slack-Signature", "")
+        if not slack_secret:
+            logger.warning("[SlackWebhook] SLACK_SIGNING_SECRET not configured. Rejecting request.")
+            raise HTTPException(status_code=403, detail="Slack integration is unconfigured.")
+        if not timestamp or not signature:
+            raise HTTPException(status_code=401, detail="Missing Slack signature headers.")
+        try:
+            if abs(time.time() - float(timestamp)) > 300:
+                raise HTTPException(status_code=400, detail="Expired Slack timestamp.")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Slack timestamp.")
+        sig_basestring = f"v0:{timestamp}:{body_str}".encode("utf-8")
+        expected_sig = "v0=" + hmac.new(slack_secret.encode("utf-8"), sig_basestring, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_sig, signature):
+            logger.warning("[SlackWebhook] Invalid Slack HMAC signature.")
+            raise HTTPException(status_code=401, detail="Invalid Slack signature.")
+
     parsed_form: Dict[str, str] = {}
     if body_str.strip().startswith("{"):
         try:
